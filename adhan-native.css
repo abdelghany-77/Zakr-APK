@@ -663,7 +663,7 @@ body.dark-mode .adhan-muezzin-desc {
 }
 
 .adhan-prayer-chip.is-on i {
-  color: #1a8a5c;
+  color: var(--pt-em);
 }
 
 body.dark-mode .adhan-prayer-chip.is-on {
@@ -672,7 +672,7 @@ body.dark-mode .adhan-prayer-chip.is-on {
 }
 
 body.dark-mode .adhan-prayer-chip.is-on i {
-  color: #68d391;
+  color: var(--pt-em);
 }
 
 /* Volume */
@@ -687,7 +687,7 @@ body.dark-mode .adhan-prayer-chip.is-on i {
 }
 
 .adhan-volume-row i {
-  color: #d4a847;
+  color: var(--pt-gd);
   font-size: 0.85rem;
 }
 

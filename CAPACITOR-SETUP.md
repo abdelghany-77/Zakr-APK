@@ -36,6 +36,10 @@ java -version
 adb version
 ```
 
+> على جهاز هذا المشروع المسارات هي: `JAVA_HOME=D:\AndroidToolchain\jdk-17.0.20.1+1`
+> و`SDK=D:\AndroidToolchain\sdk` (مضبوط مسبقًا في `android/local.properties`).
+> إن ظهر `JAVA_HOME is not set` فالمشكلة أن المتغيّر غير مُصدَّر في الجلسة الحالية فقط.
+
 أو أنشئ `android/local.properties` (لا يُرفع إلى Git):
 
 ```properties
@@ -358,6 +362,12 @@ npm run apk:debug
 Tazkeer APK/
 ├─ index.html, styles.css, script.js, ...   # تطبيق الويب الأصلي (GitHub Pages)
 ├─ adhan-native.css                         # تنسيق شاشة الأذان + قفل التكبير
+├─ css/
+│  ├─ tokens.css                            # ألوان/thèmes الجديدة (--pt-*)
+│  ├─ base.css, components.css              # الهيكل والمكوّنات المشتركة
+│  └─ pages/                                # home, azkar, quran, prophets,
+│                                           # profile, settings-modal
+├─ images/pattern.svg                       # زخرفة البطاقات (نقش إسلامي)
 ├─ js/native/adhan-native.js                # جسر Capacitor وجدولة الأذان
 ├─ scripts/prepare-www.mjs                  # ينسخ أصول الويب إلى www/
 ├─ www/                                     # ناتج البناء (يُنسخ إلى أندرويد)
@@ -374,6 +384,12 @@ Tazkeer APK/
          ├─ raw/adhan*.mp3
          └─ drawable/ic_stat_adhan.xml
 ```
+
+> **مهم:** أي مجلد جديد يُضاف إلى أصول الويب يجب إضافته إلى `DIRECTORIES`
+> داخل `scripts/prepare-www.mjs`، وإلا لن يظهر داخل `www/` ثم داخل الـ APK.
+> مجلد `css/` مضاف بالفعل. عند تعديل التنسيقات أو المكوّنات، ارفع
+> `CACHE_NAME` في `sw.js` (الإصدار الحالي: `tazkeer-v11.0.0`) حتى يُحدَّث
+> الكاش على الأجهزة.
 
 > `npx cap sync android` يستبدل `android/app/src/main/assets/public` فقط،
 > ولا يمس `res/raw` أو ملفات Java.

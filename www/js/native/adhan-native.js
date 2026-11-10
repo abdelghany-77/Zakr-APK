@@ -806,6 +806,16 @@
   // UI rendering
   // ---------------------------------------------------------------------------
 
+  function arNum(value) {
+    if (typeof global.toArabicDigits === "function") {
+      return global.toArabicDigits(value);
+    }
+    var digits = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+    return String(value).replace(/[0-9]/g, function (d) {
+      return digits[+d];
+    });
+  }
+
   function renderMuezzinList() {
     var container = document.getElementById("adhanMuezzinList");
     if (!container) return;
@@ -879,7 +889,7 @@
     if (volume) volume.value = String(Math.round(settings.volume * 100));
     var volumeValue = document.getElementById("adhanVolumeValue");
     if (volumeValue)
-      volumeValue.textContent = Math.round(settings.volume * 100) + "%";
+      volumeValue.textContent = arNum(Math.round(settings.volume * 100)) + "%";
 
     var statusPill = document.getElementById("adhanStatusPill");
     var summary = document.getElementById("adhanSummary");
@@ -893,7 +903,7 @@
     } else if (!settings.enabled) {
       statusText = "متوقف";
     } else if (state.scheduledCount > 0) {
-      statusText = "مفعّل · " + state.scheduledCount + " موعد";
+      statusText = "مفعّل · " + arNum(state.scheduledCount) + " موعد";
     } else {
       statusText = "مفعّل";
     }
@@ -1284,7 +1294,7 @@
     try {
       statusBar.setStyle({ style: darkMode ? "LIGHT" : "DARK" });
       statusBar.setBackgroundColor({
-        color: darkMode ? "#1a202c" : "#ffffff"
+        color: darkMode ? "#0b1418" : "#f4f7f5"
       });
     } catch (error) {
       /* non-fatal */

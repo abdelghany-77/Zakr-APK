@@ -1720,6 +1720,78 @@ function _showHomePageInternal() {
       createCategoryCard(categoryKey, adhkarData[categoryKey], index);
     });
   }
+
+  // Time-aware suggestion card
+  renderAzkarSuggestion();
+}
+
+/**
+ * Render the time-aware Azkar suggestion card (Azkar tab).
+ */
+function renderAzkarSuggestion() {
+  const host = document.getElementById("azkarSuggestion");
+  if (!host) return;
+
+  const mode = getHeroCardMode(new Date());
+  const content = {
+    morning: ["is-em", "fa-sun", "حان وقت أذكار الصباح", "من ٢٩ ذكرًا · نحو ٨ دقائق", "showCategoryPage('morning')", 30],
+    midday: ["is-em", "fa-fingerprint", "حان وقت التسبيح", "سبّح واذكر الله بالمسبحة الإلكترونية", "openMisbaha()", 50],
+    evening: ["", "fa-cloud-moon", "حان وقت أذكار المساء", "من ٢٦ ذكرًا · نحو ٨ دقائق", "showCategoryPage('evening')", 70],
+    maghrib: ["is-em", "fa-fingerprint", "حان وقت ذكر الله", "وقت مناسب للتسبيح بالمسبحة الإلكترونية", "openMisbaha()", 80],
+    night: ["", "fa-moon", "حان وقت أذكار النوم", "أذكار النوم وسورة الملك · نحو ٥ دقائق", "showCategoryPage('sleep')", 90],
+    friday: ["is-gold", "fa-book-quran", "جمعة مباركة", "سورة الكهف والصلاة على النبي ﷺ", "openSurahAlKahf()", 65],
+  }[mode];
+  const [variant, icon, title, sub, action, progress] = content;
+
+  host.innerHTML = `
+    <div class="pt-suggest ${variant}">
+      <div class="pt-suggest__top">
+        <span class="pt-suggest__now">الآن</span>
+        <span class="pt-suggest__ico"><i class="fas ${icon}"></i></span>
+      </div>
+      <h2 class="pt-suggest__title">${title}</h2>
+      <p class="pt-suggest__sub">${sub}</p>
+      <div class="pt-suggest__bar"><span style="width:${progress}%"></span></div>
+      <button class="pt-suggest__cta" onclick="${action}">
+        <i class="fas fa-play"></i>
+        <span>ابدأ الأذكار</span>
+      </button>
+    </div>
+  `;
+}
+
+/**
+ * Show/hide the Azkar search field.
+ */
+function toggleAzkarSearch() {
+  const box = document.getElementById("azkarSearchBox");
+  const input = document.getElementById("azkarSearchInput");
+  if (!box) return;
+  const open = box.classList.toggle("is-open");
+  if (open && input) {
+    setTimeout(() => input.focus(), 60);
+  } else if (input) {
+    input.value = "";
+    filterAzkarCategories("");
+  }
+}
+
+/**
+ * Filter the Azkar category grid by name.
+ */
+function filterAzkarCategories(query) {
+  const q = (query || "").trim();
+  const cards = document.querySelectorAll("#categoriesContainer .category-card");
+  cards.forEach((card) => {
+    const title = card.querySelector(".category-title");
+    const match = !q || (title && title.textContent.includes(q));
+    card.style.display = match ? "" : "none";
+  });
+
+  const suggestion = document.getElementById("azkarSuggestion");
+  const misbahaRow = document.getElementById("misbahaLaunchBtn");
+  if (suggestion) suggestion.style.display = q ? "none" : "";
+  if (misbahaRow) misbahaRow.style.display = q ? "none" : "";
 }
 
 function showHomePage(syncRouter) {
@@ -1945,22 +2017,55 @@ const categoryIcons = {
   </svg>`,
 };
 
+// Short labels + Font Awesome icons for the v2 Azkar grid
+const categoryMeta = {
+  morning: { label: "أذكار الصباح", icon: "fa-sun", color: "pt-c-gold" },
+  evening: { label: "أذكار المساء", icon: "fa-cloud-moon", color: "pt-c-indigo" },
+  prayer: { label: "أذكار الصلاة", icon: "fa-person-praying", color: "pt-c-em" },
+  sleep: { label: "أذكار النوم", icon: "fa-bed", color: "pt-c-blue" },
+  wakeup: { label: "أذكار الاستيقاظ", icon: "fa-bell", color: "pt-c-warm" },
+  general: { label: "أذكار عامة", icon: "fa-hands-praying", color: "pt-c-purple" },
+  eating: { label: "أذكار الطعام", icon: "fa-utensils", color: "pt-c-gold" },
+  travel: { label: "أذكار السفر", icon: "fa-plane", color: "pt-c-sky" },
+  dua: { label: "أدعية مأثورة", icon: "fa-hand-holding-heart", color: "pt-c-em" },
+  rain: { label: "أذكار المطر", icon: "fa-cloud-rain", color: "pt-c-rain" },
+  anxiety: { label: "أذكار الهم", icon: "fa-heart-pulse", color: "pt-c-pink" },
+  home: { label: "أذكار المنزل", icon: "fa-house", color: "pt-c-em" },
+};
+
 // Create category card (instant render with zero layout flicker)
-function createCategoryCard(categoryKey, categoryData, index) {
-  const card = document.createElement("div");
+/**
+ * Arabic-friendly "N azkar" label for category cards.
+ */
+function formatAzkarCount(count) {
+  if (count === 1) return "ذكر واحد";
+  if (count === 2) return "ذكران";
+  if (count >= 3 && count <= 10) return `${toArabicNumerals(count)} أذكار`;
+  return `${toArabicNumerals(count)} ذكرًا`;
+}
+
+function createCategoryCard(categoryKey, categoryData, index) {  const card = document.createElement("div");
   card.className = "category-card";
+  card.setAttribute("data-category", categoryKey);
 
   const adhkarCount = categoryData.adhkar.length;
-  const svgIcon = categoryIcons[categoryKey] || categoryIcons.general;
+  const meta = categoryMeta[categoryKey] || {
+    label: categoryData.title,
+    icon: "fa-hands-praying",
+    color: "pt-c-em",
+  };
 
   card.innerHTML = `
     <div class="category-card-inner">
-      <div class="category-card-icon">
-        ${svgIcon}
+      <div class="category-card-icon ${meta.color}">
+        <i class="fas ${meta.icon}"></i>
       </div>
       <div class="category-card-info">
-        <h3 class="category-title">${categoryData.title}</h3>
-        <div class="category-count-badge">${adhkarCount}</div>
+        <h3 class="category-title">${meta.label}</h3>
+        <div class="category-card-bottom">
+          <span class="category-count-badge">${formatAzkarCount(adhkarCount)}</span>
+          <span class="pt-card-chevron"><i class="fas fa-chevron-left"></i></span>
+        </div>
       </div>
     </div>
   `;
@@ -3955,27 +4060,73 @@ function displayPrayerTimes(cityName) {
 
   // Main prayers to display (including Sunrise)
   const mainPrayers = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
+  const now = new Date();
+  const nextPrayer = getNextPrayerKey(now);
 
   grid.innerHTML = mainPrayers
     .map((prayer) => {
       const time = prayerTimesData[prayer];
-      const formattedTime = formatTo12Hour(time);
+      const formattedTime = formatToArabic12Hour(time);
       const name = prayerNames[prayer];
-      const icon = prayerIcons[prayer];
+      const icon = prayerIcons[prayer] || "fa-clock";
+      const pDate = prayerDateFor(prayer, now);
+      const isPast = pDate && pDate <= now;
+      const isNext = prayer === nextPrayer;
 
       return `
-        <div class="prayer-card" data-prayer="${prayer}">
+        <div class="prayer-card${isPast ? " is-past" : ""}${isNext ? " next-prayer" : ""}" data-prayer="${prayer}">
           <div class="prayer-icon">
             <i class="fas ${icon}"></i>
           </div>
           <div class="prayer-info">
             <div class="prayer-name">${name}</div>
-            <div class="prayer-time">${formattedTime}</div>
+            <div class="prayer-time">${formattedTime || "--:--"}</div>
           </div>
         </div>
       `;
     })
     .join("");
+
+  const nextTimeEl = document.getElementById("nextPrayerTime");
+  if (nextTimeEl && nextPrayer && prayerTimesData[nextPrayer]) {
+    nextTimeEl.textContent = formatToArabic12Hour(prayerTimesData[nextPrayer]);
+  }
+
+  updateDynamicHeroCard(now);
+  renderAzkarSuggestion();
+}
+
+// Build a Date for a prayer time on the current day
+function prayerDateFor(prayer, now) {
+  if (!prayerTimesData || !prayerTimesData[prayer]) return null;
+  const cleanTime = String(prayerTimesData[prayer]).split(" ")[0];
+  const [hours, minutes] = cleanTime.split(":").map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return null;
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
+}
+
+// First obligatory prayer still ahead today (falls back to Fajr tomorrow)
+function getNextPrayerKey(now) {
+  if (!prayerTimesData) return null;
+  const prayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+  for (const prayer of prayers) {
+    const pDate = prayerDateFor(prayer, now);
+    if (pDate && pDate > now) return prayer;
+  }
+  return "Fajr";
+}
+
+// Arabic-Indic 12-hour formatter for prayer chips
+function formatToArabic12Hour(time24) {
+  if (!time24) return "";
+  const cleanTime = String(time24).split(" ")[0];
+  const [hours, minutes] = cleanTime.split(":");
+  let hour = parseInt(hours, 10);
+  if (isNaN(hour)) return "";
+  const period = hour >= 12 ? "م" : "ص";
+  hour = hour % 12 || 12;
+  const mins = parseInt(minutes, 10) || 0;
+  return `${toArabicNumerals(hour)}:${toArabicNumerals(String(mins).padStart(2, "0"))} ${period}`;
 }
 
 // Convert 24-hour time to 12-hour AM/PM format (Arabic)
@@ -4032,47 +4183,48 @@ function updateCountdown() {
   if (!prayerTimesData) return;
 
   const now = new Date();
-  const prayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+  const chain = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
 
   let nextPrayer = null;
   let targetDate = null;
+  let previousDate = null;
+  let previousPrayer = null;
 
-  for (const prayer of prayers) {
-    const timeStr = prayerTimesData[prayer];
-    if (!timeStr) continue;
-    const cleanTime = timeStr.split(" ")[0];
-    const [hours, minutes] = cleanTime.split(":").map(Number);
-    const pDate = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      hours,
-      minutes,
-      0,
-      0,
-    );
-
-    if (pDate > now) {
+  // Next obligatory prayer (Sunrise is a boundary, never "the next prayer")
+  for (const prayer of ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]) {
+    const pDate = prayerDateFor(prayer, now);
+    if (pDate && pDate > now) {
       nextPrayer = prayer;
       targetDate = pDate;
       break;
     }
   }
 
-  // If no prayer remaining today, next is Fajr tomorrow
+  // Previous boundary on the Fajr → Sunrise → … → Isha chain
+  for (const prayer of chain) {
+    const pDate = prayerDateFor(prayer, now);
+    if (pDate && pDate <= now) {
+      previousPrayer = prayer;
+      previousDate = pDate;
+    }
+  }
+
+  // Before Fajr: the previous point is yesterday's Isha
+  if (!previousDate) {
+    const ishaDate = prayerDateFor("Isha", now);
+    if (ishaDate) {
+      previousPrayer = "Isha";
+      previousDate = new Date(ishaDate.getTime() - 24 * 60 * 60 * 1000);
+    }
+  }
+
+  // If no obligatory prayer remains today, next is Fajr tomorrow
   if (!nextPrayer) {
     nextPrayer = "Fajr";
-    const fajrStr = prayerTimesData.Fajr ? prayerTimesData.Fajr.split(" ")[0] : "05:00";
-    const [hours, minutes] = fajrStr.split(":").map(Number);
-    targetDate = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1,
-      hours,
-      minutes,
-      0,
-      0,
-    );
+    const fajrDate = prayerDateFor("Fajr", now);
+    targetDate = fajrDate
+      ? new Date(fajrDate.getTime() + 24 * 60 * 60 * 1000)
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 5, 0, 0, 0);
   }
 
   const diffMs = targetDate - now;
@@ -4090,30 +4242,62 @@ function updateCountdown() {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
+  const pad = (n) => String(n).padStart(2, "0");
+  const countdownText = toArabicNumerals(
+    `${hours}:${pad(minutes)}:${pad(seconds)}`,
+  );
+
   const nextPrayerNameEl = document.getElementById("nextPrayerName");
   const countdownTimeEl = document.getElementById("countdownTime");
+  const nextPrayerTimeEl = document.getElementById("nextPrayerTime");
+  const elapsedEl = document.getElementById("prayerElapsed");
+  const progressEl = document.getElementById("prayerProgressFill");
 
   if (nextPrayerNameEl) {
     nextPrayerNameEl.textContent = prayerNames[nextPrayer] || nextPrayer;
   }
 
-  if (countdownTimeEl) {
-    countdownTimeEl.textContent = formatArabicRemainingTime(
-      hours,
-      minutes,
-      seconds,
+  if (nextPrayerTimeEl && prayerTimesData[nextPrayer]) {
+    nextPrayerTimeEl.textContent = formatToArabic12Hour(
+      prayerTimesData[nextPrayer],
     );
   }
 
-  // Highlight next prayer card
-  document.querySelectorAll(".prayer-card").forEach((card) => {
-    card.classList.remove("next-prayer");
-  });
-
-  const nextCard = document.querySelector(`[data-prayer="${nextPrayer}"]`);
-  if (nextCard) {
-    nextCard.classList.add("next-prayer");
+  if (countdownTimeEl) {
+    countdownTimeEl.textContent = countdownText;
   }
+
+  // Previous point label: "منذ الشروق ٦:١٦ ص"
+  if (elapsedEl) {
+    if (previousDate && previousPrayer) {
+      const prevName = prayerNames[previousPrayer] || previousPrayer;
+      const prevTime = prayerTimesData[previousPrayer]
+        ? formatToArabic12Hour(prayerTimesData[previousPrayer])
+        : "";
+      elapsedEl.textContent = `منذ ${prevName}${prevTime ? " " + prevTime : ""}`;
+    } else {
+      elapsedEl.textContent = "منذ الفجر";
+    }
+  }
+
+  // Progress from previous prayer to the next one
+  if (progressEl) {
+    let progress = 0;
+    if (previousDate) {
+      const span = targetDate - previousDate;
+      progress = span > 0 ? ((now - previousDate) / span) * 100 : 0;
+    }
+    progress = Math.min(100, Math.max(0, progress));
+    progressEl.style.width = progress.toFixed(1) + "%";
+  }
+
+  // Highlight next prayer card and dim finished ones
+  document.querySelectorAll(".prayer-card").forEach((card) => {
+    const key = card.getAttribute("data-prayer");
+    const pDate = prayerDateFor(key, now);
+    card.classList.toggle("is-past", !!(pDate && pDate <= now));
+    card.classList.toggle("next-prayer", key === nextPrayer);
+  });
 }
 
 // Show prayer times error
@@ -4263,6 +4447,19 @@ function initializeStatsDashboard() {
 function updateStatsDashboard() {
   const today = new Date().toDateString();
 
+  try {
+    const storedProgress = JSON.parse(localStorage.getItem("dailyProgress") || "null");
+    if (storedProgress && Array.isArray(storedProgress.completedZekr)) {
+      dailyProgress = storedProgress;
+    }
+  } catch (error) {
+    console.warn("Unable to refresh profile progress", error);
+  }
+
+  if (dailyProgress.date !== today) {
+    checkDailyProgress();
+  }
+
   // Get or initialize today's progress
   if (!weeklyProgress[today]) {
     weeklyProgress[today] = 0;
@@ -4284,25 +4481,154 @@ function updateStatsDashboard() {
   // Get total count
   let totalCount = dailyProgress.totalCompletions || 0;
 
-  // Update stat pills
-  const streakEl = document.getElementById("streakCount");
-  const todayEl = document.getElementById("todayCount");
-  const weekEl = document.getElementById("weekCount");
-  const totalEl = document.getElementById("totalCount");
+  // Update the profile stats (numbers always shown, "٠" at zero)
+  var bestStreak = calculateBestStreak();
+  var streakWrap = document.getElementById("streakValueWrap");
+  var streakBadgeEl = document.getElementById("streakBadge");
+  var streakSubEl = document.getElementById("streakSub");
+  if (streakWrap) {
+    if (streak > 0) {
+      streakWrap.classList.remove("is-zero");
+      streakWrap.innerHTML =
+        '<b id="streakCount">' + toArabicNumerals(streak) +
+        '</b><span id="streakSuffix"> يومًا متتاليًا</span>';
+    } else {
+      streakWrap.classList.add("is-zero");
+      streakWrap.innerHTML = "ابدأ سلسلتك اليوم";
+    }
+  }
+  if (streakBadgeEl) streakBadgeEl.hidden = streak === 0;
+  if (streakSubEl) {
+    if (streak > 0) {
+      streakSubEl.innerHTML =
+        "أطول سلسلة لك: <b>" + toArabicNumerals(bestStreak) + "</b><span> يومًا</span>";
+    } else {
+      streakSubEl.textContent = "أنجز ذكراً واحداً لتبدأ";
+    }
+  }
+  setPtStatValue(document.getElementById("todayCount"), todayCount);
+  setPtStatValue(document.getElementById("weekCount"), weekCount);
+  setPtStatValue(document.getElementById("totalCount"), totalCount);
 
-  if (streakEl) streakEl.textContent = streak;
-  if (todayEl) todayEl.textContent = todayCount;
-  if (weekEl) weekEl.textContent = weekCount;
-  if (totalEl) totalEl.textContent = totalCount;
+  updateAzkarTodayRing();
 
   // Update summary cards (top KPIs)
   var summaryAzkarVal = document.getElementById("summaryAzkarVal");
   var summaryStreakVal = document.getElementById("summaryStreakVal");
-  if (summaryAzkarVal) summaryAzkarVal.textContent = todayCount;
-  if (summaryStreakVal) summaryStreakVal.textContent = streak;
+  if (summaryAzkarVal)
+    summaryAzkarVal.textContent = toArabicNumerals(todayCount);
+  if (summaryStreakVal) summaryStreakVal.textContent = toArabicNumerals(streak);
 
   // Update azkar category bars
   updateAzkarCategoryBars();
+}
+
+// Writes a counter value, using a designed muted dash instead of the
+// Arabic-Indic zero (which renders as a tiny dot at display sizes).
+function setPtStatValue(el, value) {
+  if (!el) return;
+  var n = Number(value) || 0;
+  el.textContent = toArabicNumerals(n);
+  el.setAttribute("data-value", String(n));
+}
+
+// Longest run of consecutive days with at least one completed zekr.
+function calculateBestStreak() {
+  var days = Object.keys(weeklyProgress)
+    .filter(function (key) {
+      return (weeklyProgress[key] || 0) > 0;
+    })
+    .map(function (key) {
+      return new Date(key).getTime();
+    })
+    .filter(function (time) {
+      return !isNaN(time);
+    })
+    .sort(function (a, b) {
+      return a - b;
+    });
+
+  if (!days.length) return 0;
+
+  var best = 1;
+  var run = 1;
+  var dayMs = 24 * 60 * 60 * 1000;
+
+  for (var i = 1; i < days.length; i++) {
+    var prev = new Date(days[i - 1]);
+    var cur = new Date(days[i]);
+    // Compare mid-day so DST shifts never break the diff.
+    prev.setHours(12, 0, 0, 0);
+    cur.setHours(12, 0, 0, 0);
+    var diff = Math.round((cur - prev) / dayMs);
+    if (diff === 1) {
+      run++;
+    } else if (diff > 1) {
+      run = 1;
+    }
+    if (run > best) best = run;
+  }
+
+  return best;
+}
+
+// Today's Azkar completion, by item and by fully-completed category.
+function getAzkarTodayProgress() {
+  var completed = (dailyProgress && dailyProgress.completedZekr) || [];
+  var keys = Object.keys(adhkarData || {});
+  var done = 0;
+  var total = 0;
+  var sectionsDone = 0;
+
+  keys.forEach(function (key) {
+    var list = (adhkarData[key] && adhkarData[key].adhkar) || [];
+    if (!list.length) return;
+    var sectionComplete = true;
+    list.forEach(function (_, index) {
+      total++;
+      if (completed.indexOf(key + "_" + index) !== -1) {
+        done++;
+      } else {
+        sectionComplete = false;
+      }
+    });
+    if (sectionComplete) sectionsDone++;
+  });
+
+  return {
+    done: done,
+    total: total,
+    sectionsDone: sectionsDone,
+    sectionsTotal: keys.length,
+  };
+}
+
+function updateAzkarTodayRing() {
+  var ring = document.getElementById("azkarRing");
+  var pctEl = document.getElementById("azkarRingPct");
+  var subEl = document.getElementById("azkarSub");
+
+  if (!ring && !pctEl && !subEl) return;
+
+  var progress = getAzkarTodayProgress();
+  var pct = progress.total
+    ? Math.round((progress.done / progress.total) * 100)
+    : 0;
+
+  if (ring) ring.style.setProperty("--p", String(pct));
+  if (pctEl) {
+    pctEl.textContent = toArabicNumerals(pct) + "٪";
+  }
+  if (subEl) {
+    subEl.textContent =
+      progress.done > 0
+        ? toArabicNumerals(progress.done) +
+          " من " +
+          toArabicNumerals(progress.total) +
+          " ذكرًا"
+        : "لم تبدأ بعد";
+    subEl.classList.toggle("is-zero", progress.done === 0);
+  }
 }
 
 function updateAzkarCategoryBars() {
@@ -4378,46 +4704,72 @@ function calculateWeeklyCount() {
   return count;
 }
 
-function updateWeeklyChart() {
-  const chartContainer = document.getElementById("azkarChart");
+// First day of the displayed week (Saturday) at local midnight.
+function getChartWeekStart() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  // getDay(): Sunday = 0 … Saturday = 6. Saturday is the week start.
+  const offset = (start.getDay() + 1) % 7;
+  start.setDate(start.getDate() - offset);
+  return start;
+}
+
+// One renderer for both charts: today's week (Sat → Fri), future slots dashed,
+// zero days empty (no stub bars) and the current day highlighted.
+function renderWeeklyChart(containerId, source) {
+  const chartContainer = document.getElementById(containerId);
   if (!chartContainer) return;
 
-  const bars = chartContainer.querySelectorAll(".chart-bar-fill");
-  const valueDivs = chartContainer.querySelectorAll(".chart-bar-value");
   const cols = chartContainer.querySelectorAll(".chart-bar-col");
   const today = new Date();
-  const maxHeight = 80;
+  today.setHours(0, 0, 0, 0);
+  const weekStart = getChartWeekStart();
 
-  // Find max value for scaling
-  let maxVal = 1;
   const dayValues = {};
+  let maxVal = 0;
+
   for (let i = 0; i < 7; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - (6 - i));
-    const dateStr = date.toDateString();
-    const val = weeklyProgress[dateStr] || 0;
-    if (val > maxVal) maxVal = val;
+    const date = new Date(weekStart);
+    date.setDate(date.getDate() + i);
+    const val = source[date.toDateString()] || 0;
     dayValues[date.getDay()] = val;
+    if (val > maxVal) maxVal = val;
   }
 
   cols.forEach((col) => {
-    const dayNum = parseInt(col.getAttribute("data-day"));
+    const dayNum = parseInt(col.getAttribute("data-day"), 10);
+    const dayIndex = (dayNum + 1) % 7; // Sat = 0, Sun = 1, …
+    const date = new Date(weekStart);
+    date.setDate(date.getDate() + dayIndex);
+
     const bar = col.querySelector(".chart-bar-fill");
     const valueDiv = col.querySelector(".chart-bar-value");
     const val = dayValues[dayNum] || 0;
 
-    // Check if this is today
-    if (dayNum === today.getDay()) {
-      col.classList.add("today");
-    } else {
-      col.classList.remove("today");
+    const isToday = date.getTime() === today.getTime();
+    const isFuture = date.getTime() > today.getTime();
+    const isZero = !isFuture && val === 0;
+
+    col.classList.toggle("today", isToday);
+    col.classList.toggle("is-future", isFuture);
+    col.classList.toggle("is-zero", isZero);
+
+    if (isFuture || isZero) {
+      if (bar) bar.style.height = "0%";
+      if (valueDiv) valueDiv.textContent = "";
+      return;
     }
 
-    const height = Math.max(4, (val / maxVal) * maxHeight);
-    if (bar) bar.style.height = height + "px";
-    if (valueDiv) valueDiv.textContent = val > 0 ? val : "";
+    const pct = Math.max(6, Math.round((val / maxVal) * 100));
+    if (bar) bar.style.height = pct + "%";
+    if (valueDiv) valueDiv.textContent = toArabicNumerals(val);
   });
 }
+
+function updateWeeklyChart() {
+  renderWeeklyChart("azkarChart", weeklyProgress);
+}
+
 
 // Quran weekly reading progress
 let quranWeeklyProgress =
@@ -4436,41 +4788,7 @@ function trackQuranDailyReading() {
 }
 
 function updateQuranWeeklyChart() {
-  const chartContainer = document.getElementById("quranChart");
-  if (!chartContainer) return;
-
-  const cols = chartContainer.querySelectorAll(".chart-bar-col");
-  const today = new Date();
-  const maxHeight = 80;
-
-  // Find max value for scaling
-  let maxVal = 1;
-  const dayValues = {};
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - (6 - i));
-    const dateStr = date.toDateString();
-    const val = quranWeeklyProgress[dateStr] || 0;
-    if (val > maxVal) maxVal = val;
-    dayValues[date.getDay()] = val;
-  }
-
-  cols.forEach((col) => {
-    const dayNum = parseInt(col.getAttribute("data-day"));
-    const bar = col.querySelector(".chart-bar-fill");
-    const valueDiv = col.querySelector(".chart-bar-value");
-    const val = dayValues[dayNum] || 0;
-
-    if (dayNum === today.getDay()) {
-      col.classList.add("today");
-    } else {
-      col.classList.remove("today");
-    }
-
-    const height = Math.max(4, (val / maxVal) * maxHeight);
-    if (bar) bar.style.height = height + "px";
-    if (valueDiv) valueDiv.textContent = val > 0 ? val : "";
-  });
+  renderWeeklyChart("quranChart", quranWeeklyProgress);
 }
 
 function switchChartTab(chartType) {
@@ -4816,13 +5134,10 @@ function updateDailyInfo() {
   // Start live clock
   startLiveClock();
 
-  // 1. Update Day Name
-  const dayNameElement = document.getElementById("dayName");
-  if (dayNameElement) {
-    dayNameElement.textContent = new Intl.DateTimeFormat("ar-SA", {
-      weekday: "long",
-    }).format(now);
-  }
+  // 1. Greeting (static) + weekday for the Hijri line
+  const weekdayName = new Intl.DateTimeFormat("ar-SA", {
+    weekday: "long",
+  }).format(now);
 
   // 2. Update Gregorian Date
   const gregorianMonthElement = document.getElementById("gregorianMonth");
@@ -4859,13 +5174,13 @@ function updateDailyInfo() {
     hijriMonthElement.textContent = hijri.monthName;
   }
   if (hijriFullDate) {
-    hijriFullDate.textContent = `${hijri.day} ${hijri.monthName} ${hijri.year} هـ`;
+    hijriFullDate.textContent = `${weekdayName} ${toArabicDigits(hijri.day)} ${hijri.monthName} ${toArabicDigits(hijri.year)}`;
   }
 
   // Update Header with Hijri Date for Duaa
   const duaaHeader = document.getElementById("duaaHeader");
   if (duaaHeader) {
-    duaaHeader.textContent = `دعاء اليوم ${hijri.day} ${hijri.monthName}`;
+    duaaHeader.textContent = `دعاء اليوم `;
   }
 
   // 4. Update Daily Duaa
@@ -4921,37 +5236,300 @@ function getNextRamadanTarget(now) {
   return null;
 }
 
-function updateRamadanCountdown() {
-  const card = document.getElementById("calRamadanCard");
-  if (!card) return;
+/**
+ * Adds (or subtracts) whole days to a date without mutating it.
+ */
+function addDaysToDate(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
 
-  const now = new Date();
-  const currentHijri = getHijriDate(now);
+/**
+ * Arabic-aware day count wording: "يوم واحد" / "يومان" / "٣ أيام" / "٩٠ يومًا".
+ */
+function formatDaysCount(count) {
+  const n = Math.max(0, Math.round(Number(count) || 0));
+  if (n === 0) return "اليوم";
+  if (n === 1) return "يوم واحد";
+  if (n === 2) return "يومان";
+  if (n <= 10) return toArabicDigits(n) + " أيام";
+  return toArabicDigits(n) + " يومًا";
+}
 
-  const daysOnlyEl = document.getElementById("ramadanDaysOnly");
-  const targetLabelEl = document.getElementById("ramadanTargetDateLabel");
-  const badgeTxt = card.querySelector(".ramadan-badge-txt");
+/**
+ * Genitive day count for "بعد …": "بعد يوم" / "بعد يومين" / "بعد ٣ أيام".
+ */
+function formatDaysAfter(count) {
+  const n = Math.max(1, Math.round(Number(count) || 0));
+  if (n === 1) return "يوم";
+  if (n === 2) return "يومين";
+  if (n <= 10) return toArabicDigits(n) + " أيام";
+  return toArabicDigits(n) + " يومًا";
+}
 
-  // Check if we are currently in Ramadan (Month 9)
-  if (currentHijri.month === 9) {
-    if (daysOnlyEl) daysOnlyEl.textContent = toArabicDigits(currentHijri.day);
-    if (badgeTxt) badgeTxt.textContent = "رمضان المبارك";
-    if (targetLabelEl) targetLabelEl.textContent = "تقبل الله منا ومنكم الصيام والقيام";
-    return;
+/**
+ * Event name without the parenthetical date, for compact rows.
+ */
+function cleanEventName(name) {
+  return String(name || "").replace(/\s*\([^)]*\)\s*/g, " ").trim();
+}
+
+/**
+ * Ramadan state for the reminders strip / sheet.
+ * While inside Ramadan the target is null and `day` holds today's Hijri day.
+ */
+function getRamadanState(now) {
+  const date = now || new Date();
+  const hijri = getHijriDate(date);
+
+  if (hijri.month === 9) {
+    return {
+      inRamadan: true,
+      day: hijri.day,
+      daysLeft: Math.max(0, 30 - hijri.day),
+      pct: Math.min(100, (hijri.day / 30) * 100),
+      target: null,
+    };
   }
 
-  const target = getNextRamadanTarget(now);
-  if (!target) return;
+  const target = getNextRamadanTarget(date);
+  if (!target) {
+    return { inRamadan: false, day: 0, daysLeft: 0, pct: 0, target: null };
+  }
 
-  const diffMs = target - now;
-  if (diffMs <= 0) return;
+  const startOfToday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const daysLeft = Math.max(0, Math.round((target - startOfToday) / 86400000));
+  return {
+    inRamadan: false,
+    day: 0,
+    daysLeft,
+    pct: Math.max(3, Math.min(100, 100 - (daysLeft / 354) * 100)),
+    target,
+  };
+}
 
-  const totalSeconds = Math.floor(diffMs / 1000);
-  const days = Math.floor(totalSeconds / 86400);
+/**
+ * Voluntary-fasting state for the reminders strip / sheet.
+ * kind: "forbidden" | "today" | "tomorrow" | "upcoming" | "none"
+ */
+function getFastingState(now) {
+  const date = now || new Date();
 
-  if (daysOnlyEl) daysOnlyEl.textContent = toArabicDigits(days);
-  if (badgeTxt) badgeTxt.textContent = "يوم متبقي";
-  // if (targetLabelEl) targetLabelEl.textContent = "اللهم بلغنا رمضان";
+  const forbidden = getForbiddenFastReason(date);
+  if (forbidden) return { kind: "forbidden", reason: forbidden, events: [] };
+
+  const todayEvents = checkFastingOccasions(date);
+  if (todayEvents.length > 0) {
+    return { kind: "today", days: 0, events: todayEvents, event: todayEvents[0] };
+  }
+
+  for (let i = 1; i <= 14; i++) {
+    const future = addDaysToDate(date, i);
+    const events = checkFastingOccasions(future);
+    if (events.length > 0) {
+      return {
+        kind: i === 1 ? "tomorrow" : "upcoming",
+        days: i,
+        date: future,
+        events: events,
+        event: events[0],
+      };
+    }
+  }
+
+  return { kind: "none", events: [] };
+}
+
+function getFastingReminderType(event) {
+  if (!event) return "";
+  if (event.name.includes("الأيام البيض")) return "أيام بيض";
+  if (event.badge === "سنة أسبوعية") return "سنة أسبوعية";
+  return event.badge || "";
+}
+
+/**
+ * Next fasting dates (one entry per day, occasions merged).
+ */
+function getUpcomingFastingDays(now, maxDays, limit) {
+  const date = now || new Date();
+  const out = [];
+  const max = maxDays || 45;
+  const cap = limit || 5;
+
+  for (let i = 1; i <= max && out.length < cap; i++) {
+    const future = addDaysToDate(date, i);
+    const events = checkFastingOccasions(future);
+    if (events.length > 0) out.push({ date: future, events: events });
+  }
+  return out;
+}
+
+/**
+ * Renders the compact Home reminders strip (Ramadan + voluntary fasting).
+ * Kept compact — all details live in the «تذكير الصيام» bottom sheet.
+ */
+function updateRemindersStrip(now) {
+  const date = now || new Date();
+  const ramadan = getRamadanState(date);
+  const fasting = getFastingState(date);
+
+  const ramadanChipEl = document.getElementById("remindRamadanSeg");
+  const ramadanLabelEl = document.getElementById("remindRamadanLabel");
+  const ramadanValueEl = document.getElementById("remindRamadanValue");
+  const ramadanDateEl = document.getElementById("remindRamadanDate");
+  const ramadanBarEl = document.getElementById("remindRamadanBar");
+  const fastingSegEl = document.getElementById("remindFastingSeg");
+  const fastingLabelEl = document.getElementById("remindFastingLabel");
+  const fastingValueEl = document.getElementById("remindFastingValue");
+  const targetLabelEl = document.getElementById("ramadanTargetDateLabel");
+
+  // ── Ramadan chip ──
+  const hijriYear = ramadan.inRamadan ? getHijriDate(date).year : getHijriDate(ramadan.target || date).year;
+  if (ramadanLabelEl) {
+    ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} · ${ramadan.inRamadan ? "الشهر الحالي" : "متوقع"}`;
+  }
+  if (ramadanValueEl) {
+    if (ramadan.inRamadan) {
+      ramadanValueEl.innerHTML = `<em>${toArabicDigits(ramadan.daysLeft)}</em> يوماً متبقياً`;
+    } else if (ramadan.target) {
+      ramadanValueEl.innerHTML = `<em>${toArabicDigits(ramadan.daysLeft)}</em> يوماً`;
+    } else {
+      ramadanValueEl.textContent = "—";
+    }
+  }
+  if (ramadanBarEl) {
+    const pct = ramadan.inRamadan
+      ? (ramadan.day / 30) * 100
+      : Math.max(0, Math.min(100, ((354 - ramadan.daysLeft) / 354) * 100));
+    ramadanBarEl.style.width = pct.toFixed(1) + "%";
+  }
+  if (targetLabelEl && ramadan.target) {
+    targetLabelEl.textContent = "متوقع: " + formatHijriDateLong(ramadan.target);
+  }
+
+  // ── Fasting chip (today / tomorrow only) ──
+  const showFasting = true;
+  const spanning = !showFasting;
+
+  if (ramadanChipEl) ramadanChipEl.classList.toggle("is-span-2", spanning);
+  if (ramadanDateEl) {
+    if (spanning && ramadan.target) {
+      ramadanDateEl.hidden = false;
+      ramadanDateEl.textContent = "متوقع " + formatHijriDateLong(ramadan.target);
+    } else {
+      ramadanDateEl.hidden = true;
+    }
+  }
+
+  if (!fastingSegEl) return;
+  if (!showFasting) {
+    fastingSegEl.style.display = "none";
+    return;
+  }
+  fastingSegEl.style.display = "";
+  if (!fastingLabelEl || !fastingValueEl) return;
+
+  const event = fasting.event || (fasting.events && fasting.events[0]);
+  if (!event) {
+    const next = getUpcomingFastingDays(date, 45, 1)[0];
+    if (!next) {
+      fastingLabelEl.textContent = "تذكير الصيام";
+      fastingValueEl.textContent = "لا يوجد موعد قريب";
+      return;
+    }
+    fasting.days = Math.max(1, Math.round((next.date - new Date(date.getFullYear(), date.getMonth(), date.getDate())) / 86400000));
+    fasting.date = next.date;
+    fasting.event = next.events[0];
+    fasting.kind = "upcoming";
+  }
+
+  fastingLabelEl.textContent = "تذكير الصيام";
+  const reminderType = getFastingReminderType(fasting.event);
+  if (fasting.kind === "today") {
+    fastingValueEl.textContent = reminderType ? `${reminderType} · اليوم` : "اليوم";
+  } else if (fasting.kind === "tomorrow") {
+    fastingValueEl.textContent = reminderType ? `${reminderType} · غدًا` : "غدًا";
+  } else {
+    fastingValueEl.textContent = reminderType
+      ? `${reminderType} · بعد ${formatDaysAfter(fasting.days)}`
+      : `بعد ${formatDaysAfter(fasting.days)}`;
+  }
+}
+
+function getRamadanCountdownParts(target, now) {
+  const remaining = Math.max(0, target.getTime() - now.getTime());
+  const totalMinutes = Math.floor(remaining / 60000);
+  return {
+    days: Math.floor(totalMinutes / 1440),
+    hours: Math.floor((totalMinutes % 1440) / 60),
+    minutes: totalMinutes % 60,
+  };
+}
+
+function getNextMidnight(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+}
+
+/**
+ * "H:MM:SS" remaining until Maghrib, with Arabic digits inside a bdi.
+ */
+function iftarCountdown(now) {
+  try {
+    const time = prayerTimesData && prayerTimesData.Maghrib;
+    if (!time) return "المغرب";
+    const [h, m] = String(time).split(" ")[0].split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return "المغرب";
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+    const diff = Math.floor((target - now) / 1000);
+    if (diff <= 0) return "المغرب";
+    const pad = (n) => String(n).padStart(2, "0");
+    const text = toArabicNumerals(
+      `${Math.floor(diff / 3600)}:${pad(Math.floor((diff % 3600) / 60))}:${pad(diff % 60)}`,
+    );
+    return `<bdi dir="ltr" style="unicode-bidi:isolate">${text}</bdi>`;
+  } catch (e) {
+    return "المغرب";
+  }
+}
+
+/**
+ * Short label for the strip ("صيام الخميس" → "الخميس").
+ */
+function shortFastingName(event) {
+  if (!event || !event.name) return "";
+  return String(event.name).replace(/^صيام\s+/, "");
+}
+
+/**
+ * "٨ فبراير ٢٠٢٧ م" style long date.
+ */
+function formatGregorianDateLong(date) {
+  try {
+    return date.toLocaleDateString("ar-EG", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch (e) {
+    return date.getDate() + "/" + (date.getMonth() + 1) + "/" + date.getFullYear();
+  }
+}
+
+/**
+ * "١ رمضان ١٤٤٩ هـ" style Hijri date.
+ */
+function formatHijriDateLong(date) {
+  const hijri = getHijriDate(date);
+  return `${toArabicDigits(hijri.day)} ${hijri.monthName} ${toArabicDigits(hijri.year)} هـ`;
+}
+
+function updateRamadanCountdown() {
+  updateRemindersStrip(new Date());
+  const sheetBody = document.getElementById("remindersSheetBody");
+  if (sheetBody && sheetBody.querySelector('[data-rsheet-focus="ramadan"]')) {
+    sheetBody.innerHTML = buildRemindersSheetHtml("ramadan");
+  }
 }
 
 function toArabicDigits(num) {
@@ -5003,6 +5581,24 @@ function getHijriDate(date) {
 }
 
 /**
+ * Returns the reason a given date is a forbidden fast day, or null.
+ * Festivals of breaking the fast and the days of Tashreeq must never
+ * carry a fasting reminder.
+ */
+function getForbiddenFastReason(date) {
+  const hijri = getHijriDate(date);
+  // 1 شوال — عيد الفطر
+  if (hijri.month === 10 && hijri.day === 1) return "عيد الفطر";
+  // 10 ذو الحجة — عيد الأضحى (يوم النحر)
+  if (hijri.month === 12 && hijri.day === 10) return "عيد الأضحى";
+  // 11–13 ذو الحجة — أيام التشريق
+  if (hijri.month === 12 && hijri.day >= 11 && hijri.day <= 13) {
+    return "أيام التشريق";
+  }
+  return null;
+}
+
+/**
  * Checks all Islamic fasting occasions for a given date.
  * Returns an array of fasting events, each with { name, detail, badge, priority }.
  */
@@ -5010,6 +5606,11 @@ function checkFastingOccasions(date) {
   const hijri = getHijriDate(date);
   const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, ..., 4=Thu, 5=Fri, 6=Sat
   const events = [];
+
+  // Ramadan is an obligatory fast (no voluntary-fasting reminder needed),
+  // and the Eids / days of Tashreeq are forbidden fast days.
+  if (hijri.month === 9) return [];
+  if (getForbiddenFastReason(date)) return [];
 
   // ── 1. يوم عاشوراء (10 محرم) + تاسوعاء (9 محرم) ──
   if (hijri.month === 1 && hijri.day === 10) {
@@ -5239,59 +5840,290 @@ function closeCalDayDetail() {
 }
 
 /**
- * Updates the fasting alert banner inside the Hero Calendar Card.
+ * Updates the Home reminders strip (fasting segment).
+ * The strip replaced the old always-visible fasting card.
  */
 function updateCalendarFastingAlert(now) {
-  const alertEl = document.getElementById("calFastingAlert");
-  const titleEl = document.getElementById("calFastingAlertTitle");
-  const descEl = document.getElementById("calFastingAlertDesc");
-  if (!alertEl || !titleEl || !descEl) return;
+  updateRemindersStrip(now || new Date());
+}
 
-  const todayEvents = checkFastingOccasions(now);
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowEvents = checkFastingOccasions(tomorrow);
+/**
+ * Builds the «تذكير الصيام» bottom-sheet body from live Hijri data.
+ * @param {Date} [atDate] Optional reference date (defaults to now).
+ */
+function buildRemindersSheetHtml(tab, atDate) {
+  if (tab instanceof Date) {
+    atDate = tab;
+    tab = "fasting";
+  }
+  const activeTab = tab === "ramadan" ? "ramadan" : "fasting";
+  const now = atDate || new Date();
+  const ramadan = getRamadanState(now);
+  const fasting = getFastingState(now);
+  const upcoming = getUpcomingFastingDays(now, 45, 5);
 
-  if (todayEvents.length > 0) {
-    const ev = todayEvents[0];
-    alertEl.className = "cal-fasting-smart-card cal-fasting-alert cal-fasting-alert--today";
-    titleEl.innerHTML = `<span class="cal-fasting-title-text">${ev.name}</span><span class="cal-fasting-badge">اليوم</span>`;
-    descEl.textContent = `${ev.detail} — تقبّل الله صيامكم وطاعتكم`;
-    alertEl.style.display = "flex";
-  } else if (tomorrowEvents.length > 0) {
-    const ev = tomorrowEvents[0];
-    alertEl.className = "cal-fasting-smart-card cal-fasting-alert cal-fasting-alert--tomorrow";
-    titleEl.innerHTML = `<span class="cal-fasting-title-text">${ev.name}</span><span class="cal-fasting-badge">غداً</span>`;
-    descEl.textContent = `${ev.detail} — انوِ الصيام وجهّز سحورك تقبل الله منك`;
-    alertEl.style.display = "flex";
+  const dayNames = [
+    "الأحد",
+    "الإثنين",
+    "الثلاثاء",
+    "الأربعاء",
+    "الخميس",
+    "الجمعة",
+    "السبت",
+  ];
+
+  // ── Ramadan block ──
+  let ramadanHtml = "";
+  if (ramadan.inRamadan) {
+    const remainderText =
+      ramadan.daysLeft > 0
+        ? `بقي ${formatDaysCount(ramadan.daysLeft)} على نهاية الشهر — تقبّل الله صيامك وقيامك.`
+        : "اليوم آخر أيام الشهر — تقبّل الله صيامك وقيامك.";
+    ramadanHtml = `
+      <div class="pt-rsheet__block is-gold" data-rsheet="ramadan">
+        <div class="pt-rsheet__top">
+          <span class="pt-rsheet__kicker"><i class="fas fa-moon"></i> رمضان المبارك</span>
+          <span class="pt-rsheet__chip">الشهر الحالي</span>
+        </div>
+        <div class="pt-rsheet__big">
+          <span class="pt-rsheet__num">${toArabicDigits(ramadan.day)}</span>
+          <span class="pt-rsheet__unit">من رمضان</span>
+        </div>
+        <p class="pt-rsheet__hint">${remainderText}</p>
+        <div class="pt-rsheet__bar"><span style="width:${ramadan.pct.toFixed(1)}%"></span></div>
+      </div>`;
+  } else if (ramadan.target) {
+    ramadanHtml = `
+      <div class="pt-rsheet__block is-gold" data-rsheet="ramadan">
+        <div class="pt-rsheet__top">
+          <span class="pt-rsheet__kicker"><i class="fas fa-moon"></i> رمضان المبارك</span>
+          <span class="pt-rsheet__chip">متوقع</span>
+        </div>
+        <div class="pt-rsheet__big">
+          <span class="pt-rsheet__num">${toArabicDigits(ramadan.daysLeft)}</span>
+          <span class="pt-rsheet__unit">يومًا متبقيًا</span>
+        </div>
+        <div class="pt-rsheet__date">${formatHijriDateLong(ramadan.target)}</div>
+        <p class="pt-rsheet__hint">الموافق ${formatGregorianDateLong(ramadan.target)} — التاريخ متوقع فلكيًا وقد يتغيّر يومًا حسب الرؤية.</p>
+        <div class="pt-rsheet__bar"><span style="width:${ramadan.pct.toFixed(1)}%"></span></div>
+      </div>`;
+  }
+
+  // ── Fasting block ──
+  let fastingHtml = "";
+  if (fasting.kind === "forbidden") {
+    fastingHtml = `
+      <div class="pt-rsheet__block" data-rsheet="fasting">
+        <div class="pt-rsheet__top">
+          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__chip">لا صيام</span>
+        </div>
+        <p class="pt-rsheet__date">${fasting.reason} — لا يجوز صيامه.</p>
+        <p class="pt-rsheet__hint">«أيام التشريق أيام أكل وشرب وذكر لله» — رواه مسلم. يعود تذكير الصيام بعد انتهاء هذه الأيام.</p>
+      </div>`;
+  } else if (fasting.kind === "today") {
+    fastingHtml = `
+      <div class="pt-rsheet__block is-em" data-rsheet="fasting">
+        <div class="pt-rsheet__top">
+          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__chip">اليوم</span>
+        </div>
+        <p class="pt-rsheet__date">${fasting.events.map((e) => cleanEventName(e.name)).join(" · ")}</p>
+        <p class="pt-rsheet__hint">${fasting.event.detail} — تقبّل الله صيامك.</p>
+      </div>`;
+  } else if (fasting.kind === "tomorrow") {
+    fastingHtml = `
+      <div class="pt-rsheet__block" data-rsheet="fasting">
+        <div class="pt-rsheet__top">
+          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__chip">غدًا</span>
+        </div>
+        <p class="pt-rsheet__date">${fasting.events.map((e) => cleanEventName(e.name)).join(" · ")}</p>
+        <p class="pt-rsheet__hint">${fasting.event.detail} — انوِ الصيام وجهّز سحورك.</p>
+      </div>`;
+  } else if (fasting.kind === "upcoming") {
+    fastingHtml = `
+      <div class="pt-rsheet__block" data-rsheet="fasting">
+        <div class="pt-rsheet__top">
+          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__chip">بعد ${formatDaysAfter(fasting.days)}</span>
+        </div>
+        <p class="pt-rsheet__date">${fasting.events.map((e) => cleanEventName(e.name)).join(" · ")}</p>
+        <p class="pt-rsheet__hint">${fasting.event.detail}</p>
+      </div>`;
   } else {
-    // Search next fasting day within 7 days
-    let nextEv = null;
-    let nextDate = null;
-    let diffDays = 0;
-    for (let i = 2; i <= 7; i++) {
-      const future = new Date(now);
-      future.setDate(future.getDate() + i);
-      const evs = checkFastingOccasions(future);
-      if (evs.length > 0) {
-        nextEv = evs[0];
-        nextDate = future;
-        diffDays = i;
-        break;
-      }
-    }
+    fastingHtml = `
+      <div class="pt-rsheet__block" data-rsheet="fasting">
+        <div class="pt-rsheet__top">
+          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__chip">سنة</span>
+        </div>
+        <p class="pt-rsheet__date">الإثنين والخميس والأيام البيض</p>
+        <p class="pt-rsheet__hint">نوّع صيامك واغتنم الأجر — يُستحب صيام الإثنين والخميس و١٣ و١٤ و١٥ من كل شهر هجري.</p>
+      </div>`;
+  }
 
-    if (nextEv) {
-      alertEl.className = "cal-fasting-smart-card cal-fasting-alert cal-fasting-alert--upcoming";
-      const badgeText = diffDays === 2 ? "بعد يومين" : `بعد ${toArabicDigits(diffDays)} أيام`;
-      titleEl.innerHTML = `<span class="cal-fasting-title-text">${nextEv.name}</span><span class="cal-fasting-badge">${badgeText}</span>`;
-      descEl.textContent = nextEv.detail;
-      alertEl.style.display = "flex";
-    } else {
-      alertEl.style.display = "none";
-    }
+  // ── Upcoming fasting days ──
+  let upcomingHtml = "";
+  if (upcoming.length > 0) {
+    upcomingHtml = `
+      <div class="pt-rsheet__section">
+        <h3 class="pt-rsheet__section-title"><i class="fas fa-calendar-day"></i> أقرب أيام الصيام</h3>
+        <div class="pt-rsheet__list">
+          ${upcoming
+            .map((item, index) => {
+              const hijri = getHijriDate(item.date);
+              const names = item.events.map((e) => cleanEventName(e.name)).join(" · ");
+              const chip = index === 0 ? "الأقرب" : item.events[0].badge;
+              return `
+            <div class="pt-rsheet__item">
+              <div class="pt-rsheet__item-main">
+                <span class="pt-rsheet__item-title">${names}</span>
+                <span class="pt-rsheet__item-sub">${dayNames[item.date.getDay()]} · ${toArabicDigits(hijri.day)} ${hijri.monthName}</span>
+              </div>
+              <span class="pt-rsheet__item-chip${index === 0 ? " is-next" : ""}">${chip}</span>
+            </div>`;
+            })
+            .join("")}
+        </div>
+      </div>`;
+  }
+
+  // ── Rules + note + guide ──
+  const rulesHtml = `
+    <div class="pt-rsheet__section">
+      <h3 class="pt-rsheet__section-title"><i class="fas fa-list-check"></i> سنن الصيام</h3>
+      <div class="pt-rsheet__rules">
+        <span class="pt-chip">الإثنين والخميس</span>
+        <span class="pt-chip">الأيام البيض ١٣–١٥</span>
+        <span class="pt-chip">ستة من شوال</span>
+        <span class="pt-chip">عاشوراء وتاسوعاء</span>
+        <span class="pt-chip">يوم عرفة</span>
+        <span class="pt-chip">تسع ذي الحجة</span>
+      </div>
+      <div class="pt-rsheet__note">
+        <i class="fas fa-circle-info"></i>
+        <span>لا صيام في يومَي العيد ولا في أيام التشريق (١١–١٣ ذو الحجة)، ويُكره إفراد الجمعة أو السبت بالصيام.</span>
+      </div>
+    </div>`;
+
+  const ramadanCountdownTarget = ramadan.inRamadan ? getNextMidnight(now) : ramadan.target;
+  const ramadanCountdown = ramadanCountdownTarget
+    ? getRamadanCountdownParts(ramadanCountdownTarget, now)
+    : { days: ramadan.daysLeft, hours: 0, minutes: 0 };
+  const ramadanFocusHtml = ramadanCountdownTarget
+    ? `
+      <div class="pt-rsheet-focus" data-rsheet-focus="ramadan">
+        <div class="pt-rsheet-focus__heading">
+          <div>
+            <h3>رمضان ${toArabicDigits(getHijriDate(ramadan.target || now).year)}</h3>
+            <p>${ramadan.inRamadan ? "اليوم من رمضان · يتجدد العداد مع بداية اليوم التالي" : "الموعد المتوقع " + formatGregorianDateLong(ramadan.target) + " · يعتمد على رؤية الهلال"}</p>
+          </div>
+          <span class="pt-rsheet-focus__moon"><i class="fas fa-moon"></i></span>
+        </div>
+        <div class="pt-rsheet-focus__stats">
+          <div class="pt-rsheet-focus__stat is-gold">
+            <strong>${toArabicDigits(ramadan.inRamadan ? ramadan.daysLeft : ramadanCountdown.days)}</strong>
+            <span>يومًا</span>
+          </div>
+          <div class="pt-rsheet-focus__stat">
+            <strong>${toArabicDigits(ramadanCountdown.hours)}</strong>
+            <span>ساعة</span>
+          </div>
+          <div class="pt-rsheet-focus__stat">
+            <strong>${toArabicDigits(ramadanCountdown.minutes)}</strong>
+            <span>دقيقة</span>
+          </div>
+        </div>
+        <div class="pt-rsheet-focus__progress">
+          <div><span>${ramadan.inRamadan ? "اليوم " + toArabicDigits(ramadan.day) + " من رمضان" : "مرّ " + toArabicDigits(Math.max(0, 100 - ramadan.daysLeft)) + "٪ من العام منذ رمضان الماضي"}</span><span>${toArabicDigits(ramadan.daysLeft)} يومًا متبقيًا</span></div>
+          <span class="pt-rsheet-focus__progress-bar"><i style="width:${Math.min(100, Math.max(4, ramadan.pct))}%"></i></span>
+        </div>
+        <p class="pt-rsheet-focus__dua">اللهم بلّغنا رمضان</p>
+      </div>`
+    : "";
+
+  return `
+    <div class="pt-rsheet-tabs" role="tablist">
+      <button type="button" class="${activeTab === "fasting" ? "is-active" : ""}" onclick="window.selectRemindersTab('fasting')">الصيام</button>
+      <button type="button" class="${activeTab === "ramadan" ? "is-active" : ""}" onclick="window.selectRemindersTab('ramadan')">رمضان</button>
+    </div>
+    ${activeTab === "ramadan" ? ramadanFocusHtml : `
+      ${ramadanHtml}
+      ${ramadan.inRamadan ? "" : fastingHtml}
+      ${upcomingHtml}
+      ${rulesHtml}
+      <button type="button" class="pt-rsheet__cta" onclick="openFastingGuideFromReminders()">
+        <i class="fas fa-book-open"></i>
+        دليل وفضائل الصيام
+      </button>
+    `}
+  `;
+}
+
+/**
+ * Opens the reminders bottom sheet, registered with AppRouter so that the
+ * Android back button closes it before anything else.
+ * @param {string} [tab] Optional section to focus ("ramadan" | "fasting").
+ * @param {Date} [atDate] Optional reference date (defaults to now).
+ */
+function openRemindersSheet(tab, atDate) {
+  const sheet = document.getElementById("remindersSheet");
+  const body = document.getElementById("remindersSheetBody");
+  if (!sheet || !body) return;
+
+  body.innerHTML = buildRemindersSheetHtml(tab, atDate);
+  sheet.classList.add("is-open");
+  document.body.classList.add("modal-open");
+
+  const panel = sheet.querySelector(".pt-sheet__panel");
+  if (panel) panel.scrollTop = 0;
+
+  if (window.AppRouter && !window.AppRouter.isModalOpen("remindersSheet")) {
+    window.AppRouter.pushModal("remindersSheet", function () {
+      closeRemindersSheet(false);
+    });
+  }
+
+}
+
+function closeRemindersSheet(syncRouter) {
+  const sheet = document.getElementById("remindersSheet");
+  if (sheet) sheet.classList.remove("is-open");
+  if (document.body && (!window.AppRouter || !window.AppRouter.isModalOpen())) {
+    document.body.classList.remove("modal-open");
+  }
+  if (
+    syncRouter !== false &&
+    window.AppRouter &&
+    window.AppRouter.isModalOpen("remindersSheet")
+  ) {
+    window.AppRouter.closeModal("remindersSheet");
   }
 }
+
+function selectRemindersTab(tab) {
+  const body = document.getElementById("remindersSheetBody");
+  if (!body) return;
+  body.innerHTML = buildRemindersSheetHtml(tab);
+  const panel = document.querySelector("#remindersSheet .pt-sheet__panel");
+  if (panel) panel.scrollTop = 0;
+}
+
+/**
+ * Leaves the sheet and opens the full fasting guide modal above it.
+ */
+function openFastingGuideFromReminders() {
+  closeRemindersSheet();
+  window.setTimeout(function () {
+    if (typeof openFastingGuideModal === "function") openFastingGuideModal();
+  }, 180);
+}
+
+window.openRemindersSheet = openRemindersSheet;
+window.selectRemindersTab = selectRemindersTab;
+window.closeRemindersSheet = closeRemindersSheet;
+window.openFastingGuideFromReminders = openFastingGuideFromReminders;
 
 /**
  * Updates the standalone fasting reminder banner.
@@ -5411,12 +6243,26 @@ let _azkarReminderInterval = null;
 function getHeroCardMode(now) {
   now = now || new Date();
   const isFriday = now.getDay() === 5;
-  const hour = now.getHours();
-
   if (isFriday) return "friday";
-  if (hour >= 4 && hour < 12) return "morning";
-  if (hour >= 12 && hour < 15) return "midday";
-  if (hour >= 15 && hour < 20) return "evening";
+
+  const toMinutes = (value, fallback) => {
+    const match = String(value || "").match(/(\d{1,2}):(\d{2})/);
+    return match ? Number(match[1]) * 60 + Number(match[2]) : fallback;
+  };
+  const current = now.getHours() * 60 + now.getMinutes();
+  const fajr = toMinutes(prayerTimesData && prayerTimesData.Fajr, 270);
+  const dhuhr = toMinutes(prayerTimesData && prayerTimesData.Dhuhr, 720);
+  const asr = toMinutes(prayerTimesData && prayerTimesData.Asr, 930);
+  const maghrib = toMinutes(
+    prayerTimesData && (prayerTimesData.Maghrib || prayerTimesData.Sunset),
+    1095,
+  );
+  const isha = toMinutes(prayerTimesData && prayerTimesData.Isha, 1185);
+
+  if (current >= fajr && current < dhuhr) return "morning";
+  if (current >= dhuhr && current < asr) return "midday";
+  if (current >= asr && current < maghrib) return "evening";
+  if (current >= maghrib && current < isha) return "maghrib";
   return "night";
 }
 
@@ -5643,12 +6489,15 @@ function checkFirstLaunchSettings() {
  * Called periodically every 60 seconds.
  */
 function checkAzkarReminderTransition() {
-  if (!isAzkarReminderEnabled()) return;
-
   const now = new Date();
   const currentMode = getHeroCardMode(now);
 
-  if (_lastHeroMode !== null && currentMode !== _lastHeroMode) {
+  if (currentMode !== _lastHeroMode) {
+    updateDynamicHeroCard(now);
+    renderAzkarSuggestion();
+  }
+
+  if (isAzkarReminderEnabled() && _lastHeroMode !== null && currentMode !== _lastHeroMode) {
     const reminder = getAzkarReminderText(currentMode);
     if (reminder) {
       // In-app toast
@@ -5656,8 +6505,6 @@ function checkAzkarReminderTransition() {
       // System notification (for background/locked screen)
       sendAzkarSystemNotification(reminder.title, reminder.body);
     }
-    // Also update the hero card visually
-    updateDynamicHeroCard(now);
   }
 
   _lastHeroMode = currentMode;
@@ -5693,96 +6540,67 @@ function updateDynamicHeroCard(now) {
 
   const mode = getHeroCardMode(now);
 
-  let badge = "";
-  let icon = "";
-  let title = "";
-  let subtitle = "";
-  let actions = "";
+  let icon = "fa-hands-praying";
+  let title = "ألا بذكر الله تطمئن القلوب";
+  let sub = "رطّب لسانك بذكر الله في سائر يومك";
+  let action = "openMisbaha()";
+  let ctaIcon = "fa-circle-notch";
+  let ctaLabel = "المسبحة";
 
   if (mode === "friday") {
-    badge = "يوم الجمعة المبارك";
-    icon = '<i class="fas fa-mosque"></i>';
-    title = "سورة الكهف والصلاة على النبي ﷺ";
-    subtitle =
-      "«مَنْ قَرَأَ سُورَةَ الْكَهْفِ فِي يَوْمِ الْجُمُعَةِ أَضَاءَ لَهُ مِنَ النُّورِ مَا بَيْنَ الْجُمُعَتَيْنِ»";
-    actions = `
-      <button class="dhc-btn dhc-btn--primary" onclick="openSurahAlKahf()">
-        <i class="fas fa-book-quran"></i>
-        <span>اقرأ سورة الكهف</span>
-      </button>
-      <button class="dhc-btn dhc-btn--secondary" onclick="openMisbaha()">
-        <i class="fas fa-hands-praying"></i>
-        <span>الصلاة على النبي ﷺ</span>
-      </button>
-    `;
+    icon = "fa-mosque";
+    title = "سورة الكهف والصلاة على النبي";
+    sub = "يوم الجمعة المبارك · اغتنم فضله";
+    action = "openSurahAlKahf()";
+    ctaIcon = "fa-book-quran";
+    ctaLabel = "اقرأ";
   } else if (mode === "morning") {
-    badge = "الصباح والبركة";
-    icon = '<i class="fas fa-sun"></i>';
-    title = "أذكار الصباح — حِصنك ليومك";
-    subtitle =
-      "«أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ»";
-    actions = `
-      <button class="dhc-btn dhc-btn--primary" onclick="showCategoryPage('morning')">
-        <i class="fas fa-play"></i>
-        <span>ابدأ أذكار الصباح الآن</span>
-      </button>
-    `;
+    icon = "fa-sun";
+    title = "أذكار الصباح";
+    sub = "حِصنك ليومك · ابدأ الآن";
+    action = "showCategoryPage('morning')";
+    ctaIcon = "fa-play";
+    ctaLabel = "ابدأ";
+  } else if (mode === "midday") {
+    icon = "fa-fingerprint";
+    title = "التسبيح بالمسبحة";
+    sub = "رطّب لسانك بذكر الله في وسط يومك";
+    action = "openMisbaha()";
+    ctaIcon = "fa-circle-notch";
+    ctaLabel = "سبّح";
   } else if (mode === "evening") {
-    badge = "أذكار المساء";
-    icon = '<i class="fas fa-cloud-moon"></i>';
-    title = "أذكار المساء — طمأنينة لقلبك";
-    subtitle =
-      "«أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ، رَبِّ أَسْأَلُكَ خَيْرَ مَا فِي هَذِهِ اللَّيْلَةِ»";
-    actions = `
-      <button class="dhc-btn dhc-btn--primary" onclick="showCategoryPage('evening')">
-        <i class="fas fa-play"></i>
-        <span>ابدأ أذكار المساء الآن</span>
-      </button>
-    `;
+    icon = "fa-cloud-moon";
+    title = "أذكار المساء";
+    sub = "طمأنينة لقلبك · ابدأ الآن";
+    action = "showCategoryPage('evening')";
+    ctaIcon = "fa-play";
+    ctaLabel = "ابدأ";
+  } else if (mode === "maghrib") {
+    icon = "fa-fingerprint";
+    title = "ذكر الله";
+    sub = "رطّب لسانك بالتسبيح بعد المغرب";
+    action = "openMisbaha()";
+    ctaIcon = "fa-circle-notch";
+    ctaLabel = "سبّح";
   } else if (mode === "night") {
-    badge = "ختام اليوم";
-    icon = '<i class="fas fa-moon"></i>';
-    title = "أذكار النوم وسورة الملك";
-    subtitle = "أذكار تحفظك حتى تصبح، وسورة الملك المنجية من عذاب القبر";
-    actions = `
-      <button class="dhc-btn dhc-btn--primary" onclick="showCategoryPage('sleep')">
-        <i class="fas fa-bed"></i>
-        <span>أذكار النوم</span>
-      </button>
-      <button class="dhc-btn dhc-btn--secondary" onclick="openSurahAlMulk()">
-        <i class="fas fa-book-quran"></i>
-        <span>سورة الملك</span>
-      </button>
-    `;
-  } else {
-    badge = "استراحة الذكر";
-    icon = '<i class="fas fa-heart"></i>';
-    title = "ألا بذكر الله تطمئن القلوب";
-    subtitle = "رطّب لسانك بذكر الله عز وجل واستغفاره في سائر يومك";
-    actions = `
-      <button class="dhc-btn dhc-btn--primary" onclick="openMisbaha()">
-        <i class="fas fa-circle-notch"></i>
-        <span>المسبحة الإلكترونية</span>
-      </button>
-    `;
+    icon = "fa-moon";
+    title = "أذكار النوم";
+    sub = "أذكار تحفظك حتى تصبح بإذن الله";
+    action = "showCategoryPage('sleep')";
+    ctaIcon = "fa-bed";
+    ctaLabel = "ابدأ";
   }
 
-  container.className = "dynamic-hero-card dynamic-hero-card--" + mode;
+  container.className = "pt-azkar-strip pt-azkar-strip--" + mode;
   container.innerHTML = `
-    <div class="dhc-glow"></div>
-    <div class="dhc-inner">
-      <div class="dhc-top">
-        <span class="dhc-badge">${badge}</span>
-        <div class="dhc-icon-wrap">${icon}</div>
-      </div>
-      <div class="dhc-body">
-        <h3 class="dhc-title">${title}</h3>
-        <p class="dhc-subtitle">${subtitle}</p>
-      </div>
-      <div class="dhc-actions">
-        ${actions}
-      </div>
+    <div class="pt-azkar-strip__ico"><i class="fas ${icon}"></i></div>
+    <div class="pt-azkar-strip__txt">
+      <div class="pt-azkar-strip__title">${title}</div>
+      <div class="pt-azkar-strip__sub">${sub}</div>
     </div>
+    <button class="pt-azkar-strip__play" onclick="${action}" title="${ctaLabel}" aria-label="${ctaLabel}">
+      <i class="fas ${ctaIcon}"></i>
+    </button>
   `;
 }
 

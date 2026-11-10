@@ -29,7 +29,7 @@ const FILES = [
   "manifest.json",
 ];
 
-const DIRECTORIES = ["js", "data", "images"];
+const DIRECTORIES = ["js", "data", "images", "css"];
 
 const clean = process.argv.includes("--clean");
 

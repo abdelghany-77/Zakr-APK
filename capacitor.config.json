@@ -6,11 +6,11 @@
     "allowMixedContent": false,
     "captureInput": true,
     "webContentsDebuggingEnabled": false,
-    "backgroundColor": "#1a202c"
+    "backgroundColor": "#0b1418"
   },
   "ios": {
     "contentInset": "always",
-    "backgroundColor": "#1a202c"
+    "backgroundColor": "#0b1418"
   },
   "server": {
     "androidScheme": "https",
@@ -20,13 +20,13 @@
   "plugins": {
     "StatusBar": {
       "style": "DARK",
-      "backgroundColor": "#1a202c",
+      "backgroundColor": "#0b1418",
       "overlaysWebView": false
     },
     "SplashScreen": {
       "launchShowDuration": 1200,
       "launchAutoHide": true,
-      "backgroundColor": "#1a202c",
+      "backgroundColor": "#0b1418",
       "androidSplashResourceName": "splash",
       "androidScaleType": "CENTER_CROP",
       "showSpinner": false,
