@@ -4,6 +4,8 @@
 
 .pt-prophets {
   gap: 14px;
+  min-width: 0;
+  overflow-x: clip;
 }
 
 /* ── Continue story card ──────────────────────────────────────────────────── */
@@ -141,8 +143,8 @@ body.light-mode .pt-proph-continue__bar {
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 2px;
-  margin: 0 -18px;
-  padding-inline: 18px;
+  margin: 0;
+  padding-inline: 0;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
