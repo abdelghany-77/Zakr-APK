@@ -3832,11 +3832,12 @@ const prayerNames = {
 
 // Prayer icons
 const prayerIcons = {
-  Fajr: "fa-cloud-sun",
+  Fajr: "fa-cloud-moon",
   Sunrise: "fa-sun",
   Dhuhr: "fa-sun",
   Asr: "fa-cloud-sun",
-  Maghrib: "fa-cloud-moon",
+  Sunset: "fa-cloud-sun",
+  Maghrib: "fa-cloud-sun",
   Isha: "fa-moon",
 };
 
@@ -3861,12 +3862,12 @@ async function initializePrayerTimes() {
   } else if (!prayerTimesData) {
     // Immediate Cairo baseline timings so countdown starts ticking immediately
     prayerTimesData = {
-      Fajr: "04:47",
-      Sunrise: "06:16",
-      Dhuhr: "11:39",
-      Asr: "14:41",
-      Maghrib: "17:09",
-      Isha: "18:37",
+      Fajr: "04:30",
+      Sunrise: "06:00",
+      Dhuhr: "12:00",
+      Asr: "15:30",
+      Maghrib: "18:15",
+      Isha: "19:45",
     };
     displayPrayerTimes(cachedCity);
     startCountdown();
@@ -4093,7 +4094,6 @@ function displayPrayerTimes(cityName) {
   }
 
   updateDynamicHeroCard(now);
-  updateRemindersStrip(now);
   renderAzkarSuggestion();
 }
 
@@ -5343,10 +5343,10 @@ function getFastingState(now) {
 }
 
 function getFastingReminderType(event) {
-  if (!event) return "";
-  if (event.name.includes("الأيام البيض")) return "أيام بيض";
-  if (event.badge === "سنة أسبوعية") return "سنة أسبوعية";
-  return event.badge || "";
+  if (!event) return "تذكير بالصيام";
+  if (event.name && event.name.includes("الأيام البيض")) return "تذكير بالصيام · أيام بيض";
+  if (event.badge === "سنة أسبوعية") return "تذكير بالصيام · سنة أسبوعية";
+  return event.badge ? `تذكير بالصيام · ${event.badge}` : "تذكير بالصيام";
 }
 
 /**
@@ -5388,13 +5388,22 @@ function updateRemindersStrip(now) {
   // ── Ramadan chip ──
   const hijriYear = ramadan.inRamadan ? getHijriDate(date).year : getHijriDate(ramadan.target || date).year;
   if (ramadanLabelEl) {
-    ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} · ${ramadan.inRamadan ? "الشهر الحالي" : "متوقع"}`;
+    if (ramadan.inRamadan) {
+      ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} · الشهر الحالي`;
+    } else if (ramadan.target) {
+      const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+      const targetDay = toArabicDigits(ramadan.target.getDate());
+      const targetMonth = arabicMonths[ramadan.target.getMonth()];
+      ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} · متوقع ${targetDay} ${targetMonth}`;
+    } else {
+      ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} · متوقع`;
+    }
   }
   if (ramadanValueEl) {
     if (ramadan.inRamadan) {
-      ramadanValueEl.innerHTML = `<em>${toArabicDigits(ramadan.daysLeft)}</em> يوماً متبقياً`;
+      ramadanValueEl.innerHTML = `متبقي ${toArabicDigits(ramadan.daysLeft)} يوماً`;
     } else if (ramadan.target) {
-      ramadanValueEl.innerHTML = `<em>${toArabicDigits(ramadan.daysLeft)}</em> يوماً`;
+      ramadanValueEl.innerHTML = `بعد ${toArabicDigits(ramadan.daysLeft)} يوماً`;
     } else {
       ramadanValueEl.textContent = "—";
     }
@@ -5402,15 +5411,15 @@ function updateRemindersStrip(now) {
   if (ramadanBarEl) {
     const pct = ramadan.inRamadan
       ? (ramadan.day / 30) * 100
-      : Math.max(0, Math.min(100, ((354 - ramadan.daysLeft) / 354) * 100));
+      : Math.max(8, Math.min(100, ((354 - ramadan.daysLeft) / 354) * 100));
     ramadanBarEl.style.width = pct.toFixed(1) + "%";
   }
   if (targetLabelEl && ramadan.target) {
     targetLabelEl.textContent = "متوقع: " + formatHijriDateLong(ramadan.target);
   }
 
-  // ── Fasting chip (today / tomorrow only) ──
-  const showFasting = fasting.kind === "today" || fasting.kind === "tomorrow";
+  // ── Fasting chip ──
+  const showFasting = true;
   const spanning = !showFasting;
 
   if (ramadanChipEl) ramadanChipEl.classList.toggle("is-span-2", spanning);
@@ -5445,14 +5454,33 @@ function updateRemindersStrip(now) {
     fasting.kind = "upcoming";
   }
 
-  const fastingDate = fasting.kind === "today" ? date : fasting.date;
-  const weekday = fastingDate.toLocaleDateString("ar-EG", { weekday: "long" });
-  const fajr = formatToArabic12Hour(
-    prayerTimesData && prayerTimesData.Fajr ? prayerTimesData.Fajr : "04:47",
-  );
-  fastingLabelEl.textContent =
-    `صيام ${fasting.kind === "today" ? "اليوم" : "غداً"} · ${weekday}`;
-  fastingValueEl.textContent = `السحور قبل الفجر ${fajr}`;
+  const arabicWeekdays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+  const fajrRaw = (prayerTimesData && prayerTimesData.Fajr) || "04:47";
+  const formattedFajr = formatToArabic12Hour(fajrRaw) || "٤:٤٧ ص";
+  const maghribRaw = (prayerTimesData && prayerTimesData.Maghrib) || "17:02";
+  const formattedMaghrib = formatToArabic12Hour(maghribRaw) || "٥:٠٢ م";
+
+  if (fasting.kind === "today") {
+    const todayDayName = arabicWeekdays[date.getDay()];
+    fastingLabelEl.textContent = `تذكير بالصيام · اليوم ${todayDayName}`;
+    fastingValueEl.textContent = `الإفطار عند المغرب ${formattedMaghrib}`;
+  } else if (fasting.kind === "tomorrow") {
+    const tmrDayName = arabicWeekdays[(date.getDay() + 1) % 7];
+    const reminderType = getFastingReminderType(fasting.event);
+    fastingLabelEl.textContent = reminderType ? `${reminderType} · غداً ${tmrDayName}` : `تذكير بالصيام · غداً ${tmrDayName}`;
+    fastingValueEl.textContent = `السحور قبل الفجر ${formattedFajr}`;
+  } else {
+    const targetDayName = fasting.date ? arabicWeekdays[fasting.date.getDay()] : "";
+    const reminderType = getFastingReminderType(fasting.event);
+    if (reminderType && targetDayName) {
+      fastingLabelEl.textContent = `${reminderType} · ${targetDayName}`;
+    } else if (targetDayName) {
+      fastingLabelEl.textContent = `تذكير بالصيام · ${targetDayName}`;
+    } else {
+      fastingLabelEl.textContent = "تذكير بالصيام";
+    }
+    fastingValueEl.textContent = `السحور قبل الفجر ${formattedFajr}`;
+  }
 }
 
 function getRamadanCountdownParts(target, now) {
@@ -6686,10 +6714,26 @@ window.resumeLastReading = resumeLastReading;
 let currentDailyDuaa = null;
 
 function updateDailyDuaa(date) {
-  setDisplayedDuaa({
-    text: "اللهم ألهمني رشدي، وأعذني من شر نفسي",
-    source: "السنة النبوية",
-  });
+  let allDuaas = [];
+  if (
+    typeof dailyDuasCollection !== "undefined" &&
+    dailyDuasCollection.length > 0
+  ) {
+    allDuaas = dailyDuasCollection;
+  } else if (
+    typeof adhkarData !== "undefined" &&
+    adhkarData.dua &&
+    adhkarData.dua.adhkar
+  ) {
+    allDuaas = adhkarData.dua.adhkar;
+  }
+
+  if (allDuaas.length === 0) return;
+
+  const seedString = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  const seed = stringToSeed(seedString);
+  const randomIndex = Math.floor(random(seed) * allDuaas.length);
+  setDisplayedDuaa(allDuaas[randomIndex]);
 }
 
 function setDisplayedDuaa(duaa) {

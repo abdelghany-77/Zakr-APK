@@ -51,7 +51,7 @@
   <link rel="stylesheet" href="css/pages/settings-modal.css" />
 
   <link
-    href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=Cairo:wght@300;400;600;700&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=Aref+Ruqaa:wght@400;700&family=Cairo:wght@300;400;600;700&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 
@@ -172,42 +172,42 @@
                   <div class="prayer-icon"><i class="fas fa-cloud-sun"></i></div>
                   <div class="prayer-info">
                     <div class="prayer-name">الفجر</div>
-                    <div class="prayer-time">٤:٤٧ ص</div>
+                    <div class="prayer-time">٤:٣٠ ص</div>
                   </div>
                 </div>
                 <div class="prayer-card" data-prayer="Sunrise">
                   <div class="prayer-icon"><i class="fas fa-sun"></i></div>
                   <div class="prayer-info">
                     <div class="prayer-name">الشروق</div>
-                    <div class="prayer-time">٦:١٦ ص</div>
+                    <div class="prayer-time">٦:٠٠ ص</div>
                   </div>
                 </div>
                 <div class="prayer-card" data-prayer="Dhuhr">
                   <div class="prayer-icon"><i class="fas fa-sun"></i></div>
                   <div class="prayer-info">
                     <div class="prayer-name">الظهر</div>
-                    <div class="prayer-time">١١:٣٩ ص</div>
+                    <div class="prayer-time">١٢:٠٠ م</div>
                   </div>
                 </div>
                 <div class="prayer-card" data-prayer="Asr">
                   <div class="prayer-icon"><i class="fas fa-sun"></i></div>
                   <div class="prayer-info">
                     <div class="prayer-name">العصر</div>
-                    <div class="prayer-time">٢:٤١ م</div>
+                    <div class="prayer-time">٣:٣٠ م</div>
                   </div>
                 </div>
                 <div class="prayer-card" data-prayer="Maghrib">
-                  <div class="prayer-icon"><i class="fas fa-cloud-moon"></i></div>
+                  <div class="prayer-icon"><i class="fas fa-cloud-sun"></i></div>
                   <div class="prayer-info">
                     <div class="prayer-name">المغرب</div>
-                    <div class="prayer-time">٥:٠٩ م</div>
+                    <div class="prayer-time">٦:١٥ م</div>
                   </div>
                 </div>
                 <div class="prayer-card" data-prayer="Isha">
-                  <div class="prayer-icon"><i class="fas fa-cloud-moon"></i></div>
+                  <div class="prayer-icon"><i class="fas fa-moon"></i></div>
                   <div class="prayer-info">
                     <div class="prayer-name">العشاء</div>
-                    <div class="prayer-time">٦:٣٧ م</div>
+                    <div class="prayer-time">٧:٤٥ م</div>
                   </div>
                 </div>
               </div>
@@ -229,30 +229,36 @@
           </div>
 
           <!-- ==============================================
-               REMINDERS STRIP — Ramadan + voluntary fasting
-               Compact single row; full details open in the
-               «تذكير الصيام» bottom sheet.
+               REMINDERS CARD — Ramadan countdown + voluntary fasting
+               Unified card with dual-row layout matching reference
                ============================================== -->
-          <div class="pt-remind" id="remindersStrip">
-            <button type="button" class="pt-card pt-remind__chip is-gold" id="remindRamadanSeg"
+          <div class="pt-card pt-remind-card" id="remindersStrip">
+            <!-- Row 1: Ramadan countdown -->
+            <button type="button" class="pt-remind-row" id="remindRamadanSeg"
               onclick="openRemindersSheet('ramadan')" aria-label="تفاصيل رمضان">
-              <span class="pt-remind__tile is-gold"><i class="fas fa-moon"></i></span>
-              <span class="pt-remind__body">
-                <span class="pt-remind__label" id="remindRamadanLabel">رمضان ١٤٤٨ · متوقع</span>
-                <span class="pt-remind__value" id="remindRamadanValue">—</span>
-                <span class="pt-remind__sub" id="remindRamadanDate" hidden></span>
+              <span class="pt-remind-tile is-gold"><i class="fas fa-moon"></i></span>
+              <span class="pt-remind-body">
+                <span class="pt-remind-sub" id="remindRamadanLabel">رمضان ١٤٤٨ · متوقع ٨ فبراير</span>
+                <span class="pt-remind-main" id="remindRamadanValue">بعد ٩٠ يوماً</span>
+                <span class="pt-remind-sub" id="remindRamadanDate" hidden></span>
               </span>
-              <span class="pt-remind__bar" id="remindRamadanBar" aria-hidden="true"></span>
-              <i class="fas fa-chevron-left pt-remind__arrow" aria-hidden="true"></i>
+              <span class="pt-remind-arrow"><i class="fas fa-chevron-left"></i></span>
             </button>
-            <button type="button" class="pt-card pt-remind__chip is-em" id="remindFastingSeg"
+
+            <!-- Divider with gold progress line -->
+            <div class="pt-remind-divider">
+              <div class="pt-remind-progress-fill" id="remindRamadanBar" style="width: 25%;"></div>
+            </div>
+
+            <!-- Row 2: Voluntary fasting reminder -->
+            <button type="button" class="pt-remind-row" id="remindFastingSeg"
               onclick="openRemindersSheet('fasting')" aria-label="تذكير الصيام">
-              <span class="pt-remind__tile is-em"><i class="far fa-calendar-check" id="remindFastingIcon"></i></span>
-              <span class="pt-remind__body">
-                <span class="pt-remind__label" id="remindFastingLabel">تذكير الصيام</span>
-                <span class="pt-remind__value" id="remindFastingValue">جارٍ الحساب</span>
+              <span class="pt-remind-tile is-em"><i class="far fa-calendar-check" id="remindFastingIcon"></i></span>
+              <span class="pt-remind-body">
+                <span class="pt-remind-sub" id="remindFastingLabel">تذكير بالصيام · سنة أسبوعية</span>
+                <span class="pt-remind-main" id="remindFastingValue">السحور قبل الفجر ٤:٤٧ ص</span>
               </span>
-              <i class="fas fa-chevron-left pt-remind__arrow" aria-hidden="true"></i>
+              <span class="pt-remind-arrow"><i class="fas fa-chevron-left"></i></span>
             </button>
           </div>
 
@@ -273,7 +279,7 @@
               </div>
             </div>
             <div class="duaa-body-wrap">
-              <p class="duaa-compact-text" id="dailyDuaaText">«اللهم ألهمني رشدي، وأعذني من شر نفسي»</p>
+              <p class="duaa-compact-text" id="dailyDuaaText">«اللَّهُمَّ أَلْهِمْنِي رُشْدِي، وَأَعِذْنِي مِنْ شَرِّ نَفْسِي»</p>
             </div>
             <div class="duaa-footer" id="duaaFooter">
               <span class="duaa-source-badge" id="duaaSourceBadge">
