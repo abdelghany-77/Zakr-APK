@@ -89,3 +89,30 @@ test("rolls back all writes when a backup restore fails partway", () => {
   assert.equal(localStorage.getItem("b"), "old-b");
   assert.match(alerts[0], /فشل استيراد/);
 });
+
+test("uses native file and share plugins for Android exports", async () => {
+  const { context } = loadStorage({ initial: { progress: "done" } });
+  const calls = [];
+  context.Capacitor = {
+    isNativePlatform: () => true,
+    Plugins: {
+      Filesystem: {
+        writeFile: async (options) => {
+          calls.push(["writeFile", options]);
+          return { uri: "content://backup.json" };
+        },
+      },
+      Share: {
+        share: async (options) => calls.push(["share", options]),
+      },
+    },
+  };
+
+  await context.exportUserData();
+
+  assert.equal(calls[0][0], "writeFile");
+  assert.equal(calls[0][1].directory, "DOCUMENTS");
+  assert.match(calls[0][1].data, /"type": "tazkeer-progress-backup"/);
+  assert.equal(calls[1][0], "share");
+  assert.equal(calls[1][1].url, "content://backup.json");
+});

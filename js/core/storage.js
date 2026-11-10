@@ -146,7 +146,7 @@
   /**
    * Export all user progress and preferences as a downloadable JSON file
    */
-  global.exportUserData = function () {
+  global.exportUserData = async function () {
     try {
       var data = {};
       // 1. Export all persistent keys from localStorage
@@ -174,15 +174,45 @@
         exportedAt: new Date().toISOString(),
         keys: data,
       };
+      var fileName = "tazkeer-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+      var json = JSON.stringify(payload, null, 2);
+      var capacitor = global.Capacitor;
+      var nativePlugins = capacitor && capacitor.Plugins;
 
-      var blob = new Blob([JSON.stringify(payload, null, 2)], {
+      if (
+        capacitor &&
+        typeof capacitor.isNativePlatform === "function" &&
+        capacitor.isNativePlatform() &&
+        nativePlugins &&
+        nativePlugins.Filesystem &&
+        nativePlugins.Share
+      ) {
+        var savedFile = await nativePlugins.Filesystem.writeFile({
+          path: fileName,
+          data: json,
+          directory: "DOCUMENTS",
+          encoding: "utf8",
+          recursive: true,
+        });
+        await nativePlugins.Share.share({
+          title: "نسخة احتياطية من إنجازات ذَكِّرْ",
+          text: "ملف النسخة الاحتياطية لإنجازات وبيانات ذَكِّرْ",
+          url: savedFile.uri,
+          dialogTitle: "حفظ النسخة الاحتياطية",
+        });
+        if (typeof global.showNotification === "function") {
+          global.showNotification("تم تجهيز النسخة الاحتياطية للمشاركة أو الحفظ 📁");
+        }
+        return;
+      }
+
+      var blob = new Blob([json], {
         type: "application/json;charset=utf-8",
       });
       var url = URL.createObjectURL(blob);
       var a = document.createElement("a");
-      var now = new Date().toISOString().slice(0, 10);
       a.href = url;
-      a.download = "tazkeer-backup-" + now + ".json";
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

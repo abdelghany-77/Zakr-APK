@@ -478,7 +478,20 @@
     // remaining adhans.
     if (!collected.length) {
       var cachedToday = readJSON("cachedPrayerTimes", null);
-      if (cachedToday && typeof cachedToday === "object") {
+      var cachedDate = global.localStorage.getItem("cachedPrayerDate");
+      var cachedLat = Number(global.localStorage.getItem("cachedPrayerLatitude"));
+      var cachedLng = Number(global.localStorage.getItem("cachedPrayerLongitude"));
+      var cacheMatchesLocation =
+        Number.isFinite(cachedLat) &&
+        Number.isFinite(cachedLng) &&
+        Math.abs(cachedLat - lat) < 0.01 &&
+        Math.abs(cachedLng - lng) < 0.01;
+      if (
+        cachedToday &&
+        typeof cachedToday === "object" &&
+        cachedDate === dateKey(today) &&
+        cacheMatchesLocation
+      ) {
         collected.push({ date: today, timings: cachedToday });
       }
     }

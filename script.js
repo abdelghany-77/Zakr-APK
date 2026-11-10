@@ -2788,6 +2788,13 @@ function handleError(error, context = "general") {
 let prayerTimesData = null;
 let countdownInterval = null;
 
+function localDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 // Prayer names mapping
 const prayerNames = {
   Fajr: "الفجر",
@@ -2817,34 +2824,8 @@ async function initializePrayerTimes() {
   const section = document.getElementById("prayerTimesSection");
   if (!section) return;
 
-  // 1. Instant Cache Check: Render immediately to eliminate FOEC and any '--:--' delay
-  const cachedDataStr = localStorage.getItem("cachedPrayerTimes");
-  const cachedCity = localStorage.getItem("cachedPrayerCity") || "القاهرة";
-  if (cachedDataStr) {
-    try {
-      prayerTimesData = JSON.parse(cachedDataStr);
-      displayPrayerTimes(cachedCity);
-      startCountdown();
-      const loading = document.getElementById("prayerTimesLoading");
-      if (loading) loading.style.display = "none";
-    } catch (e) {
-      console.warn("Cached prayer times error", e);
-    }
-  } else if (!prayerTimesData) {
-    // Immediate Cairo baseline timings so countdown starts ticking immediately
-    prayerTimesData = {
-      Fajr: "04:30",
-      Sunrise: "06:00",
-      Dhuhr: "12:00",
-      Asr: "15:30",
-      Maghrib: "18:15",
-      Isha: "19:45",
-    };
-    displayPrayerTimes(cachedCity);
-    startCountdown();
-  }
-
-  // 2. Determine location: use saved or default to Cairo immediately
+  // 1. Determine location before reading the cache so another city's timings
+  // are never shown as today's timings.
   const savedLocation = localStorage.getItem("prayerLocation");
   let lat = 30.0444;
   let lng = 31.2357;
@@ -2861,7 +2842,35 @@ async function initializePrayerTimes() {
     }
   }
 
-  // 3. Seamlessly fetch fresh times in background
+  // 2. Render only a cache created today for the current coordinates.
+  const cachedCity = localStorage.getItem("cachedPrayerCity") || city;
+  const cachedDate = localStorage.getItem("cachedPrayerDate");
+  const cachedLat = Number(localStorage.getItem("cachedPrayerLatitude"));
+  const cachedLng = Number(localStorage.getItem("cachedPrayerLongitude"));
+  const todayKey = localDateKey(new Date());
+  const cacheMatchesLocation =
+    Number.isFinite(cachedLat) &&
+    Number.isFinite(cachedLng) &&
+    Math.abs(cachedLat - lat) < 0.01 &&
+    Math.abs(cachedLng - lng) < 0.01;
+  const cachedDataStr =
+    cachedDate === todayKey && cacheMatchesLocation
+      ? localStorage.getItem("cachedPrayerTimes")
+      : null;
+
+  if (cachedDataStr) {
+    try {
+      prayerTimesData = JSON.parse(cachedDataStr);
+      displayPrayerTimes(cachedCity);
+      startCountdown();
+      const loading = document.getElementById("prayerTimesLoading");
+      if (loading) loading.style.display = "none";
+    } catch (e) {
+      console.warn("Cached prayer times error", e);
+    }
+  }
+
+  // 3. Fetch today's timings in background.
   fetchPrayerTimes(lat, lng, city);
 
   // Setup event listeners
@@ -3000,6 +3009,9 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
         JSON.stringify(prayerTimesData),
       );
       localStorage.setItem("cachedPrayerCity", cityName);
+      localStorage.setItem("cachedPrayerDate", localDateKey(today));
+      localStorage.setItem("cachedPrayerLatitude", String(latitude));
+      localStorage.setItem("cachedPrayerLongitude", String(longitude));
 
       displayPrayerTimes(cityName);
       startCountdown();
@@ -3014,7 +3026,18 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
     console.error("Prayer times fetch error:", err);
 
     // Check cache
-    const cachedDataStr = localStorage.getItem("cachedPrayerTimes");
+    const cachedDate = localStorage.getItem("cachedPrayerDate");
+    const cachedLat = Number(localStorage.getItem("cachedPrayerLatitude"));
+    const cachedLng = Number(localStorage.getItem("cachedPrayerLongitude"));
+    const cacheMatchesRequest =
+      cachedDate === localDateKey(new Date()) &&
+      Number.isFinite(cachedLat) &&
+      Number.isFinite(cachedLng) &&
+      Math.abs(cachedLat - latitude) < 0.01 &&
+      Math.abs(cachedLng - longitude) < 0.01;
+    const cachedDataStr = cacheMatchesRequest
+      ? localStorage.getItem("cachedPrayerTimes")
+      : null;
     const cachedCity = localStorage.getItem("cachedPrayerCity");
 
     if (cachedDataStr) {
