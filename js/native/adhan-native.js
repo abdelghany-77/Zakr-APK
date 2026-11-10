@@ -570,6 +570,11 @@
       }
 
       var alarms = buildAlarms(days, settings);
+      if (!alarms.length) {
+        state.lastError = "مواقيت الصلاة الحالية غير صالحة للجدولة.";
+        await refreshNextAlarm();
+        return false;
+      }
       var result = await plugin.scheduleAlarms({ alarms: alarms });
 
       state.lastSync = Date.now();
@@ -1345,6 +1350,12 @@
       if (appPlugin && typeof appPlugin.addListener === "function") {
         appPlugin.addListener("appStateChange", function (appState) {
           if (appState && appState.isActive) onResume();
+        });
+        appPlugin.addListener("appUrlOpen", function (event) {
+          var match = event && event.url && event.url.match(/tazkeer:\/\/open\/([^?]+)/);
+          if (match && /^tab-(home|azkar|quran|prophets|profile)$/.test(match[1])) {
+            if (typeof global.switchTab === "function") global.switchTab(match[1]);
+          }
         });
       }
     } catch (error) {

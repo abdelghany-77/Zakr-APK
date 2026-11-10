@@ -425,7 +425,7 @@ public class AdhanSchedulerPlugin extends Plugin {
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setContentIntent(pendingIntent);
 
-        int notifId = (int) (System.currentTimeMillis() % 100000);
+        int notifId = call.getInt("id", 99001);
         manager.notify(notifId, builder.build());
 
         // Play the device notification ringtone
@@ -434,6 +434,41 @@ public class AdhanSchedulerPlugin extends Plugin {
         JSObject res = new JSObject();
         res.put("success", true);
         call.resolve(res);
+    }
+
+    @PluginMethod
+    public void scheduleAzkarReminders(PluginCall call) {
+        JSArray reminders = call.getArray("reminders");
+        if (reminders == null) {
+            call.reject("reminders array is required");
+            return;
+        }
+        try {
+            ensureAzkarChannel();
+            int scheduled = AdhkarAlarmManager.scheduleAll(
+                    getContext(), new JSONArray(reminders.toString())
+            );
+            if (scheduled < 0) {
+                call.reject("Invalid adhkar replacement schedule");
+                return;
+            }
+            JSObject result = new JSObject();
+            result.put("scheduled", scheduled);
+            result.put("requested", reminders.length());
+            result.put("exactAlarms", AdhanAlarmManager.canScheduleExactAlarms(getContext()));
+            call.resolve(result);
+        } catch (JSONException error) {
+            Log.e(TAG, "Invalid adhkar reminders payload", error);
+            call.reject("Invalid adhkar reminders payload: " + error.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void cancelAzkarReminders(PluginCall call) {
+        AdhkarAlarmManager.cancelAll(getContext());
+        JSObject result = new JSObject();
+        result.put("cancelled", true);
+        call.resolve(result);
     }
 
     @PluginMethod

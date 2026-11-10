@@ -1,12 +1,13 @@
 {
   "name": "tazkeer",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "ذَكِّرْ — رفيق المسلم: قرآن، أذكار، مواقيت صلاة، وأذان أصلي يعمل في الخلفية",
   "author": "Abdelghany-77",
   "license": "UNLICENSED",
   "scripts": {
     "build": "node scripts/prepare-www.mjs",
+    "test": "node --test tests/core-utils.test.mjs tests/storage-atomic.test.mjs",
     "sync": "npm run build && cap sync android",
     "copy": "npm run build && cap copy android",
     "open:android": "npx cap open android",

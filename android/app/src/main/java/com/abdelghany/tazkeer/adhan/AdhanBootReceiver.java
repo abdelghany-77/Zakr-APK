@@ -38,6 +38,8 @@ public class AdhanBootReceiver extends BroadcastReceiver {
         try {
             int restored = AdhanAlarmManager.rescheduleStored(context);
             Log.i(TAG, "Restored " + restored + " adhan alarms");
+            int adhkarRestored = AdhkarAlarmManager.rescheduleStored(context);
+            Log.i(TAG, "Restored " + adhkarRestored + " adhkar reminders");
         } catch (Exception e) {
             Log.e(TAG, "Failed to restore adhan alarms", e);
         }

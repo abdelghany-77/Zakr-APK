@@ -3906,6 +3906,29 @@ async function initializePrayerTimes() {
   }
 }
 
+function refreshPrayerTimesForCurrentLocation(reason) {
+  const savedLocation = localStorage.getItem("prayerLocation");
+  let location = {
+    latitude: 30.0444,
+    longitude: 31.2357,
+    city: "القاهرة",
+  };
+  if (savedLocation) {
+    try {
+      const parsed = JSON.parse(savedLocation);
+      location = {
+        latitude: Number(parsed.latitude) || location.latitude,
+        longitude: Number(parsed.longitude) || location.longitude,
+        city: parsed.city || location.city,
+      };
+    } catch (error) {
+      console.warn("Saved location parse error during daily refresh:", error);
+    }
+  }
+  console.log("[PrayerTimes] Refreshing schedule:", reason || "manual");
+  return fetchPrayerTimes(location.latitude, location.longitude, location.city);
+}
+
 // Request user location
 async function requestLocation() {
   const loading = document.getElementById("prayerTimesLoading");
@@ -4009,15 +4032,7 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
 
       displayPrayerTimes(cityName);
       startCountdown();
-
-      // Reconcile the native 7-day Adhan schedule with the fresh timings.
-      if (window.AdhanNative && window.AdhanNative.onPrayerTimesUpdated) {
-        try {
-          window.AdhanNative.onPrayerTimesUpdated(prayerTimesData, cityName);
-        } catch (err) {
-          console.warn("Adhan sync hook error:", err);
-        }
-      }
+      reconcilePrayerSchedules(cityName);
 
       if (loading) loading.style.display = "none";
       if (error) error.classList.add("hidden");
@@ -4036,6 +4051,7 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
         prayerTimesData = JSON.parse(cachedDataStr);
         displayPrayerTimes(cachedCity || cityName);
         startCountdown();
+        reconcilePrayerSchedules(cachedCity || cityName);
 
         if (loading) loading.style.display = "none";
         if (error) error.classList.add("hidden");
@@ -4044,6 +4060,19 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
       }
     } else {
       showPrayerTimesError("تعذر تحميل مواقيت الصلاة");
+    }
+  }
+
+  function reconcilePrayerSchedules(cityName) {
+    if (window.AdhanNative && window.AdhanNative.onPrayerTimesUpdated) {
+      try {
+        window.AdhanNative.onPrayerTimesUpdated(prayerTimesData, cityName);
+      } catch (error) {
+        console.warn("Adhan sync hook error:", error);
+      }
+    }
+    if (typeof window.syncAzkarNativeSchedule === "function") {
+      window.syncAzkarNativeSchedule();
     }
   }
 }
@@ -4340,6 +4369,13 @@ document.addEventListener("DOMContentLoaded", function () {
     initializePrayerTimes();
   } catch (err) {
     console.error("Fast-boot prayer times error:", err);
+  }
+
+  if (
+    window.PrayerDailyRefresh &&
+    typeof window.PrayerDailyRefresh.start === "function"
+  ) {
+    window.PrayerDailyRefresh.start(refreshPrayerTimesForCurrentLocation);
   }
 
   try {
@@ -6350,6 +6386,90 @@ function setAzkarReminderEnabled(enabled) {
   // Update toggle UI if exists
   const toggle = document.getElementById("azkarReminderToggle");
   if (toggle) toggle.checked = enabled;
+  syncAzkarNativeSchedule();
+}
+
+function azkarStableId(dateKey, reminderKey) {
+  let hash = 2166136261;
+  const value = "azkar:" + dateKey + ":" + reminderKey;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return 10000 + (hash >>> 0) % 2000000000;
+}
+
+function azkarTimeFor(prayerKey, fallback) {
+  const value = prayerTimesData && prayerTimesData[prayerKey];
+  return /^\d{1,2}:\d{2}/.test(String(value || "")) ? String(value).slice(0, 5) : fallback;
+}
+
+function buildAzkarNativeSchedule() {
+  const reminders = [
+    { key: "morning", time: azkarTimeFor("Fajr", "06:00"), section: "tab-azkar" },
+    { key: "midday", time: "12:00", section: "tab-home" },
+    { key: "evening", time: azkarTimeFor("Asr", "16:00"), section: "tab-azkar" },
+    { key: "night", time: azkarTimeFor("Isha", "20:00"), section: "tab-azkar" }
+  ];
+  const schedule = [];
+  const today = new Date();
+  for (let dayOffset = 0; dayOffset < 7; dayOffset += 1) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + dayOffset);
+    const dateKey = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0")
+    ].join("-");
+    reminders.forEach((reminder) => {
+      const match = reminder.time.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) return;
+      const at = new Date(
+        date.getFullYear(), date.getMonth(), date.getDate(),
+        Number(match[1]), Number(match[2]), 0, 0
+      );
+      if (at.getTime() <= Date.now() + 5000) return;
+      const text = getAzkarReminderText(reminder.key);
+      if (!text) return;
+      schedule.push({
+        id: azkarStableId(dateKey, reminder.key),
+        date: dateKey,
+        time: at.getTime(),
+        timeOfDay: reminder.time,
+        key: reminder.key,
+        title: text.title,
+        body: text.body,
+        section: reminder.section
+      });
+    });
+  }
+  return schedule;
+}
+
+async function syncAzkarNativeSchedule() {
+  const plugin =
+    window.Capacitor &&
+    window.Capacitor.isNativePlatform &&
+    window.Capacitor.isNativePlatform() &&
+    window.Capacitor.Plugins &&
+    window.Capacitor.Plugins.AdhanScheduler;
+  if (!plugin) return false;
+  try {
+    if (!isAzkarReminderEnabled()) {
+      await plugin.cancelAzkarReminders();
+      return true;
+    }
+    const reminders = buildAzkarNativeSchedule();
+    if (!reminders.length) return false;
+    const result = await plugin.scheduleAzkarReminders({ reminders });
+    if (result && result.scheduled === 0) {
+      console.warn("[Azkar] Native scheduler accepted no reminders");
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("[Azkar] Native schedule sync failed:", error);
+    return false;
+  }
 }
 
 /**
@@ -6523,7 +6643,11 @@ function checkAzkarReminderTransition() {
     renderAzkarSuggestion();
   }
 
-  if (isAzkarReminderEnabled() && _lastHeroMode !== null && currentMode !== _lastHeroMode) {
+  const nativeNotifications =
+    window.Capacitor &&
+    window.Capacitor.isNativePlatform &&
+    window.Capacitor.isNativePlatform();
+  if (!nativeNotifications && isAzkarReminderEnabled() && _lastHeroMode !== null && currentMode !== _lastHeroMode) {
     const reminder = getAzkarReminderText(currentMode);
     if (reminder) {
       // In-app toast
@@ -6551,6 +6675,7 @@ function startAzkarReminderEngine() {
 document.addEventListener("DOMContentLoaded", function () {
   startAzkarReminderEngine();
   checkFirstLaunchSettings();
+  syncAzkarNativeSchedule();
 });
 
 // Global exports
@@ -6558,6 +6683,7 @@ window.isAzkarReminderEnabled = isAzkarReminderEnabled;
 window.setAzkarReminderEnabled = setAzkarReminderEnabled;
 window.testAzkarReminder = testAzkarReminder;
 window.playAzkarChime = playAzkarChime;
+window.syncAzkarNativeSchedule = syncAzkarNativeSchedule;
 
 function updateDynamicHeroCard(now) {
   const container = document.getElementById("dynamicHeroCard");
