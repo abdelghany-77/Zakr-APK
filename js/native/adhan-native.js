@@ -1413,6 +1413,12 @@
     scheduleResync(1200);
   }
 
+  async function getPrayerDays(daysAhead) {
+    var location = getLocation();
+    var count = Number(daysAhead) || 7;
+    return collectDays(location.lat, location.lng, Math.max(1, Math.min(14, count)));
+  }
+
   // ---------------------------------------------------------------------------
   // Boot
   // ---------------------------------------------------------------------------
@@ -1466,6 +1472,7 @@
     refreshPermissions: refreshPermissions,
     refreshNextAlarm: refreshNextAlarm,
     syncSchedule: syncSchedule,
+    getPrayerDays: getPrayerDays,
     onPrayerTimesUpdated: onPrayerTimesUpdated,
     openModal: openAdhanModal,
     closeModal: closeAdhanModal,

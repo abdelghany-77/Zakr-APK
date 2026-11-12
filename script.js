@@ -5329,28 +5329,28 @@ function getAzkarReminderText(mode) {
   switch (mode) {
     case "morning":
       return {
-        title: "🌅 أذكار الصباح",
-        body: "حان وقت أذكار الصباح — حِصنك ليومك بإذن الله"
+        title: "أذكار الصباح",
+        body: "حان وقت أذكار الصباح، حصنك ليومك بإذن الله"
       };
     case "evening":
       return {
-        title: "🌙 أذكار المساء",
-        body: "حان وقت أذكار المساء — طمأنينة لقلبك وحفظ من كل سوء"
+        title: "أذكار المساء",
+        body: "حان وقت أذكار المساء، طمأنينة لقلبك وحفظ من كل سوء"
       };
     case "night":
       return {
-        title: "🌜 أذكار النوم",
+        title: "أذكار النوم",
         body: "لا تنسَ أذكار النوم وسورة الملك قبل أن تنام"
       };
     case "friday":
       return {
-        title: "🕌 يوم الجمعة المبارك",
+        title: "يوم الجمعة المبارك",
         body: "لا تنسَ قراءة سورة الكهف والإكثار من الصلاة على النبي ﷺ"
       };
     case "midday":
       return {
-        title: "💚 استراحة ذكر",
-        body: "رطّب لسانك بذكر الله وتسبيحه في وسط يومك"
+        title: "استراحة ذكر",
+        body: "رطّب لسانك بذكر الله وتسبيحه بعد الظهر"
       };
     default:
       return null;
@@ -5398,29 +5398,64 @@ function azkarTimeFor(prayerKey, fallback) {
   return /^\d{1,2}:\d{2}/.test(String(value || "")) ? String(value).slice(0, 5) : fallback;
 }
 
-function buildAzkarNativeSchedule() {
+async function buildAzkarNativeSchedule() {
+  const fallbackDay = {
+    date: new Date(),
+    timings: prayerTimesData || {},
+  };
+  let days = [fallbackDay];
+  if (
+    window.AdhanNative &&
+    typeof window.AdhanNative.getPrayerDays === "function"
+  ) {
+    try {
+      const collected = await window.AdhanNative.getPrayerDays(7);
+      if (Array.isArray(collected) && collected.length > 0) days = collected;
+    } catch (error) {
+      console.warn("[Azkar] Prayer calendar unavailable; using today's timings", error);
+    }
+  }
+
   const reminders = [
-    { key: "morning", time: azkarTimeFor("Fajr", "06:00"), section: "tab-azkar" },
-    { key: "midday", time: "12:00", section: "tab-home" },
-    { key: "evening", time: azkarTimeFor("Asr", "16:00"), section: "tab-azkar" },
-    { key: "night", time: azkarTimeFor("Isha", "20:00"), section: "tab-azkar" }
+    { key: "morning", prayer: "Fajr", section: "tab-azkar" },
+    { key: "midday", prayer: "Dhuhr", section: "tab-home" },
+    { key: "evening", prayer: "Asr", section: "tab-azkar" },
+    { key: "night", prayer: "Isha", section: "tab-azkar" },
   ];
   const schedule = [];
-  const today = new Date();
-  for (let dayOffset = 0; dayOffset < 7; dayOffset += 1) {
-    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + dayOffset);
+  const addOneHour = (date, timeValue) => {
+    const match = String(timeValue || "").match(/(\d{1,2}):(\d{2})/);
+    if (!match) return null;
+    const at = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      Number(match[1]),
+      Number(match[2]),
+      0,
+      0,
+    );
+    at.setMinutes(at.getMinutes() + 60);
+    return at;
+  };
+  const formatLocalTime = (date) =>
+    `${String(date.getHours()).padStart(2, "0")}:${String(
+      date.getMinutes(),
+    ).padStart(2, "0")}`;
+
+  days.forEach((day) => {
+    const date = day.date instanceof Date ? day.date : new Date(day.date);
+    const timings = day.timings || {};
+    if (Number.isNaN(date.getTime())) return;
     const dateKey = [
       date.getFullYear(),
       String(date.getMonth() + 1).padStart(2, "0"),
       String(date.getDate()).padStart(2, "0")
     ].join("-");
+
     reminders.forEach((reminder) => {
-      const match = reminder.time.match(/^(\d{1,2}):(\d{2})$/);
-      if (!match) return;
-      const at = new Date(
-        date.getFullYear(), date.getMonth(), date.getDate(),
-        Number(match[1]), Number(match[2]), 0, 0
-      );
+      const at = addOneHour(date, timings[reminder.prayer]);
+      if (!at) return;
       if (at.getTime() <= Date.now() + 5000) return;
       const text = getAzkarReminderText(reminder.key);
       if (!text) return;
@@ -5428,14 +5463,53 @@ function buildAzkarNativeSchedule() {
         id: azkarStableId(dateKey, reminder.key),
         date: dateKey,
         time: at.getTime(),
-        timeOfDay: reminder.time,
+        timeOfDay: formatLocalTime(at),
         key: reminder.key,
         title: text.title,
         body: text.body,
         section: reminder.section
       });
     });
-  }
+
+    if (typeof checkFastingOccasions === "function") {
+      const events = checkFastingOccasions(date);
+      if (Array.isArray(events) && events.length > 0) {
+        const reminderDate = new Date(
+          date.getFullYear(),
+          date.getMonth(),
+          date.getDate() - 1,
+          20,
+          0,
+          0,
+          0,
+        );
+        if (reminderDate.getTime() > Date.now() + 5000) {
+          const event = events[0];
+          const eventLabel =
+            (event && (event.name || event.badge)) || "نافلة";
+          const fastingDateKey = [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, "0"),
+            String(date.getDate()).padStart(2, "0"),
+          ].join("-");
+          schedule.push({
+            id: azkarStableId(fastingDateKey, "fasting"),
+            date: [
+              reminderDate.getFullYear(),
+              String(reminderDate.getMonth() + 1).padStart(2, "0"),
+              String(reminderDate.getDate()).padStart(2, "0"),
+            ].join("-"),
+            time: reminderDate.getTime(),
+            timeOfDay: "20:00",
+            key: "fasting",
+            title: "تذكير بالصيام",
+            body: `غدًا موعد الصيام: ${eventLabel}`,
+            section: "tab-home",
+          });
+        }
+      }
+    }
+  });
   return schedule;
 }
 
@@ -5452,7 +5526,7 @@ async function syncAzkarNativeSchedule() {
       await plugin.cancelAzkarReminders();
       return true;
     }
-    const reminders = buildAzkarNativeSchedule();
+    const reminders = await buildAzkarNativeSchedule();
     if (!reminders.length) return false;
     const result = await plugin.scheduleAzkarReminders({ reminders });
     if (result && result.scheduled === 0) {
@@ -5598,8 +5672,8 @@ function sendAzkarSystemNotification(titleText, bodyText) {
 function testAzkarReminder() {
   const currentMode = getHeroCardMode(new Date());
   const reminder = getAzkarReminderText(currentMode) || {
-    title: "🌅 تذكير الأذكار",
-    body: "تجربة إشعار وصوت تنبيه الأذكار — يعمل بنجاح!"
+    title: "تذكير الأذكار",
+    body: "تجربة إشعار وصوت تنبيه الأذكار، يعمل بنجاح"
   };
   showNotification(reminder.body, "info", 5000);
   sendAzkarSystemNotification(reminder.title, reminder.body);

@@ -30,6 +30,14 @@
   transition: transform 0.15s ease;
 }
 
+.pr-basmala {
+  margin: 8px 0 18px;
+  color: var(--pt-em);
+  font-family: var(--font-hadith);
+  font-size: 0.9em;
+  text-align: center;
+}
+
 .pt-proph-continue:active {
   transform: scale(0.985);
 }

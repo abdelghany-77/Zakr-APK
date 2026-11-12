@@ -649,6 +649,7 @@
     var html =
       '<article class="pr-article" style="font-size:' + readerFontSize + 'px">';
     html += '<h2 class="pr-chapter-title">' + ch.title + "</h2>";
+    html += '<div class="pr-basmala">بِسْمِ اللهِ الرَّحْمَنِ الرَّحِيمِ</div>';
 
     // Ornamental divider below title
     html += '<div class="pr-chapter-ornament"><span>❖</span></div>';
