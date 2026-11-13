@@ -2819,13 +2819,182 @@ const prayerIcons = {
   Isha: "fa-moon",
 };
 
-// Initialize Prayer Times - Instant load with Cairo default and local cache
+// ── Detection of official calculation method by geographic region ──
+function detectCalculationMethod(lat, lng) {
+  // Egypt (Egyptian General Authority of Survey - matches Google in Egypt)
+  if (lat >= 21.5 && lat <= 32.0 && lng >= 24.0 && lng <= 37.0) {
+    return 5;
+  }
+  // Saudi Arabia (Umm Al-Qura, Makkah)
+  if (lat >= 16.0 && lat <= 32.5 && lng >= 34.0 && lng <= 55.5) {
+    return 4;
+  }
+  // Gulf Region (UAE, Qatar, Kuwait, Bahrain, Oman)
+  if (lat >= 22.0 && lat <= 30.5 && lng >= 46.0 && lng <= 60.0) {
+    return 8;
+  }
+  // North America (ISNA)
+  if (lat >= 24.0 && lat <= 72.0 && lng >= -170.0 && lng <= -50.0) {
+    return 2;
+  }
+  // Default World (Muslim World League)
+  return 3;
+}
+
+// Clean time string (removes timezone text like "04:49 (EET)" -> "04:49")
+function cleanTimeString(timeStr) {
+  if (!timeStr) return "";
+  return String(timeStr).split(" ")[0].trim();
+}
+
+// Storage key for 30-day monthly calendar
+function getMonthlyCalendarKey(year, month, lat, lng) {
+  return `monthly_prayers_${year}_${month}_${Number(lat).toFixed(2)}_${Number(lng).toFixed(2)}`;
+}
+
+// Read stored monthly calendar from storage
+function getStoredMonthlyCalendar(year, month, lat, lng) {
+  const key = getMonthlyCalendarKey(year, month, lat, lng);
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw);
+    if (data && data.days && Object.keys(data.days).length > 0) {
+      return data;
+    }
+  } catch (e) {
+    console.warn("[PrayerTimes] Error parsing stored monthly calendar:", e);
+  }
+  return null;
+}
+
+// Lookup today's timings from the stored monthly calendar
+function getStoredPrayerTimesForDate(date, lat, lng) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = String(date.getDate());
+  const monthData = getStoredMonthlyCalendar(year, month, lat, lng);
+  if (monthData && monthData.days && monthData.days[day]) {
+    return monthData.days[day];
+  }
+  return null;
+}
+
+// Fetch full 30-day monthly calendar from AlAdhan API and cache locally
+async function fetchAndStoreMonthCalendar(lat, lng, year, month, cityName) {
+  const method = detectCalculationMethod(lat, lng);
+  const url = `https://api.aladhan.com/v1/calendar?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&method=${method}&month=${month}&year=${year}`;
+
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error("AlAdhan Calendar API HTTP " + response.status);
+
+  const json = await response.json();
+  if (!json || !Array.isArray(json.data) || json.data.length === 0) {
+    throw new Error("Invalid calendar payload received from AlAdhan");
+  }
+
+  const daysObj = {};
+  json.data.forEach((dayItem) => {
+    const dayNum = String(parseInt(dayItem.date?.gregorian?.day || "0", 10));
+    if (dayNum !== "0" && dayItem.timings) {
+      daysObj[dayNum] = {
+        Fajr: cleanTimeString(dayItem.timings.Fajr),
+        Sunrise: cleanTimeString(dayItem.timings.Sunrise),
+        Dhuhr: cleanTimeString(dayItem.timings.Dhuhr),
+        Asr: cleanTimeString(dayItem.timings.Asr),
+        Maghrib: cleanTimeString(dayItem.timings.Maghrib),
+        Isha: cleanTimeString(dayItem.timings.Isha),
+        Sunset: cleanTimeString(dayItem.timings.Sunset),
+        Imsak: cleanTimeString(dayItem.timings.Imsak),
+        Midnight: cleanTimeString(dayItem.timings.Midnight),
+      };
+    }
+  });
+
+  const cachePayload = {
+    year,
+    month,
+    lat: Number(lat),
+    lng: Number(lng),
+    cityName: cityName || "",
+    method,
+    savedAt: Date.now(),
+    days: daysObj,
+  };
+
+  const key = getMonthlyCalendarKey(year, month, lat, lng);
+  localStorage.setItem(key, JSON.stringify(cachePayload));
+  console.log(`[PrayerTimes] Stored 30-day monthly calendar for ${year}-${month} (${Object.keys(daysObj).length} days)`);
+
+  return cachePayload;
+}
+
+// Auto-Renewal: Preload next month's calendar in background when month end approaches
+function checkAndPreloadNextMonthCalendar(lat, lng, today, cityName) {
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  // If in the last 5 days of the month, fetch next month's calendar quietly
+  if (daysInMonth - day <= 5) {
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const storedNext = getStoredMonthlyCalendar(nextYear, nextMonth, lat, lng);
+    if (!storedNext) {
+      console.log(`[PrayerTimes] Preloading next month calendar for ${nextYear}-${nextMonth}`);
+      fetchAndStoreMonthCalendar(lat, lng, nextYear, nextMonth, cityName).catch((err) => {
+        console.warn("[PrayerTimes] Next month prefetch warning:", err && err.message);
+      });
+    }
+  }
+}
+
+// ── Location permission polite modal handlers ──
+function showLocationPermissionModal() {
+  const modal = document.getElementById("locationPermissionModal");
+  if (!modal) return;
+  modal.classList.add("is-open");
+  if (window.AppRouter) {
+    window.AppRouter.pushModal("locationPermissionModal", closeLocationPermissionModal);
+  }
+}
+
+function closeLocationPermissionModal() {
+  const modal = document.getElementById("locationPermissionModal");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  if (window.AppRouter && window.AppRouter.isModalOpen("locationPermissionModal")) {
+    window.AppRouter.closeModal("locationPermissionModal");
+  }
+}
+
+function handleEnableLocationFromModal() {
+  closeLocationPermissionModal();
+  requestLocation(false);
+}
+
+function handleDismissLocationModal() {
+  closeLocationPermissionModal();
+  const savedLocation = localStorage.getItem("prayerLocation");
+  if (!savedLocation) {
+    localStorage.setItem(
+      "prayerLocation",
+      JSON.stringify({ latitude: 30.0444, longitude: 31.2357, city: "القاهرة" }),
+    );
+  }
+}
+
+window.showLocationPermissionModal = showLocationPermissionModal;
+window.closeLocationPermissionModal = closeLocationPermissionModal;
+window.handleEnableLocationFromModal = handleEnableLocationFromModal;
+window.handleDismissLocationModal = handleDismissLocationModal;
+
+// Initialize Prayer Times - Instant load with monthly cache and automatic location prompt
 async function initializePrayerTimes() {
   const section = document.getElementById("prayerTimesSection");
   if (!section) return;
 
-  // 1. Determine location before reading the cache so another city's timings
-  // are never shown as today's timings.
   const savedLocation = localStorage.getItem("prayerLocation");
   let lat = 30.0444;
   let lng = 31.2357;
@@ -2834,51 +3003,43 @@ async function initializePrayerTimes() {
   if (savedLocation) {
     try {
       const loc = JSON.parse(savedLocation);
-      lat = loc.latitude || lat;
-      lng = loc.longitude || lng;
+      lat = Number(loc.latitude) || lat;
+      lng = Number(loc.longitude) || lng;
       city = loc.city || city;
     } catch (e) {
       console.warn("Saved location parse error", e);
     }
   }
 
-  // 2. Render only a cache created today for the current coordinates.
-  const cachedCity = localStorage.getItem("cachedPrayerCity") || city;
-  const cachedDate = localStorage.getItem("cachedPrayerDate");
-  const cachedLat = Number(localStorage.getItem("cachedPrayerLatitude"));
-  const cachedLng = Number(localStorage.getItem("cachedPrayerLongitude"));
-  const todayKey = localDateKey(new Date());
-  const cacheMatchesLocation =
-    Number.isFinite(cachedLat) &&
-    Number.isFinite(cachedLng) &&
-    Math.abs(cachedLat - lat) < 0.01 &&
-    Math.abs(cachedLng - lng) < 0.01;
-  const cachedDataStr =
-    cachedDate === todayKey && cacheMatchesLocation
-      ? localStorage.getItem("cachedPrayerTimes")
-      : null;
-
-  if (cachedDataStr) {
-    try {
-      prayerTimesData = JSON.parse(cachedDataStr);
-      displayPrayerTimes(cachedCity);
-      startCountdown();
-      const loading = document.getElementById("prayerTimesLoading");
-      if (loading) loading.style.display = "none";
-    } catch (e) {
-      console.warn("Cached prayer times error", e);
-    }
+  // 1. Instant Render: check stored monthly calendar for today to display immediately
+  const today = new Date();
+  const storedToday = getStoredPrayerTimesForDate(today, lat, lng);
+  if (storedToday) {
+    prayerTimesData = storedToday;
+    displayPrayerTimes(city);
+    startCountdown();
+    const loading = document.getElementById("prayerTimesLoading");
+    if (loading) loading.style.display = "none";
   }
 
-  // 3. Fetch today's timings in background.
+  // 2. Fetch/update monthly calendar in background
   fetchPrayerTimes(lat, lng, city);
+
+  // 3. First launch prompt: if user never set location, ask politely on first open
+  const promptedOnce = localStorage.getItem("locationPromptedOnce");
+  if (!savedLocation && !promptedOnce) {
+    localStorage.setItem("locationPromptedOnce", "true");
+    setTimeout(() => {
+      requestLocation(false);
+    }, 900);
+  }
 
   // Setup event listeners
   const locationBtn = document.getElementById("locationBtn");
   const retryBtn = document.getElementById("retryPrayerTimes");
 
   if (locationBtn) {
-    locationBtn.addEventListener("click", requestLocation);
+    locationBtn.addEventListener("click", () => requestLocation(false));
   }
 
   if (retryBtn) {
@@ -2909,20 +3070,19 @@ function refreshPrayerTimesForCurrentLocation(reason) {
   return fetchPrayerTimes(location.latitude, location.longitude, location.city);
 }
 
-// Request user location
-async function requestLocation() {
+// Request user location with polite modal on refusal
+async function requestLocation(silent) {
   const loading = document.getElementById("prayerTimesLoading");
   const error = document.getElementById("prayerTimesError");
   const grid = document.getElementById("prayerTimesGrid");
 
-  if (loading) loading.style.display = "block";
-  if (error) error.classList.add("hidden");
-  if (grid) grid.innerHTML = "";
-
   if (!navigator.geolocation) {
-    showPrayerTimesError("المتصفح لا يدعم تحديد الموقع");
+    if (!silent) showLocationPermissionModal();
     return;
   }
+
+  if (loading) loading.style.display = "block";
+  if (error) error.classList.add("hidden");
 
   try {
     const position = await new Promise((resolve, reject) => {
@@ -2933,11 +3093,8 @@ async function requestLocation() {
     });
 
     const { latitude, longitude } = position.coords;
-
-    // Get city name from reverse geocoding
     const cityName = await getCityName(latitude, longitude);
 
-    // Save location
     localStorage.setItem(
       "prayerLocation",
       JSON.stringify({
@@ -2947,25 +3104,33 @@ async function requestLocation() {
       }),
     );
 
+    closeLocationPermissionModal();
     await fetchPrayerTimes(latitude, longitude, cityName);
   } catch (err) {
-    console.error("Location error:", err);
-    // Use Cairo as default location if geolocation fails or is denied
-    const cairoLat = 30.0444;
-    const cairoLng = 31.2357;
-    const cairoName = "القاهرة";
+    console.warn("[PrayerTimes] Geolocation denied or error:", err);
+    if (loading) loading.style.display = "none";
 
-    // Save Cairo as default location
-    localStorage.setItem(
-      "prayerLocation",
-      JSON.stringify({
-        latitude: cairoLat,
-        longitude: cairoLng,
-        city: cairoName,
-      }),
-    );
+    // If user denied or error, politely explain why location is required for accuracy
+    if (!silent) {
+      showLocationPermissionModal();
+    }
 
-    await fetchPrayerTimes(cairoLat, cairoLng, cairoName);
+    // Default to Cairo gracefully in background
+    const savedLocation = localStorage.getItem("prayerLocation");
+    if (!savedLocation) {
+      const cairoLat = 30.0444;
+      const cairoLng = 31.2357;
+      const cairoName = "القاهرة";
+      localStorage.setItem(
+        "prayerLocation",
+        JSON.stringify({
+          latitude: cairoLat,
+          longitude: cairoLng,
+          city: cairoName,
+        }),
+      );
+      await fetchPrayerTimes(cairoLat, cairoLng, cairoName);
+    }
   }
 }
 
@@ -2983,81 +3148,80 @@ async function getCityName(latitude, longitude) {
   }
 }
 
-// Fetch prayer times from API
+// Fetch prayer times using 30-day monthly calendar storage
 async function fetchPrayerTimes(latitude, longitude, cityName) {
   const loading = document.getElementById("prayerTimesLoading");
   const error = document.getElementById("prayerTimesError");
 
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1;
+  const currentDay = String(today.getDate());
+
+  // 1. Immediately look for today in stored monthly calendar
+  let monthData = getStoredMonthlyCalendar(currentYear, currentMonth, latitude, longitude);
+  let todayTimings = monthData && monthData.days && monthData.days[currentDay];
+
+  if (todayTimings) {
+    prayerTimesData = todayTimings;
+    displayPrayerTimes(cityName);
+    startCountdown();
+    reconcilePrayerSchedules(cityName);
+    if (loading) loading.style.display = "none";
+    if (error) error.classList.add("hidden");
+  }
+
+  // 2. Fetch or refresh monthly calendar from API if missing or older than 7 days
   try {
-    const today = new Date();
-    const timestamp = Math.floor(today.getTime() / 1000);
-
-    const response = await fetch(
-      `https://api.aladhan.com/v1/timings/${timestamp}?latitude=${latitude}&longitude=${longitude}&method=5`,
-    );
-
-    if (!response.ok) throw new Error("API request failed");
-
-    const data = await response.json();
-
-    if (data.code === 200 && data.data) {
-      prayerTimesData = data.data.timings;
-
-      // Cache the prayer times for offline use
-      localStorage.setItem(
-        "cachedPrayerTimes",
-        JSON.stringify(prayerTimesData),
-      );
-      localStorage.setItem("cachedPrayerCity", cityName);
-      localStorage.setItem("cachedPrayerDate", localDateKey(today));
-      localStorage.setItem("cachedPrayerLatitude", String(latitude));
-      localStorage.setItem("cachedPrayerLongitude", String(longitude));
-
-      displayPrayerTimes(cityName);
-      startCountdown();
-      reconcilePrayerSchedules(cityName);
-
-      if (loading) loading.style.display = "none";
-      if (error) error.classList.add("hidden");
-    } else {
-      throw new Error("Invalid API response");
-    }
-  } catch (err) {
-    console.error("Prayer times fetch error:", err);
-
-    // Check cache
-    const cachedDate = localStorage.getItem("cachedPrayerDate");
-    const cachedLat = Number(localStorage.getItem("cachedPrayerLatitude"));
-    const cachedLng = Number(localStorage.getItem("cachedPrayerLongitude"));
-    const cacheMatchesRequest =
-      cachedDate === localDateKey(new Date()) &&
-      Number.isFinite(cachedLat) &&
-      Number.isFinite(cachedLng) &&
-      Math.abs(cachedLat - latitude) < 0.01 &&
-      Math.abs(cachedLng - longitude) < 0.01;
-    const cachedDataStr = cacheMatchesRequest
-      ? localStorage.getItem("cachedPrayerTimes")
-      : null;
-    const cachedCity = localStorage.getItem("cachedPrayerCity");
-
-    if (cachedDataStr) {
-      try {
-        prayerTimesData = JSON.parse(cachedDataStr);
-        displayPrayerTimes(cachedCity || cityName);
+    const isStale = !monthData || (Date.now() - Number(monthData.savedAt || 0) > 7 * 24 * 60 * 60 * 1000);
+    if (!monthData || !todayTimings || isStale) {
+      monthData = await fetchAndStoreMonthCalendar(latitude, longitude, currentYear, currentMonth, cityName);
+      if (monthData && monthData.days && monthData.days[currentDay]) {
+        prayerTimesData = monthData.days[currentDay];
+        displayPrayerTimes(cityName);
         startCountdown();
-        reconcilePrayerSchedules(cachedCity || cityName);
-
+        reconcilePrayerSchedules(cityName);
         if (loading) loading.style.display = "none";
         if (error) error.classList.add("hidden");
-      } catch (e) {
-        showPrayerTimesError("تعذر تحميل مواقيت الصلاة");
       }
-    } else {
+    }
+
+    // 3. Auto-renewal: If near end of month, fetch next month's 30-day calendar
+    checkAndPreloadNextMonthCalendar(latitude, longitude, today, cityName);
+
+  } catch (err) {
+    console.warn("[PrayerTimes] Monthly calendar fetch error, attempting single day fallback:", err);
+
+    if (!todayTimings) {
+      // Fallback: try single day API call
+      try {
+        const timestamp = Math.floor(today.getTime() / 1000);
+        const method = detectCalculationMethod(latitude, longitude);
+        const fallbackRes = await fetch(
+          `https://api.aladhan.com/v1/timings/${timestamp}?latitude=${latitude}&longitude=${longitude}&method=${method}`,
+        );
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          if (fallbackData && fallbackData.data && fallbackData.data.timings) {
+            prayerTimesData = fallbackData.data.timings;
+            displayPrayerTimes(cityName);
+            startCountdown();
+            reconcilePrayerSchedules(cityName);
+            if (loading) loading.style.display = "none";
+            if (error) error.classList.add("hidden");
+            return;
+          }
+        }
+      } catch (fallbackErr) {
+        console.warn("[PrayerTimes] Single day fallback failed:", fallbackErr);
+      }
+
       showPrayerTimesError("تعذر تحميل مواقيت الصلاة");
     }
   }
+}
 
-  function reconcilePrayerSchedules(cityName) {
+function reconcilePrayerSchedules(cityName) {
     if (window.AdhanNative && window.AdhanNative.onPrayerTimesUpdated) {
       try {
         window.AdhanNative.onPrayerTimesUpdated(prayerTimesData, cityName);
