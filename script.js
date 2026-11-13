@@ -3233,7 +3233,6 @@ function reconcilePrayerSchedules(cityName) {
       window.syncAzkarNativeSchedule();
     }
   }
-}
 
 // Display prayer times cards
 function displayPrayerTimes(cityName) {

@@ -203,14 +203,32 @@ public class AdhanPlaybackService extends Service {
     private void play(String soundName, float volume) {
         releasePlayer();
 
-        int resId = getResources().getIdentifier(soundName, "raw", getPackageName());
-        if (resId == 0) {
-            resId = getResources().getIdentifier("adhan", "raw", getPackageName());
+        // Check if there is a downloaded custom adhan file in internal storage
+        java.io.File customFile = null;
+        java.io.File[] candidates = new java.io.File[] {
+                new java.io.File(getFilesDir(), soundName + ".mp3"),
+                new java.io.File(getFilesDir(), "NoCloud/" + soundName + ".mp3"),
+                new java.io.File(getFilesDir(), soundName),
+                new java.io.File(getCacheDir(), soundName + ".mp3")
+        };
+        for (java.io.File f : candidates) {
+            if (f != null && f.exists() && f.length() > 10000) {
+                customFile = f;
+                break;
+            }
         }
-        if (resId == 0) {
-            Log.e(TAG, "No adhan audio asset found in res/raw");
-            stopPlayback();
-            return;
+
+        int resId = 0;
+        if (customFile == null) {
+            resId = getResources().getIdentifier(soundName, "raw", getPackageName());
+            if (resId == 0) {
+                resId = getResources().getIdentifier("adhan_abdulbasit", "raw", getPackageName());
+            }
+            if (resId == 0) {
+                Log.e(TAG, "No adhan audio asset found in res/raw or internal storage");
+                stopPlayback();
+                return;
+            }
         }
 
         try {
@@ -223,27 +241,32 @@ public class AdhanPlaybackService extends Service {
             mediaPlayer.setAudioAttributes(attributes);
             mediaPlayer.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK);
 
-            android.content.res.AssetFileDescriptor descriptor = null;
-            try {
-                descriptor = getResources().openRawResourceFd(resId);
-            } catch (Exception e) {
-                Log.w(TAG, "openRawResourceFd failed, will fallback to URI", e);
-            }
-
-            if (descriptor != null) {
-                mediaPlayer.setDataSource(
-                        descriptor.getFileDescriptor(),
-                        descriptor.getStartOffset(),
-                        descriptor.getLength()
-                );
-                descriptor.close();
+            if (customFile != null) {
+                Log.i(TAG, "Playing downloaded adhan from: " + customFile.getAbsolutePath());
+                mediaPlayer.setDataSource(customFile.getAbsolutePath());
             } else {
-                mediaPlayer.setDataSource(
-                        this,
-                        android.net.Uri.parse(
-                                "android.resource://" + getPackageName() + "/" + resId
-                        )
-                );
+                android.content.res.AssetFileDescriptor descriptor = null;
+                try {
+                    descriptor = getResources().openRawResourceFd(resId);
+                } catch (Exception e) {
+                    Log.w(TAG, "openRawResourceFd failed, will fallback to URI", e);
+                }
+
+                if (descriptor != null) {
+                    mediaPlayer.setDataSource(
+                            descriptor.getFileDescriptor(),
+                            descriptor.getStartOffset(),
+                            descriptor.getLength()
+                    );
+                    descriptor.close();
+                } else {
+                    mediaPlayer.setDataSource(
+                            this,
+                            android.net.Uri.parse(
+                                    "android.resource://" + getPackageName() + "/" + resId
+                            )
+                    );
+                }
             }
 
             mediaPlayer.setLooping(false);
@@ -536,11 +559,14 @@ public class AdhanPlaybackService extends Service {
 
     private static String sanitizeSound(String sound) {
         if (sound == null || sound.isEmpty()) {
-            return "adhan";
+            return "adhan_abdulbasit";
         }
-        // res/raw identifiers are lowercase letters, digits and underscores.
+        // res/raw identifiers or custom file keys are lowercase letters, digits and underscores.
         if (!sound.matches("[a-z0-9_]+")) {
-            return "adhan";
+            return "adhan_abdulbasit";
+        }
+        if ("adhan".equals(sound)) {
+            return "adhan_abdulbasit";
         }
         return sound;
     }

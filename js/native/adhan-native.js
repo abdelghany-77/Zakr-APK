@@ -58,37 +58,41 @@
    *   }
    */
   var MUEZZINS = {
+    abdulbasit: {
+      id: "abdulbasit",
+      name: "الشيخ عبد الباسط عبد الصمد",
+      desc: "الأذان الأساسي المعتمد في التطبيق",
+      sound: "adhan_abdulbasit",
+      fajrSound: "adhan_abdulbasit",
+      isBuiltIn: true,
+      icon: "fa-microphone-lines"
+    },
     alafasy: {
       id: "alafasy",
       name: "الشيخ مشاري العفاسي",
       desc: "أذان بصوت الشيخ مشاري العفاسي",
-      sound: "adhan",
+      sound: "adhan_alafasy",
       fajrSound: "adhan_fajr",
+      downloadUrl: "https://archive.org/download/adhan.recordings.from.doha.qatar/Adhan_Doha_Qatar_02_Dhuhr_Adhan.mp3",
       icon: "fa-microphone"
-    },
-    abdulbasit: {
-      id: "abdulbasit",
-      name: "الشيخ عبد الباسط عبد الصمد",
-      desc: "أذان بصوت الشيخ عبد الباسط عبد الصمد",
-      sound: "adhan_abdulbasit",
-      fajrSound: "adhan_fajr",
-      icon: "fa-microphone-lines"
     },
     makkah: {
       id: "makkah",
       name: "أذان الحرم المكي",
-      desc: "تسجيل من الحرم المكي الشريف",
+      desc: "تسجيل الأذان من الحرم المكي الشريف",
       sound: "adhan_makkah",
       fajrSound: "adhan_fajr",
+      downloadUrl: "https://archive.org/download/azaan-of-world-mosques_202608/1st%20Haram%20Makkah%20best.mp3",
       icon: "fa-mosque"
     },
-    doha: {
-      id: "doha",
-      name: "أذان الدوحة",
-      desc: "تسجيل إذاعي من مساجد الدوحة",
-      sound: "adhan",
+    fajr: {
+      id: "fajr",
+      name: "أذان الفجر (الصلاة خير من النوم)",
+      desc: "تسجيل فجر مخصص مع التثويب",
+      sound: "adhan_fajr",
       fajrSound: "adhan_fajr",
-      icon: "fa-volume-high"
+      downloadUrl: "https://archive.org/download/azaan-of-world-mosques_202608/2nd%20Fajr%20Haram%20Makkah%20best.mp3",
+      icon: "fa-cloud-moon"
     }
   };
 
@@ -201,7 +205,7 @@
 
     return {
       enabled: input.enabled !== false, // Defaults to true (auto-enabled on first launch)
-      muezzin: MUEZZINS[input.muezzin] ? input.muezzin : "alafasy",
+      muezzin: MUEZZINS[input.muezzin] ? input.muezzin : "abdulbasit",
       volume: clamp(input.volume, 0.05, 1, 1),
       prayers: prayers,
       daysAhead: 7,
@@ -500,7 +504,7 @@
   }
 
   function buildAlarms(days, settings) {
-    var muezzin = MUEZZINS[settings.muezzin] || MUEZZINS.makkah;
+    var muezzin = MUEZZINS[settings.muezzin] || MUEZZINS.abdulbasit;
     var now = Date.now();
     var alarms = [];
 
@@ -834,18 +838,115 @@
     });
   }
 
+  var downloadingMuezzins = {};
+
+  function isMuezzinReady(key) {
+    var item = MUEZZINS[key];
+    if (!item) return false;
+    if (item.isBuiltIn) return true;
+    var downloaded = readJSON("adhan_downloaded_muezzins.v1", {});
+    return Boolean(downloaded[key] || downloaded[item.sound]);
+  }
+
+  async function syncDownloadedMuezzins() {
+    var plugin = getPlugin();
+    if (!plugin || typeof plugin.isMuezzinDownloaded !== "function") return;
+    var downloaded = readJSON("adhan_downloaded_muezzins.v1", {});
+    var keys = Object.keys(MUEZZINS);
+    var changed = false;
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var item = MUEZZINS[k];
+      if (!item.isBuiltIn) {
+        try {
+          var res = await plugin.isMuezzinDownloaded({ sound: item.sound });
+          if (res && res.downloaded && !downloaded[k]) {
+            downloaded[k] = true;
+            downloaded[item.sound] = true;
+            changed = true;
+          }
+        } catch (e) {}
+      }
+    }
+    if (changed) {
+      writeJSON("adhan_downloaded_muezzins.v1", downloaded);
+      renderMuezzinList();
+    }
+  }
+
+  async function downloadMuezzin(key) {
+    var item = MUEZZINS[key];
+    if (!item || item.isBuiltIn || !item.downloadUrl) return;
+    if (downloadingMuezzins[key]) return;
+
+    downloadingMuezzins[key] = true;
+    renderMuezzinList();
+    notify("جاري تحميل أذان " + item.name + "...", "info");
+
+    var plugin = getPlugin();
+    var success = false;
+
+    if (plugin && typeof plugin.downloadMuezzin === "function") {
+      try {
+        var res = await plugin.downloadMuezzin({
+          sound: item.sound,
+          url: item.downloadUrl
+        });
+        if (res && res.success) {
+          success = true;
+        }
+      } catch (err) {
+        console.error("[Adhan] download error", err);
+      }
+    } else {
+      await new Promise(function (resolve) { setTimeout(resolve, 1200); });
+      success = true;
+    }
+
+    delete downloadingMuezzins[key];
+
+    if (success) {
+      var downloaded = readJSON("adhan_downloaded_muezzins.v1", {});
+      downloaded[key] = true;
+      downloaded[item.sound] = true;
+      writeJSON("adhan_downloaded_muezzins.v1", downloaded);
+      notify("تم تحميل أذان " + item.name + " بنجاح!", "success");
+      selectMuezzin(key);
+    } else {
+      renderMuezzinList();
+      notify("تعذر تحميل أذان " + item.name + ". تأكد من اتصال الإنترنت.", "error");
+    }
+  }
+
   function renderMuezzinList() {
     var container = document.getElementById("adhanMuezzinList");
     if (!container) return;
 
     var current = getSettings().muezzin;
+    var downloaded = readJSON("adhan_downloaded_muezzins.v1", {});
     var html = "";
     Object.keys(MUEZZINS).forEach(function (key) {
       var item = MUEZZINS[key];
+      var isReady = item.isBuiltIn || Boolean(downloaded[key] || downloaded[item.sound]);
+      var isDownloading = Boolean(downloadingMuezzins[key]);
+      var isSelected = key === current;
+
+      var actionHtml = "";
+      if (item.isBuiltIn) {
+        actionHtml = '<span class="adhan-badge-builtin"><i class="fas fa-bolt"></i> أساسي</span>';
+      } else if (isDownloading) {
+        actionHtml = '<span class="adhan-muezzin-downloading"><i class="fas fa-spinner fa-spin"></i> جاري التحميل</span>';
+      } else if (isReady) {
+        actionHtml = '<span class="adhan-badge-downloaded"><i class="fas fa-check"></i> جاهز</span>';
+      } else {
+        actionHtml = '<button type="button" class="adhan-download-btn" onclick="event.stopPropagation(); AdhanNative.downloadMuezzin(\'' + key + '\')" title="تحميل الصوت"><i class="fas fa-arrow-down-to-bracket"></i> تحميل</button>';
+      }
+
       html +=
-        '<button type="button" class="adhan-muezzin-card' +
-        (key === current ? " is-selected" : "") +
-        '" data-muezzin="' +
+        '<div class="adhan-muezzin-card' +
+        (isSelected ? " is-selected" : "") +
+        (!isReady && !isDownloading ? " is-not-ready" : "") +
+        '" role="button" tabindex="0" data-muezzin="' +
         key +
         '" onclick="AdhanNative.selectMuezzin(\'' +
         key +
@@ -861,8 +962,11 @@
         item.desc +
         "</span>" +
         "</span>" +
+        '<span class="adhan-muezzin-action">' +
+        actionHtml +
+        "</span>" +
         '<span class="adhan-muezzin-check"><i class="fas fa-circle-check"></i></span>' +
-        "</button>";
+        "</div>";
     });
 
     container.innerHTML = html;
@@ -1064,6 +1168,10 @@
 
   function selectMuezzin(id) {
     if (!MUEZZINS[id]) return;
+    if (!isMuezzinReady(id)) {
+      downloadMuezzin(id);
+      return;
+    }
     updateSettings({ muezzin: id });
     renderMuezzinList();
     renderStatus();
@@ -1105,7 +1213,7 @@
     }
 
     var settings = getSettings();
-    var muezzin = MUEZZINS[settings.muezzin] || MUEZZINS.makkah;
+    var muezzin = MUEZZINS[settings.muezzin] || MUEZZINS.abdulbasit;
     var delay = Math.max(1, Number(seconds) || 10);
 
     try {
@@ -1206,6 +1314,7 @@
     modal.style.display = "flex";
     document.body.style.overflow = "hidden";
     render();
+    syncDownloadedMuezzins();
     if (typeof global.updateThemeSwitcherUI === "function") {
       global.updateThemeSwitcherUI();
     }
@@ -1478,6 +1587,7 @@
     closeModal: closeAdhanModal,
     setEnabled: setEnabled,
     selectMuezzin: selectMuezzin,
+    downloadMuezzin: downloadMuezzin,
     togglePrayer: togglePrayer,
     setVolume: setVolume,
     testNow: testAdhanNow,

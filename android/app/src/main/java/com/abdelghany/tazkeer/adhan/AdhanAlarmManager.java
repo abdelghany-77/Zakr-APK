@@ -142,7 +142,7 @@ public final class AdhanAlarmManager {
             alarm.put("time", triggerAt);
             alarm.put("prayer", prayer == null ? "Test" : prayer);
             alarm.put("label", label == null ? "تجربة الأذان" : label);
-            alarm.put("sound", sound == null ? "adhan" : sound);
+            alarm.put("sound", sound == null ? "adhan_abdulbasit" : sound);
             alarm.put("fajr", fajr);
             alarm.put("volume", volume);
         } catch (JSONException e) {
@@ -263,7 +263,7 @@ public final class AdhanAlarmManager {
         intent.putExtra(EXTRA_ID, alarm.optInt("id", requestCode));
         intent.putExtra(EXTRA_PRAYER, alarm.optString("prayer", ""));
         intent.putExtra(EXTRA_LABEL, alarm.optString("label", ""));
-        intent.putExtra(EXTRA_SOUND, alarm.optString("sound", "adhan"));
+        intent.putExtra(EXTRA_SOUND, alarm.optString("sound", "adhan_abdulbasit"));
         intent.putExtra(EXTRA_FAJR, alarm.optBoolean("fajr", false));
         intent.putExtra(EXTRA_VOLUME, (float) alarm.optDouble("volume", 1.0d));
 

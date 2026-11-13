@@ -59,7 +59,10 @@ async function main() {
     }
     const info = await stat(source);
     if (!info.isDirectory()) continue;
-    await cp(source, path.join(outDir, dir), { recursive: true });
+    await cp(source, path.join(outDir, dir), {
+      recursive: true,
+      filter: (src) => !src.endsWith("og-image.jpg")
+    });
   }
 
   const entries = await readdir(outDir);

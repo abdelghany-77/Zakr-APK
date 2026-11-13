@@ -24,6 +24,8 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
 
+import java.io.File;
+
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
@@ -134,7 +136,7 @@ public class AdhanSchedulerPlugin extends Plugin {
             delaySeconds = 1;
         }
 
-        String sound = call.getString("soundRes", "adhan");
+        String sound = call.getString("soundRes", "adhan_abdulbasit");
         String prayer = call.getString("prayer", "تجربة");
         Double volumeValue = call.getDouble("volume");
         float volume = volumeValue == null ? 1.0f : volumeValue.floatValue();
@@ -157,6 +159,124 @@ public class AdhanSchedulerPlugin extends Plugin {
         result.put("delaySeconds", delaySeconds);
         result.put("exactAlarms", AdhanAlarmManager.canScheduleExactAlarms(getContext()));
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void isMuezzinDownloaded(PluginCall call) {
+        String sound = call.getString("sound");
+        if (sound == null || sound.isEmpty()) {
+            call.reject("sound parameter is required");
+            return;
+        }
+        File file = new File(getContext().getFilesDir(), sound + ".mp3");
+        boolean exists = file.exists() && file.length() > 50000;
+        JSObject result = new JSObject();
+        result.put("downloaded", exists);
+        result.put("sound", sound);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void downloadMuezzin(PluginCall call) {
+        String sound = call.getString("sound");
+        String urlString = call.getString("url");
+        if (sound == null || urlString == null) {
+            call.reject("sound and url parameters are required");
+            return;
+        }
+
+        new Thread(() -> {
+            File targetFile = new File(getContext().getFilesDir(), sound + ".mp3");
+            File tempFile = new File(getContext().getFilesDir(), sound + ".tmp");
+            java.io.InputStream in = null;
+            java.io.FileOutputStream out = null;
+            try {
+                java.net.URL url = new java.net.URL(urlString);
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                conn.setInstanceFollowRedirects(true);
+                conn.setRequestProperty("User-Agent", "Tazkeer-App/2.1");
+                conn.connect();
+
+                int responseCode = conn.getResponseCode();
+                if (responseCode == java.net.HttpURLConnection.HTTP_MOVED_PERM ||
+                    responseCode == java.net.HttpURLConnection.HTTP_MOVED_TEMP ||
+                    responseCode == 307 || responseCode == 308) {
+                    String newUrl = conn.getHeaderField("Location");
+                    conn.disconnect();
+                    url = new java.net.URL(newUrl);
+                    conn = (java.net.HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(15000);
+                    conn.setReadTimeout(30000);
+                    conn.setRequestProperty("User-Agent", "Tazkeer-App/2.1");
+                    conn.connect();
+                    responseCode = conn.getResponseCode();
+                }
+
+                if (responseCode != java.net.HttpURLConnection.HTTP_OK) {
+                    throw new java.io.IOException("HTTP error code: " + responseCode);
+                }
+
+                in = conn.getInputStream();
+                out = new java.io.FileOutputStream(tempFile);
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                }
+                out.flush();
+                out.close();
+                out = null;
+                in.close();
+                in = null;
+
+                if (tempFile.length() < 10000) {
+                    tempFile.delete();
+                    throw new java.io.IOException("Downloaded file is too small or corrupt");
+                }
+
+                if (targetFile.exists()) {
+                    targetFile.delete();
+                }
+                if (!tempFile.renameTo(targetFile)) {
+                    throw new java.io.IOException("Failed to save audio file");
+                }
+
+                JSObject res = new JSObject();
+                res.put("success", true);
+                res.put("sound", sound);
+                call.resolve(res);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to download muezzin audio: " + sound, e);
+                if (tempFile.exists()) {
+                    tempFile.delete();
+                }
+                call.reject("Download failed: " + e.getMessage());
+            } finally {
+                try {
+                    if (in != null) in.close();
+                    if (out != null) out.close();
+                } catch (Exception ignored) {}
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void deleteMuezzin(PluginCall call) {
+        String sound = call.getString("sound");
+        if (sound == null) {
+            call.reject("sound is required");
+            return;
+        }
+        File targetFile = new File(getContext().getFilesDir(), sound + ".mp3");
+        boolean deleted = false;
+        if (targetFile.exists()) {
+            deleted = targetFile.delete();
+        }
+        JSObject res = new JSObject();
+        res.put("deleted", deleted);
+        call.resolve(res);
     }
 
     @PluginMethod
