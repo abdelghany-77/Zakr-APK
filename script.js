@@ -4930,41 +4930,6 @@ function buildRemindersSheetHtml(tab, atDate) {
 
   // ── Ramadan block ──
   let ramadanHtml = "";
-  if (ramadan.inRamadan) {
-    const remainderText =
-      ramadan.daysLeft > 0
-        ? `بقي ${formatDaysCount(ramadan.daysLeft)} على نهاية الشهر — تقبّل الله صيامك وقيامك.`
-        : "اليوم آخر أيام الشهر — تقبّل الله صيامك وقيامك.";
-    ramadanHtml = `
-      <div class="pt-rsheet__block is-gold" data-rsheet="ramadan">
-        <div class="pt-rsheet__top">
-          <span class="pt-rsheet__kicker"><i class="fas fa-moon"></i> رمضان المبارك</span>
-          <span class="pt-rsheet__chip">الشهر الحالي</span>
-        </div>
-        <div class="pt-rsheet__big">
-          <span class="pt-rsheet__num">${toArabicDigits(ramadan.day)}</span>
-          <span class="pt-rsheet__unit">من رمضان</span>
-        </div>
-        <p class="pt-rsheet__hint">${remainderText}</p>
-        <div class="pt-rsheet__bar"><span style="width:${ramadan.pct.toFixed(1)}%"></span></div>
-      </div>`;
-  } else if (ramadan.target) {
-    ramadanHtml = `
-      <div class="pt-rsheet__block is-gold" data-rsheet="ramadan">
-        <div class="pt-rsheet__top">
-          <span class="pt-rsheet__kicker"><i class="fas fa-moon"></i> رمضان المبارك</span>
-          <span class="pt-rsheet__chip">متوقع</span>
-        </div>
-        <div class="pt-rsheet__big">
-          <span class="pt-rsheet__num">${toArabicDigits(ramadan.daysLeft)}</span>
-          <span class="pt-rsheet__unit">يومًا متبقيًا</span>
-        </div>
-        <div class="pt-rsheet__date">${formatHijriDateLong(ramadan.target)}</div>
-        <p class="pt-rsheet__hint">الموافق ${formatGregorianDateLong(ramadan.target)} — التاريخ متوقع فلكيًا وقد يتغيّر يومًا حسب الرؤية.</p>
-        <div class="pt-rsheet__bar"><span style="width:${ramadan.pct.toFixed(1)}%"></span></div>
-      </div>`;
-  }
-
   // ── Fasting block ──
   let fastingHtml = "";
   if (fasting.kind === "forbidden") {
@@ -5073,7 +5038,7 @@ function buildRemindersSheetHtml(tab, atDate) {
         <div class="pt-rsheet-focus__heading">
           <div>
             <h3>رمضان ${toArabicDigits(getHijriDate(ramadan.target || now).year)}</h3>
-            <p>${ramadan.inRamadan ? "اليوم من رمضان · يتجدد العداد مع بداية اليوم التالي" : "الموعد المتوقع " + formatGregorianDateLong(ramadan.target) + " · يعتمد على رؤية الهلال"}</p>
+            <p>${ramadan.inRamadan ? "اليوم من رمضان · يتجدد العداد مع بداية اليوم التالي" : "الموعد المتوقع " + formatGregorianDateLong(ramadan.target) + " · التاريخ متوقع فلكيًا وقد يتغيّر يومًا حسب الرؤية"}</p>
           </div>
           <span class="pt-rsheet-focus__moon"><i class="fas fa-moon"></i></span>
         </div>
@@ -5090,10 +5055,6 @@ function buildRemindersSheetHtml(tab, atDate) {
             <strong>${toArabicDigits(ramadanCountdown.minutes)}</strong>
             <span>دقيقة</span>
           </div>
-        </div>
-        <div class="pt-rsheet-focus__progress">
-          <div><span>${ramadan.inRamadan ? "اليوم " + toArabicDigits(ramadan.day) + " من رمضان" : "مرّ " + toArabicDigits(Math.max(0, 100 - ramadan.daysLeft)) + "٪ من العام منذ رمضان الماضي"}</span><span>${toArabicDigits(ramadan.daysLeft)} يومًا متبقيًا</span></div>
-          <span class="pt-rsheet-focus__progress-bar"><i style="width:${Math.min(100, Math.max(4, ramadan.pct))}%"></i></span>
         </div>
         <p class="pt-rsheet-focus__dua">اللهم بلّغنا رمضان</p>
       </div>`
@@ -5350,7 +5311,7 @@ function getAzkarReminderText(mode) {
     case "midday":
       return {
         title: "استراحة ذكر",
-        body: "رطّب لسانك بذكر الله وتسبيحه بعد الظهر"
+        body: "رطّب لسانك بذكر الله وتسبيحه"
       };
     default:
       return null;
