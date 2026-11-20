@@ -72,9 +72,13 @@
         '<div class="prophets-loader"><div class="prophets-spinner"></div><span>جارٍ تحميل قائمة الأنبياء...</span></div>';
       fetch("data/prophets-index.json")
         .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
           return r.json();
         })
         .then(function (data) {
+          if (!Array.isArray(data) || data.length === 0) {
+            throw new Error("Invalid prophets index payload");
+          }
           prophetsIndex = data;
           renderGrid(container);
         })
@@ -97,11 +101,26 @@
   }
 
   function shortName(name) {
-    return String(name).replace(/\s*عليه\s+السلام\s*$/, "").trim();
+    return String(name || "")
+      .replace(/\s*(?:عليه\s+السلام|صلى\s+الله\s+عليه\s+وسلم|ﷺ)\s*$/g, "")
+      .trim();
+  }
+
+  function formatProphetDisplayName(name) {
+    var raw = String(name || "");
+    var isProphetMuhammad = /ﷺ|صلى\s+الله\s+عليه\s+وسلم/.test(raw);
+    var base = shortName(raw);
+    var safeBase = typeof window.escapeHtml === "function" ? window.escapeHtml(base) : base;
+    return isProphetMuhammad
+      ? safeBase + " <em>ﷺ</em>"
+      : safeBase + " <em>عليه السلام</em>";
   }
 
   function normalizeText(text) {
-    return String(text)
+    if (typeof window.normalizeArabic === "function") {
+      return window.normalizeArabic(text);
+    }
+    return String(text || "")
       .replace(/[\u064B-\u0652\u0670\u0640]/g, "")
       .replace(/[أإآٱ]/g, "ا")
       .replace(/ى/g, "ي")
@@ -114,7 +133,7 @@
   function readSavedPosition(slug) {
     try {
       if (window.SafeStorage) {
-        var safe = window.SafeStorage.getJSON(LS_POS_PFX + slug);
+        var safe = window.SafeStorage.getJSON(LS_POS_PFX + slug, null);
         if (safe && typeof safe === "object") return safe;
       }
       var raw = localStorage.getItem(LS_POS_PFX + slug);
@@ -287,8 +306,7 @@
         orderNo +
         "</span>" +
         '<span class="pt-proph-row__name">' +
-        shortName(p.name) +
-        ' <em>عليه السلام</em>' +
+        formatProphetDisplayName(p.name) +
         "</span>";
 
       // End side of the head line: completion check or «أولو العزم» badge
@@ -441,17 +459,22 @@
 
     fetch("data/prophets/" + slug + ".json")
       .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
       .then(function (data) {
+        if (!data || !Array.isArray(data.chapters) || data.chapters.length === 0) {
+          throw new Error("Invalid prophet story payload");
+        }
         prophetsCache.set(slug, data);
         currentProphet = data;
         enterReader(container, targetChapterIdx);
       })
       .catch(function () {
+        var safeSlug = String(slug || "").replace(/[^a-z0-9_-]/gi, "");
         container.innerHTML =
-          '<div class="prophets-error"><i class="fas fa-exclamation-triangle"></i><p>تعذّر تحميل القصة.</p><button class="prophets-retry-btn" onclick="window._openProphet(\'' +
-          slug +
+          '<div class="prophets-error"><i class="fas fa-wifi"></i><p>تعذّر تحميل القصة. تأكّد من الاتصال بالإنترنت لتحميلها لأول مرة، وبعدها ستعمل بدون إنترنت.</p><button class="prophets-retry-btn" onclick="window._openProphet(\'' +
+          safeSlug +
           '\')">إعادة المحاولة</button><button class="prophets-retry-btn prophets-retry-secondary" onclick="initProphetsTab()">العودة</button></div>';
       });
   };
@@ -501,14 +524,9 @@
     if (typeof targetChapterIdx === "number" && targetChapterIdx >= 0 && targetChapterIdx < p.chapters.length) {
       resumeChapter = targetChapterIdx;
     } else {
-      var savedPos = localStorage.getItem(LS_POS_PFX + p.slug);
-      if (savedPos) {
-        try {
-          var pos = JSON.parse(savedPos);
-          resumeChapter = pos.chapterIdx || 0;
-        } catch (e) {
-          /* ignore */
-        }
+      var pos = readSavedPosition(p.slug);
+      if (pos && typeof pos.chapterIdx === "number") {
+        resumeChapter = pos.chapterIdx;
       }
     }
     currentChapterIdx = resumeChapter;
@@ -1089,7 +1107,11 @@
   // ── Reader Controls ────────────────────────────────────────
   window._adjustFont = function (delta) {
     readerFontSize = Math.max(14, Math.min(32, readerFontSize + delta));
-    localStorage.setItem(LS_FONT, readerFontSize);
+    if (window.SafeStorage) {
+      window.SafeStorage.set(LS_FONT, readerFontSize);
+    } else {
+      try { localStorage.setItem(LS_FONT, readerFontSize); } catch (e) {}
+    }
     var article = document.querySelector(".pr-article");
     if (article) article.style.fontSize = readerFontSize + "px";
   };

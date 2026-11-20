@@ -6,27 +6,73 @@ let totalCount = 0;
 let currentZikrText = "";
 let currentZikrIndex = null;
 
+// Safe storage helpers for startup resilience (private mode / corrupted JSON)
+function _safeGetJSON(key, fallback) {
+  if (window.SafeStorage && typeof window.SafeStorage.getJSON === "function") {
+    return window.SafeStorage.getJSON(key, fallback);
+  }
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function _safeGetInt(key, fallback) {
+  try {
+    const raw = window.SafeStorage
+      ? window.SafeStorage.getItem(key)
+      : localStorage.getItem(key);
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
 // Enhanced global variables for UX improvements
-let favorites = JSON.parse(localStorage.getItem("zekrFavorites")) || [];
-let userPreferences = JSON.parse(localStorage.getItem("userPreferences")) || {
+let favorites = _safeGetJSON("zekrFavorites", []);
+if (!Array.isArray(favorites)) favorites = [];
+
+let userPreferences = _safeGetJSON("userPreferences", {
   fontSize: "medium",
   autoPlay: false,
   showFadl: true,
   soundEnabled: true,
   lastCategory: "all",
-};
-let dailyProgress = JSON.parse(localStorage.getItem("dailyProgress")) || {
+});
+if (!userPreferences || typeof userPreferences !== "object") {
+  userPreferences = {
+    fontSize: "medium",
+    autoPlay: false,
+    showFadl: true,
+    soundEnabled: true,
+    lastCategory: "all",
+  };
+}
+
+let dailyProgress = _safeGetJSON("dailyProgress", {
   date: new Date().toDateString(),
   completedZekr: [],
-  streak: parseInt(localStorage.getItem("dailyStreak")) || 0,
-  totalCompletions: parseInt(localStorage.getItem("totalCompletions")) || 0,
-};
+  streak: _safeGetInt("dailyStreak", 0),
+  totalCompletions: _safeGetInt("totalCompletions", 0),
+});
+if (!dailyProgress || typeof dailyProgress !== "object") {
+  dailyProgress = {
+    date: new Date().toDateString(),
+    completedZekr: [],
+    streak: 0,
+    totalCompletions: 0,
+  };
+}
+if (!Array.isArray(dailyProgress.completedZekr)) dailyProgress.completedZekr = [];
 
 // Check and update daily progress
 function checkDailyProgress() {
   const today = new Date().toDateString();
   if (dailyProgress.date !== today) {
-    // New day - reset daily progress but maintain streak
+    // New day - maintain streak ONLY if user completed adhkar yesterday
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
 
@@ -34,8 +80,8 @@ function checkDailyProgress() {
       dailyProgress.date === yesterday.toDateString() &&
       dailyProgress.completedZekr.length > 0
     ) {
-      dailyProgress.streak++;
-    } else if (dailyProgress.completedZekr.length === 0) {
+      dailyProgress.streak = (Number(dailyProgress.streak) || 0) + 1;
+    } else {
       dailyProgress.streak = 0;
     }
 
@@ -48,7 +94,11 @@ function checkDailyProgress() {
       adhkarData[cat].adhkar.forEach((z) => {
         z.currentCount = 0;
       });
-      localStorage.removeItem("swiperPos_" + cat);
+      if (window.SafeStorage) {
+        window.SafeStorage.removeItem("swiperPos_" + cat);
+      } else {
+        try { localStorage.removeItem("swiperPos_" + cat); } catch (e) {}
+      }
     });
     saveProgress();
   }
@@ -56,12 +106,17 @@ function checkDailyProgress() {
 }
 
 function saveDailyProgress() {
-  localStorage.setItem("dailyProgress", JSON.stringify(dailyProgress));
-  localStorage.setItem("dailyStreak", dailyProgress.streak.toString());
-  localStorage.setItem(
-    "totalCompletions",
-    dailyProgress.totalCompletions.toString(),
-  );
+  if (window.SafeStorage) {
+    window.SafeStorage.setJSON("dailyProgress", dailyProgress);
+    window.SafeStorage.setItem("dailyStreak", String(dailyProgress.streak || 0));
+    window.SafeStorage.setItem("totalCompletions", String(dailyProgress.totalCompletions || 0));
+    return;
+  }
+  try {
+    localStorage.setItem("dailyProgress", JSON.stringify(dailyProgress));
+    localStorage.setItem("dailyStreak", String(dailyProgress.streak || 0));
+    localStorage.setItem("totalCompletions", String(dailyProgress.totalCompletions || 0));
+  } catch (e) {}
 }
 
 function getWeeklyCompletions() {
@@ -497,10 +552,20 @@ function checkAndShowInstallInstructions() {
     }
   }
 
-  // Show instructions after a short delay for better UX
-  setTimeout(() => {
-    showManualInstallInstructions();
-  }, 1000);
+  // Queue instructions via sequential ModalQueue to avoid first-launch modal overlap
+  if (window.TazkeerModalQueue && typeof window.TazkeerModalQueue.enqueue === "function") {
+    window.TazkeerModalQueue.enqueue({
+      id: "install-instructions",
+      modalId: "installInstructionsModal",
+      delayMs: 1200,
+      shouldShow: () => !isStandaloneMode(),
+      open: showManualInstallInstructions,
+    });
+  } else {
+    setTimeout(() => {
+      showManualInstallInstructions();
+    }, 1000);
+  }
 }
 
 function showManualInstallInstructions() {
@@ -591,7 +656,7 @@ function showManualInstallInstructions() {
 
   instructionsModal.innerHTML = `
     <div class="modal-content install-modal-content">
-      <span class="close" onclick="dismissInstallModal(true)">&times;</span>
+      <button type="button" class="close" onclick="dismissInstallModal(true)" aria-label="إغلاق">&times;</button>
       <div class="install-content">
         <div class="install-header">
           <h3>قم بتحميل التطبيق الآن</h3>
@@ -631,6 +696,10 @@ function dismissInstallModal(understood) {
   // If "remind me later", don't show for 3 days
   else {
     localStorage.setItem("installInstructionsRemindLater", Date.now());
+  }
+
+  if (window.TazkeerModalQueue && typeof window.TazkeerModalQueue.notifyClosed === "function") {
+    window.TazkeerModalQueue.notifyClosed("installInstructionsModal");
   }
 }
 
@@ -751,11 +820,14 @@ function toggleAzkarSearch() {
  * Filter the Azkar category grid by name.
  */
 function filterAzkarCategories(query) {
-  const q = (query || "").trim();
+  const norm = typeof window.normalizeArabic === "function"
+    ? window.normalizeArabic
+    : (s) => String(s || "").trim().toLowerCase();
+  const q = norm(query);
   const cards = document.querySelectorAll("#categoriesContainer .category-card");
   cards.forEach((card) => {
     const title = card.querySelector(".category-title");
-    const match = !q || (title && title.textContent.includes(q));
+    const match = !q || (title && norm(title.textContent).includes(q));
     card.style.display = match ? "" : "none";
   });
 
@@ -797,196 +869,6 @@ function showCategoryPage(categoryKey) {
   }
 }
 
-// SVG icons for category cards (matching the reference design)
-const categoryIcons = {
-  morning: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#FFD700;stop-opacity:0.6"/>
-        <stop offset="100%" style="stop-color:#FFD700;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="50" r="40" fill="url(#sunGlow)"/>
-    <circle cx="50" cy="50" r="20" fill="#FFD700"/>
-    <circle cx="50" cy="50" r="16" fill="#FFA500"/>
-    <g stroke="#FFD700" stroke-width="3" stroke-linecap="round">
-      <line x1="50" y1="10" x2="50" y2="22"/>
-      <line x1="50" y1="78" x2="50" y2="90"/>
-      <line x1="10" y1="50" x2="22" y2="50"/>
-      <line x1="78" y1="50" x2="90" y2="50"/>
-      <line x1="21" y1="21" x2="30" y2="30"/>
-      <line x1="70" y1="70" x2="79" y2="79"/>
-      <line x1="79" y1="21" x2="70" y2="30"/>
-      <line x1="30" y1="70" x2="21" y2="79"/>
-    </g>
-  </svg>`,
-  evening: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:0.3"/>
-        <stop offset="100%" style="stop-color:#87CEEB;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="50" r="40" fill="url(#moonGlow)"/>
-    <path d="M55 20 C35 20, 20 40, 25 60 C30 80, 55 85, 70 70 C55 75, 40 60, 40 45 C40 30, 50 20, 55 20Z" fill="#C0D8E8"/>
-    <path d="M55 20 C35 20, 20 40, 25 60 C30 80, 55 85, 70 70 C55 75, 40 60, 40 45 C40 30, 50 20, 55 20Z" fill="url(#moonGlow)" opacity="0.5"/>
-    <circle cx="68" cy="28" r="2" fill="#FFD700"/>
-    <circle cx="78" cy="40" r="1.5" fill="#FFD700"/>
-    <circle cx="75" cy="55" r="2.5" fill="#FFD700"/>
-    <circle cx="82" cy="30" r="1" fill="#FFD700"/>
-    <circle cx="85" cy="48" r="1.5" fill="#FFD700"/>
-    <path d="M65 22 l2 5 5 0 -4 3 1.5 5 -4.5-3 -4.5 3 1.5-5 -4-3 5 0z" fill="#FFD700" transform="scale(0.6) translate(35, 10)"/>
-  </svg>`,
-  prayer: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="prayGlow" cx="50%" cy="40%" r="50%">
-        <stop offset="0%" style="stop-color:#FFD700;stop-opacity:0.4"/>
-        <stop offset="100%" style="stop-color:#FFD700;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="40" r="35" fill="url(#prayGlow)"/>
-    <path d="M35 75 C35 50, 30 40, 30 30 C30 20, 35 15, 40 25 C42 30, 43 40, 45 50 L50 35 L55 50 C57 40, 58 30, 60 25 C65 15, 70 20, 70 30 C70 40, 65 50, 65 75Z" fill="#E8D5B0" stroke="#D4A847" stroke-width="1"/>
-    <path d="M42 30 C44 25, 46 22, 50 22 C54 22, 56 25, 58 30" fill="none" stroke="#FFD700" stroke-width="2" opacity="0.6"/>
-    <circle cx="50" cy="18" r="3" fill="#FFD700" opacity="0.5"/>
-  </svg>`,
-  sleep: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="bedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#7B9EC7"/>
-        <stop offset="100%" style="stop-color:#5A7FA0"/>
-      </linearGradient>
-    </defs>
-    <rect x="15" y="55" width="70" height="20" rx="4" fill="url(#bedGrad)"/>
-    <rect x="12" y="70" width="4" height="12" rx="2" fill="#5A7FA0"/>
-    <rect x="84" y="70" width="4" height="12" rx="2" fill="#5A7FA0"/>
-    <rect x="80" y="48" width="5" height="25" rx="2" fill="#5A7FA0"/>
-    <ellipse cx="30" cy="50" rx="12" ry="8" fill="#A8C4DB"/>
-    <circle cx="35" cy="42" r="8" fill="#D4B896"/>
-    <text x="60" y="40" font-size="14" fill="#87CEEB" font-weight="bold" opacity="0.8">Z</text>
-    <text x="68" y="30" font-size="10" fill="#87CEEB" font-weight="bold" opacity="0.6">Z</text>
-    <text x="74" y="22" font-size="8" fill="#87CEEB" font-weight="bold" opacity="0.4">Z</text>
-  </svg>`,
-  wakeup: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="sunriseGrad" x1="50%" y1="100%" x2="50%" y2="0%">
-        <stop offset="0%" style="stop-color:#FF6B35;stop-opacity:0.6"/>
-        <stop offset="50%" style="stop-color:#FFD700;stop-opacity:0.3"/>
-        <stop offset="100%" style="stop-color:#FFD700;stop-opacity:0"/>
-      </linearGradient>
-    </defs>
-    <rect x="0" y="60" width="100" height="40" fill="url(#sunriseGrad)" opacity="0.3"/>
-    <circle cx="50" cy="62" r="18" fill="#FFD700"/>
-    <circle cx="50" cy="62" r="14" fill="#FFA500"/>
-    <line x1="10" y1="62" x2="90" y2="62" stroke="#C0D8E8" stroke-width="2" opacity="0.5"/>
-    <g stroke="#FFD700" stroke-width="2.5" stroke-linecap="round" opacity="0.8">
-      <line x1="50" y1="32" x2="50" y2="40"/>
-      <line x1="25" y1="42" x2="32" y2="48"/>
-      <line x1="75" y1="42" x2="68" y2="48"/>
-      <line x1="15" y1="56" x2="24" y2="56"/>
-      <line x1="85" y1="56" x2="76" y2="56"/>
-    </g>
-  </svg>`,
-  general: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="personGlow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:0.3"/>
-        <stop offset="100%" style="stop-color:#87CEEB;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="50" r="40" fill="url(#personGlow)"/>
-    <circle cx="50" cy="30" r="10" fill="#C0D8E8"/>
-    <path d="M50 42 L50 65" stroke="#C0D8E8" stroke-width="4" stroke-linecap="round"/>
-    <path d="M50 48 L30 35" stroke="#C0D8E8" stroke-width="3.5" stroke-linecap="round"/>
-    <path d="M50 48 L70 35" stroke="#C0D8E8" stroke-width="3.5" stroke-linecap="round"/>
-    <path d="M50 65 L35 82" stroke="#C0D8E8" stroke-width="3.5" stroke-linecap="round"/>
-    <path d="M50 65 L65 82" stroke="#C0D8E8" stroke-width="3.5" stroke-linecap="round"/>
-    <path d="M45 15 C38 10, 30 15, 35 22 C28 18, 30 10, 38 8 C42 7, 46 10, 45 15Z" fill="#C0D8E8" opacity="0.8"/>
-  </svg>`,
-  food: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="foodGlow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#FFD700;stop-opacity:0.3"/>
-        <stop offset="100%" style="stop-color:#FFD700;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="55" r="35" fill="url(#foodGlow)"/>
-    <ellipse cx="50" cy="60" rx="30" ry="15" fill="none" stroke="#D4A847" stroke-width="2.5"/>
-    <path d="M20 60 Q50 35 80 60" fill="none" stroke="#D4A847" stroke-width="2.5"/>
-    <path d="M30 40 Q35 20 30 10" fill="none" stroke="#C0D8E8" stroke-width="2" opacity="0.5"/>
-    <path d="M50 35 Q55 15 50 5" fill="none" stroke="#C0D8E8" stroke-width="2" opacity="0.5"/>
-    <path d="M70 40 Q75 20 70 10" fill="none" stroke="#C0D8E8" stroke-width="2" opacity="0.5"/>
-  </svg>`,
-  travel: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="travelGlow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:0.3"/>
-        <stop offset="100%" style="stop-color:#87CEEB;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="50" r="40" fill="url(#travelGlow)"/>
-    <path d="M50 20 L55 45 L75 50 L55 55 L50 80 L45 55 L25 50 L45 45Z" fill="#87CEEB" opacity="0.8"/>
-    <circle cx="50" cy="50" r="6" fill="#5A7FA0"/>
-    <ellipse cx="30" cy="30" rx="12" ry="5" fill="#C0D8E8" opacity="0.4"/>
-    <ellipse cx="72" cy="25" rx="10" ry="4" fill="#C0D8E8" opacity="0.3"/>
-  </svg>`,
-  dua: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="duaGlow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#1a8a5c;stop-opacity:0.4"/>
-        <stop offset="100%" style="stop-color:#1a8a5c;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="50" r="40" fill="url(#duaGlow)"/>
-    <path d="M30 80 Q30 55 35 45 Q38 38 43 40 L47 50 L50 38 L53 50 L57 40 Q62 38 65 45 Q70 55 70 80Z" fill="#2d9d6e" opacity="0.8"/>
-    <path d="M40 35 L50 20 L60 35" fill="none" stroke="#FFD700" stroke-width="2.5"/>
-    <circle cx="50" cy="15" r="4" fill="#FFD700" opacity="0.7"/>
-    <line x1="50" y1="8" x2="50" y2="3" stroke="#FFD700" stroke-width="1.5" opacity="0.5"/>
-    <line x1="43" y1="10" x2="40" y2="6" stroke="#FFD700" stroke-width="1.5" opacity="0.5"/>
-    <line x1="57" y1="10" x2="60" y2="6" stroke="#FFD700" stroke-width="1.5" opacity="0.5"/>
-  </svg>`,
-  rain: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="rainGlow" cx="50%" cy="40%" r="50%">
-        <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:0.3"/>
-        <stop offset="100%" style="stop-color:#87CEEB;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="40" r="35" fill="url(#rainGlow)"/>
-    <ellipse cx="50" cy="35" rx="28" ry="16" fill="#8BA4B8"/>
-    <ellipse cx="35" cy="32" rx="14" ry="12" fill="#A0B4C8"/>
-    <ellipse cx="65" cy="32" rx="14" ry="12" fill="#A0B4C8"/>
-    <ellipse cx="50" cy="28" rx="12" ry="10" fill="#B4C8DC"/>
-    <line x1="30" y1="55" x2="28" y2="68" stroke="#87CEEB" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
-    <line x1="42" y1="55" x2="40" y2="72" stroke="#87CEEB" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
-    <line x1="54" y1="55" x2="52" y2="70" stroke="#87CEEB" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
-    <line x1="66" y1="55" x2="64" y2="68" stroke="#87CEEB" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
-  </svg>`,
-  distress: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="heartGlow" cx="50%" cy="45%" r="50%">
-        <stop offset="0%" style="stop-color:#E87C7C;stop-opacity:0.4"/>
-        <stop offset="100%" style="stop-color:#E87C7C;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="50" r="40" fill="url(#heartGlow)"/>
-    <path d="M50 80 C20 55 10 35 25 25 C35 18 45 25 50 35 C55 25 65 18 75 25 C90 35 80 55 50 80Z" fill="#E87C7C"/>
-    <path d="M30 50 L40 50 L45 38 L50 55 L55 42 L60 50 L70 50" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
-  </svg>`,
-  home: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="homeGlow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#2d9d6e;stop-opacity:0.3"/>
-        <stop offset="100%" style="stop-color:#2d9d6e;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="50" r="40" fill="url(#homeGlow)"/>
-    <path d="M50 18 L15 48 L22 48 L22 78 L78 78 L78 48 L85 48Z" fill="#5A7FA0" stroke="#7B9EC7" stroke-width="1.5"/>
-    <rect x="40" y="55" width="20" height="23" rx="2" fill="#D4A847" opacity="0.8"/>
-    <circle cx="55" cy="67" r="2" fill="#A0843C"/>
-    <rect x="28" y="52" width="10" height="10" rx="1" fill="#87CEEB" opacity="0.6"/>
-    <rect x="62" y="52" width="10" height="10" rx="1" fill="#87CEEB" opacity="0.6"/>
-  </svg>`,
-};
 
 // Short labels + Font Awesome icons for the v2 Azkar grid
 const categoryMeta = {
@@ -1423,11 +1305,19 @@ function incrementZikrCount(category, index) {
 }
 
 // Reset all adhkar in current category
-function resetAllAdhkar() {
+async function resetAllAdhkar() {
   if (!currentCategory) return;
 
-  // Show confirmation dialog
-  if (confirm("هل أنت متأكد من إعادة تعيين جميع الأذكار في هذا القسم؟")) {
+  const confirmed = window.AppDialog && typeof window.AppDialog.confirm === "function"
+    ? await window.AppDialog.confirm("هل أنت متأكد من إعادة تعيين جميع الأذكار في هذا القسم؟", {
+        title: "إعادة تعيين الأذكار",
+        confirmText: "نعم، إعادة التعيين",
+        cancelText: "إلغاء",
+        danger: true,
+      })
+    : false;
+
+  if (confirmed) {
     // Reset all adhkar counts in the current category
     adhkarData[currentCategory].adhkar.forEach((zikr) => {
       zikr.currentCount = 0;
@@ -1942,20 +1832,32 @@ function loadSwiperFontSize() {
 
 // ═══════════════════════════════════════════════════════
 
-// Save progress to localStorage (date-aware)
+// Save progress to localStorage (date-aware, safe & on-demand)
+let _progressDirty = false;
 function saveProgress() {
-  localStorage.setItem(
-    "adhkarProgress",
-    JSON.stringify({
-      date: new Date().toDateString(),
-      data: adhkarData,
-    }),
-  );
+  _progressDirty = false;
+  const payload = {
+    date: new Date().toDateString(),
+    data: adhkarData,
+  };
+  if (window.SafeStorage && typeof window.SafeStorage.setJSON === "function") {
+    window.SafeStorage.setJSON("adhkarProgress", payload);
+    return;
+  }
+  try {
+    localStorage.setItem("adhkarProgress", JSON.stringify(payload));
+  } catch (e) {}
+}
+
+function flushProgressIfDirty() {
+  if (_progressDirty) saveProgress();
 }
 
 // Load progress from localStorage (starts fresh on a new day)
 function loadProgress() {
-  const saved = localStorage.getItem("adhkarProgress");
+  const saved = window.SafeStorage
+    ? window.SafeStorage.getItem("adhkarProgress")
+    : localStorage.getItem("adhkarProgress");
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -1969,7 +1871,11 @@ function loadProgress() {
           adhkarData[categoryKey].adhkar.forEach((zikr) => {
             zikr.currentCount = 0;
           });
-          localStorage.removeItem("swiperPos_" + categoryKey);
+          if (window.SafeStorage) {
+            window.SafeStorage.removeItem("swiperPos_" + categoryKey);
+          } else {
+            try { localStorage.removeItem("swiperPos_" + categoryKey); } catch (e) {}
+          }
         });
         saveProgress();
         return;
@@ -1996,8 +1902,11 @@ function loadProgress() {
   }
 }
 
-// Auto-save progress
-setInterval(saveProgress, 10000); // Save every 10 seconds
+// Flush progress only when tab is hidden / closed (instead of unconditional 10s interval)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushProgressIfDirty();
+});
+window.addEventListener("pagehide", flushProgressIfDirty);
 
 // Service Worker for offline functionality (optional)
 // Capacitor serves the app from a local https://localhost origin where a
@@ -2025,7 +1934,20 @@ if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("./sw.js")
         .then((registration) => {
-          // Service worker registered successfully
+          registration.addEventListener("updatefound", () => {
+            const installing = registration.installing;
+            if (!installing) return;
+            installing.addEventListener("statechange", () => {
+              if (
+                installing.state === "installed" &&
+                navigator.serviceWorker.controller
+              ) {
+                if (typeof showNotification === "function") {
+                  showNotification("تم تحديث التطبيق لنسخة أحدث — أعد تحميل الصفحة عند رغبتك", "info", 5000);
+                }
+              }
+            });
+          });
         })
         .catch((registrationError) => {
           console.error(
@@ -2819,26 +2741,70 @@ const prayerIcons = {
   Isha: "fa-moon",
 };
 
-// ── Detection of official calculation method by geographic region ──
+// ── Detection of official calculation method by geographic region (unified via TazkeerUtils) ──
+let _prayerListenersBound = false;
+let activePrayerCityName = "القاهرة";
+
 function detectCalculationMethod(lat, lng) {
-  // Egypt (Egyptian General Authority of Survey - matches Google in Egypt)
-  if (lat >= 21.5 && lat <= 32.0 && lng >= 24.0 && lng <= 37.0) {
-    return 5;
+  if (window.TazkeerUtils && typeof window.TazkeerUtils.detectCalculationMethod === "function") {
+    return window.TazkeerUtils.detectCalculationMethod(lat, lng);
   }
-  // Saudi Arabia (Umm Al-Qura, Makkah)
-  if (lat >= 16.0 && lat <= 32.5 && lng >= 34.0 && lng <= 55.5) {
-    return 4;
-  }
-  // Gulf Region (UAE, Qatar, Kuwait, Bahrain, Oman)
-  if (lat >= 22.0 && lat <= 30.5 && lng >= 46.0 && lng <= 60.0) {
-    return 8;
-  }
-  // North America (ISNA)
-  if (lat >= 24.0 && lat <= 72.0 && lng >= -170.0 && lng <= -50.0) {
-    return 2;
-  }
-  // Default World (Muslim World League)
+  if (lat >= 21.5 && lat <= 32.0 && lng >= 24.0 && lng <= 37.0) return 5;
+  if (lat >= 16.0 && lat <= 32.5 && lng >= 34.0 && lng <= 55.5) return 4;
+  if (lat >= 22.0 && lat <= 30.5 && lng >= 46.0 && lng <= 60.0) return 8;
+  if (lat >= 24.0 && lat <= 72.0 && lng >= -170.0 && lng <= -50.0) return 2;
   return 3;
+}
+
+function getEffectivePrayerConfig(lat, lng) {
+  if (window.TazkeerUtils) {
+    const settings = window.TazkeerUtils.getPrayerSettings();
+    return {
+      settings,
+      method: window.TazkeerUtils.getEffectivePrayerMethod(lat, lng, settings),
+      school: window.TazkeerUtils.getEffectivePrayerSchool(settings),
+    };
+  }
+  return {
+    settings: null,
+    method: detectCalculationMethod(lat, lng),
+    school: 0,
+  };
+}
+
+function applyPrayerOffsets(rawTimings) {
+  if (!rawTimings) return rawTimings;
+  if (window.TazkeerUtils && typeof window.TazkeerUtils.applyMinuteOffsets === "function") {
+    return window.TazkeerUtils.applyMinuteOffsets(rawTimings);
+  }
+  return rawTimings;
+}
+
+function getActiveLocation() {
+  const settings = window.TazkeerUtils ? window.TazkeerUtils.getPrayerSettings() : null;
+  if (settings && settings.manualCity) {
+    return {
+      latitude: Number(settings.manualCity.lat),
+      longitude: Number(settings.manualCity.lng),
+      city: settings.manualCity.name,
+      isManual: true,
+    };
+  }
+  const loc = _safeGetJSON("prayerLocation", null);
+  if (loc && Number.isFinite(Number(loc.latitude)) && Number.isFinite(Number(loc.longitude))) {
+    return {
+      latitude: Number(loc.latitude),
+      longitude: Number(loc.longitude),
+      city: loc.city || "القاهرة",
+      isManual: false,
+    };
+  }
+  return {
+    latitude: 30.0444,
+    longitude: 31.2357,
+    city: "القاهرة",
+    isManual: false,
+  };
 }
 
 // Clean time string (removes timezone text like "04:49 (EET)" -> "04:49")
@@ -2847,23 +2813,18 @@ function cleanTimeString(timeStr) {
   return String(timeStr).split(" ")[0].trim();
 }
 
-// Storage key for 30-day monthly calendar
+// Storage key for 30-day monthly calendar (includes calculation method & school)
 function getMonthlyCalendarKey(year, month, lat, lng) {
-  return `monthly_prayers_${year}_${month}_${Number(lat).toFixed(2)}_${Number(lng).toFixed(2)}`;
+  const cfg = getEffectivePrayerConfig(lat, lng);
+  return `monthly_prayers_${year}_${month}_${Number(lat).toFixed(2)}_${Number(lng).toFixed(2)}_m${cfg.method}_s${cfg.school}`;
 }
 
 // Read stored monthly calendar from storage
 function getStoredMonthlyCalendar(year, month, lat, lng) {
   const key = getMonthlyCalendarKey(year, month, lat, lng);
-  const raw = localStorage.getItem(key);
-  if (!raw) return null;
-  try {
-    const data = JSON.parse(raw);
-    if (data && data.days && Object.keys(data.days).length > 0) {
-      return data;
-    }
-  } catch (e) {
-    console.warn("[PrayerTimes] Error parsing stored monthly calendar:", e);
+  const data = _safeGetJSON(key, null);
+  if (data && data.days && Object.keys(data.days).length > 0) {
+    return data;
   }
   return null;
 }
@@ -2882,8 +2843,11 @@ function getStoredPrayerTimesForDate(date, lat, lng) {
 
 // Fetch full 30-day monthly calendar from AlAdhan API and cache locally
 async function fetchAndStoreMonthCalendar(lat, lng, year, month, cityName) {
-  const method = detectCalculationMethod(lat, lng);
-  const url = `https://api.aladhan.com/v1/calendar?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&method=${method}&month=${month}&year=${year}`;
+  const cfg = getEffectivePrayerConfig(lat, lng);
+  const query = window.TazkeerUtils && typeof window.TazkeerUtils.buildAlAdhanQueryParams === "function"
+    ? window.TazkeerUtils.buildAlAdhanQueryParams(lat, lng, cfg.settings)
+    : `latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&method=${cfg.method}&school=${cfg.school}`;
+  const url = `https://api.aladhan.com/v1/calendar?${query}&month=${month}&year=${year}`;
 
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error("AlAdhan Calendar API HTTP " + response.status);
@@ -2917,14 +2881,31 @@ async function fetchAndStoreMonthCalendar(lat, lng, year, month, cityName) {
     lat: Number(lat),
     lng: Number(lng),
     cityName: cityName || "",
-    method,
+    method: cfg.method,
+    school: cfg.school,
     savedAt: Date.now(),
     days: daysObj,
   };
 
   const key = getMonthlyCalendarKey(year, month, lat, lng);
-  localStorage.setItem(key, JSON.stringify(cachePayload));
-  console.log(`[PrayerTimes] Stored 30-day monthly calendar for ${year}-${month} (${Object.keys(daysObj).length} days)`);
+  if (window.SafeStorage) {
+    window.SafeStorage.setJSON(key, cachePayload);
+    // Also mirror compact AlAdhan calendar array for adhan-native.js offline fallback
+    window.SafeStorage.setJSON("prayerMonthlyCalendar", {
+      year,
+      month,
+      method: cfg.method,
+      school: cfg.school,
+      lat: Number(lat),
+      lng: Number(lng),
+      days: json.data.map((d) => ({
+        date: d.date,
+        timings: d.timings,
+      })),
+    });
+  } else {
+    try { localStorage.setItem(key, JSON.stringify(cachePayload)); } catch (e) {}
+  }
 
   return cachePayload;
 }
@@ -2942,7 +2923,6 @@ function checkAndPreloadNextMonthCalendar(lat, lng, today, cityName) {
     const nextYear = month === 12 ? year + 1 : year;
     const storedNext = getStoredMonthlyCalendar(nextYear, nextMonth, lat, lng);
     if (!storedNext) {
-      console.log(`[PrayerTimes] Preloading next month calendar for ${nextYear}-${nextMonth}`);
       fetchAndStoreMonthCalendar(lat, lng, nextYear, nextMonth, cityName).catch((err) => {
         console.warn("[PrayerTimes] Next month prefetch warning:", err && err.message);
       });
@@ -2955,6 +2935,9 @@ function showLocationPermissionModal() {
   const modal = document.getElementById("locationPermissionModal");
   if (!modal) return;
   modal.classList.add("is-open");
+  const searchInput = document.getElementById("locModalCitySearch");
+  if (searchInput) searchInput.value = "";
+  filterManualCities("", "locModalCityList");
   if (window.AppRouter) {
     window.AppRouter.pushModal("locationPermissionModal", closeLocationPermissionModal);
   }
@@ -2967,21 +2950,199 @@ function closeLocationPermissionModal() {
   if (window.AppRouter && window.AppRouter.isModalOpen("locationPermissionModal")) {
     window.AppRouter.closeModal("locationPermissionModal");
   }
+  if (window.TazkeerModalQueue && typeof window.TazkeerModalQueue.notifyClosed === "function") {
+    window.TazkeerModalQueue.notifyClosed("locationPermissionModal");
+  }
 }
 
 function handleEnableLocationFromModal() {
   closeLocationPermissionModal();
+  if (window.TazkeerUtils) {
+    window.TazkeerUtils.savePrayerSettings({ manualCity: null });
+  }
   requestLocation(false);
 }
 
 function handleDismissLocationModal() {
   closeLocationPermissionModal();
-  const savedLocation = localStorage.getItem("prayerLocation");
-  if (!savedLocation) {
-    localStorage.setItem(
-      "prayerLocation",
-      JSON.stringify({ latitude: 30.0444, longitude: 31.2357, city: "القاهرة" }),
-    );
+  const savedLocation = _safeGetJSON("prayerLocation", null);
+  const settings = window.TazkeerUtils ? window.TazkeerUtils.getPrayerSettings() : null;
+  if (!savedLocation && !(settings && settings.manualCity)) {
+    const cairo = { latitude: 30.0444, longitude: 31.2357, city: "القاهرة" };
+    if (window.SafeStorage) window.SafeStorage.setJSON("prayerLocation", cairo);
+    else localStorage.setItem("prayerLocation", JSON.stringify(cairo));
+  }
+}
+
+// ── Prayer Settings & Manual City Picker UI Controllers ──
+function initPrayerSettingsUI() {
+  if (!window.TazkeerUtils) return;
+  const settings = window.TazkeerUtils.getPrayerSettings();
+  const loc = getActiveLocation();
+
+  const badge = document.getElementById("prayerActiveCityBadge");
+  if (badge) {
+    badge.textContent = loc.isManual ? `${loc.city} (يدوي)` : `${loc.city} (تلقائي)`;
+  }
+
+  const select = document.getElementById("prayerMethodSelect");
+  if (select) {
+    if (select.options.length === 0) {
+      window.TazkeerUtils.PRAYER_METHODS.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = String(m.id);
+        opt.textContent = m.label;
+        select.appendChild(opt);
+      });
+    }
+    select.value = String(settings.method);
+  }
+
+  const s0 = document.getElementById("prayerSchool0");
+  const s1 = document.getElementById("prayerSchool1");
+  if (s0) s0.classList.toggle("active", settings.school === 0);
+  if (s1) s1.classList.toggle("active", settings.school === 1);
+
+  ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].forEach((key) => {
+    const el = document.getElementById("poVal" + key);
+    if (!el) return;
+    const val = Number(settings.offsets && settings.offsets[key]) || 0;
+    el.textContent = val > 0 ? `+${val}` : String(val);
+    el.classList.toggle("is-nonzero", val !== 0);
+  });
+
+  const searchInput = document.getElementById("prayerManualCitySearch");
+  const resultsEl = document.getElementById("prayerManualCityResults");
+  if (searchInput && !searchInput.value.trim() && resultsEl) {
+    resultsEl.classList.remove("has-items");
+    resultsEl.innerHTML = "";
+  }
+}
+
+function filterManualCities(query, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container || !window.TazkeerUtils) return;
+
+  const trimmed = String(query || "").trim();
+  const isModalPicker = containerId === "locModalCityList";
+  if (!trimmed && !isModalPicker) {
+    container.classList.remove("has-items");
+    container.innerHTML = "";
+    return;
+  }
+
+  const matches = window.TazkeerUtils.searchPresetCities(trimmed).slice(0, isModalPicker && !trimmed ? 8 : 15);
+  if (!matches.length) {
+    container.innerHTML = '<div class="prayer-city-empty">لم يتم العثور على مدينة مطابقة</div>';
+    container.classList.add("has-items");
+    return;
+  }
+
+  const esc = window.escapeHtml || ((s) => String(s));
+  container.innerHTML = matches
+    .map(
+      (c) =>
+        `<button type="button" class="prayer-city-option" onclick="selectManualCity('${esc(c.id)}', '${esc(containerId)}')">` +
+        `<span>${esc(c.name)}</span><small>${esc(c.country)}</small></button>`
+    )
+    .join("");
+  container.classList.add("has-items");
+}
+
+async function selectManualCity(cityId, sourceContainerId) {
+  if (!window.TazkeerUtils) return;
+  const city = window.TazkeerUtils.PRESET_CITIES.find((c) => c.id === cityId);
+  if (!city) return;
+
+  window.TazkeerUtils.savePrayerSettings({ manualCity: city });
+  const locObj = { latitude: city.lat, longitude: city.lng, city: city.name };
+  if (window.SafeStorage) window.SafeStorage.setJSON("prayerLocation", locObj);
+  else localStorage.setItem("prayerLocation", JSON.stringify(locObj));
+
+  if (sourceContainerId === "locModalCityList") {
+    closeLocationPermissionModal();
+  } else {
+    const searchInput = document.getElementById("prayerManualCitySearch");
+    const resultsEl = document.getElementById("prayerManualCityResults");
+    if (searchInput) searchInput.value = "";
+    if (resultsEl) {
+      resultsEl.classList.remove("has-items");
+      resultsEl.innerHTML = "";
+    }
+  }
+
+  initPrayerSettingsUI();
+  await fetchPrayerTimes(city.lat, city.lng, city.name);
+  if (window.AdhanNative && typeof window.AdhanNative.resync === "function") {
+    window.AdhanNative.resync();
+  }
+  if (typeof showNotification === "function") {
+    showNotification(`تم ضبط المواقيت على مدينة ${city.name}`);
+  }
+}
+
+async function useAutoGpsLocation() {
+  if (window.TazkeerUtils) {
+    window.TazkeerUtils.savePrayerSettings({ manualCity: null });
+  }
+  initPrayerSettingsUI();
+  await requestLocation(false);
+  initPrayerSettingsUI();
+}
+
+async function onPrayerMethodChange(value) {
+  if (!window.TazkeerUtils) return;
+  const method = value === "auto" ? "auto" : parseInt(value, 10);
+  window.TazkeerUtils.savePrayerSettings({ method });
+  initPrayerSettingsUI();
+  await refreshPrayerTimesForCurrentLocation("method-change");
+  if (window.AdhanNative && typeof window.AdhanNative.resync === "function") {
+    window.AdhanNative.resync();
+  }
+  if (typeof showNotification === "function") {
+    showNotification("تم تحديث طريقة حساب المواقيت");
+  }
+}
+
+async function onPrayerSchoolChange(school) {
+  if (!window.TazkeerUtils) return;
+  window.TazkeerUtils.savePrayerSettings({ school: Number(school) === 1 ? 1 : 0 });
+  initPrayerSettingsUI();
+  await refreshPrayerTimesForCurrentLocation("school-change");
+  if (window.AdhanNative && typeof window.AdhanNative.resync === "function") {
+    window.AdhanNative.resync();
+  }
+  if (typeof showNotification === "function") {
+    showNotification(Number(school) === 1 ? "تم ضبط العصر على المذهب الحنفي" : "تم ضبط العصر على مذهب الجمهور");
+  }
+}
+
+async function stepPrayerOffset(prayerKey, delta) {
+  if (!window.TazkeerUtils) return;
+  const current = window.TazkeerUtils.getPrayerSettings();
+  const nextVal = (Number(current.offsets && current.offsets[prayerKey]) || 0) + Number(delta || 0);
+  const patch = {};
+  patch[prayerKey] = nextVal;
+  window.TazkeerUtils.savePrayerSettings({ offsets: patch });
+  initPrayerSettingsUI();
+  await refreshPrayerTimesForCurrentLocation("offset-change");
+  if (window.AdhanNative && typeof window.AdhanNative.resync === "function") {
+    window.AdhanNative.resync();
+  }
+}
+
+async function resetPrayerOffsets() {
+  if (!window.TazkeerUtils) return;
+  window.TazkeerUtils.savePrayerSettings({
+    offsets: { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 },
+  });
+  initPrayerSettingsUI();
+  await refreshPrayerTimesForCurrentLocation("offset-reset");
+  if (window.AdhanNative && typeof window.AdhanNative.resync === "function") {
+    window.AdhanNative.resync();
+  }
+  if (typeof showNotification === "function") {
+    showNotification("تم تصفير تعديلات الدقائق");
   }
 }
 
@@ -2989,33 +3150,30 @@ window.showLocationPermissionModal = showLocationPermissionModal;
 window.closeLocationPermissionModal = closeLocationPermissionModal;
 window.handleEnableLocationFromModal = handleEnableLocationFromModal;
 window.handleDismissLocationModal = handleDismissLocationModal;
+window.initPrayerSettingsUI = initPrayerSettingsUI;
+window.filterManualCities = filterManualCities;
+window.selectManualCity = selectManualCity;
+window.useAutoGpsLocation = useAutoGpsLocation;
+window.onPrayerMethodChange = onPrayerMethodChange;
+window.onPrayerSchoolChange = onPrayerSchoolChange;
+window.stepPrayerOffset = stepPrayerOffset;
+window.resetPrayerOffsets = resetPrayerOffsets;
 
 // Initialize Prayer Times - Instant load with monthly cache and automatic location prompt
 async function initializePrayerTimes() {
   const section = document.getElementById("prayerTimesSection");
   if (!section) return;
 
-  const savedLocation = localStorage.getItem("prayerLocation");
-  let lat = 30.0444;
-  let lng = 31.2357;
-  let city = "القاهرة";
-
-  if (savedLocation) {
-    try {
-      const loc = JSON.parse(savedLocation);
-      lat = Number(loc.latitude) || lat;
-      lng = Number(loc.longitude) || lng;
-      city = loc.city || city;
-    } catch (e) {
-      console.warn("Saved location parse error", e);
-    }
-  }
+  const loc = getActiveLocation();
+  const lat = loc.latitude;
+  const lng = loc.longitude;
+  const city = loc.city;
 
   // 1. Instant Render: check stored monthly calendar for today to display immediately
   const today = new Date();
   const storedToday = getStoredPrayerTimesForDate(today, lat, lng);
   if (storedToday) {
-    prayerTimesData = storedToday;
+    prayerTimesData = applyPrayerOffsets(storedToday);
     displayPrayerTimes(city);
     startCountdown();
     const loading = document.getElementById("prayerTimesLoading");
@@ -3025,56 +3183,57 @@ async function initializePrayerTimes() {
   // 2. Fetch/update monthly calendar in background
   fetchPrayerTimes(lat, lng, city);
 
-  // 3. First launch prompt: if user never set location, ask politely on first open
+  // 3. First launch prompt: queue location check politely so it never overlaps other modals
+  const savedLocation = _safeGetJSON("prayerLocation", null);
   const promptedOnce = localStorage.getItem("locationPromptedOnce");
-  if (!savedLocation && !promptedOnce) {
+  if (!savedLocation && !loc.isManual && !promptedOnce) {
     localStorage.setItem("locationPromptedOnce", "true");
-    setTimeout(() => {
-      requestLocation(false);
-    }, 900);
+    if (window.TazkeerModalQueue && typeof window.TazkeerModalQueue.enqueue === "function") {
+      window.TazkeerModalQueue.enqueue({
+        id: "location-prompt",
+        modalId: "locationPermissionModal",
+        delayMs: 900,
+        shouldShow: () => !_safeGetJSON("prayerLocation", null) && !getActiveLocation().isManual,
+        open: () => requestLocation(false),
+      });
+    } else {
+      setTimeout(() => requestLocation(false), 900);
+    }
   }
 
-  // Setup event listeners
-  const locationBtn = document.getElementById("locationBtn");
-  const retryBtn = document.getElementById("retryPrayerTimes");
+  // 4. Bind event listeners ONCE (fixes listener leak on every Home tab switch)
+  if (!_prayerListenersBound) {
+    _prayerListenersBound = true;
+    const locationBtn = document.getElementById("locationBtn");
+    const retryBtn = document.getElementById("retryPrayerTimes");
 
-  if (locationBtn) {
-    locationBtn.addEventListener("click", () => requestLocation(false));
-  }
+    if (locationBtn) {
+      locationBtn.addEventListener("click", () => {
+        if (window.TazkeerUtils) {
+          window.TazkeerUtils.savePrayerSettings({ manualCity: null });
+        }
+        requestLocation(false);
+      });
+    }
 
-  if (retryBtn) {
-    retryBtn.addEventListener("click", () => fetchPrayerTimes(lat, lng, city));
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        const currentLoc = getActiveLocation();
+        fetchPrayerTimes(currentLoc.latitude, currentLoc.longitude, currentLoc.city);
+      });
+    }
   }
 }
 
 function refreshPrayerTimesForCurrentLocation(reason) {
-  const savedLocation = localStorage.getItem("prayerLocation");
-  let location = {
-    latitude: 30.0444,
-    longitude: 31.2357,
-    city: "القاهرة",
-  };
-  if (savedLocation) {
-    try {
-      const parsed = JSON.parse(savedLocation);
-      location = {
-        latitude: Number(parsed.latitude) || location.latitude,
-        longitude: Number(parsed.longitude) || location.longitude,
-        city: parsed.city || location.city,
-      };
-    } catch (error) {
-      console.warn("Saved location parse error during daily refresh:", error);
-    }
-  }
-  console.log("[PrayerTimes] Refreshing schedule:", reason || "manual");
-  return fetchPrayerTimes(location.latitude, location.longitude, location.city);
+  const loc = getActiveLocation();
+  return fetchPrayerTimes(loc.latitude, loc.longitude, loc.city);
 }
 
 // Request user location with polite modal on refusal
 async function requestLocation(silent) {
   const loading = document.getElementById("prayerTimesLoading");
   const error = document.getElementById("prayerTimesError");
-  const grid = document.getElementById("prayerTimesGrid");
 
   if (!navigator.geolocation) {
     if (!silent) showLocationPermissionModal();
@@ -3095,41 +3254,29 @@ async function requestLocation(silent) {
     const { latitude, longitude } = position.coords;
     const cityName = await getCityName(latitude, longitude);
 
-    localStorage.setItem(
-      "prayerLocation",
-      JSON.stringify({
-        latitude,
-        longitude,
-        city: cityName,
-      }),
-    );
+    const locPayload = { latitude, longitude, city: cityName };
+    if (window.SafeStorage) window.SafeStorage.setJSON("prayerLocation", locPayload);
+    else localStorage.setItem("prayerLocation", JSON.stringify(locPayload));
 
     closeLocationPermissionModal();
     await fetchPrayerTimes(latitude, longitude, cityName);
+    initPrayerSettingsUI();
   } catch (err) {
     console.warn("[PrayerTimes] Geolocation denied or error:", err);
     if (loading) loading.style.display = "none";
 
-    // If user denied or error, politely explain why location is required for accuracy
+    // If user denied or error, politely explain & offer manual city selection
     if (!silent) {
       showLocationPermissionModal();
     }
 
     // Default to Cairo gracefully in background
-    const savedLocation = localStorage.getItem("prayerLocation");
+    const savedLocation = _safeGetJSON("prayerLocation", null);
     if (!savedLocation) {
-      const cairoLat = 30.0444;
-      const cairoLng = 31.2357;
-      const cairoName = "القاهرة";
-      localStorage.setItem(
-        "prayerLocation",
-        JSON.stringify({
-          latitude: cairoLat,
-          longitude: cairoLng,
-          city: cairoName,
-        }),
-      );
-      await fetchPrayerTimes(cairoLat, cairoLng, cairoName);
+      const cairo = { latitude: 30.0444, longitude: 31.2357, city: "القاهرة" };
+      if (window.SafeStorage) window.SafeStorage.setJSON("prayerLocation", cairo);
+      else localStorage.setItem("prayerLocation", JSON.stringify(cairo));
+      await fetchPrayerTimes(cairo.latitude, cairo.longitude, cairo.city);
     }
   }
 }
@@ -3163,7 +3310,7 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
   let todayTimings = monthData && monthData.days && monthData.days[currentDay];
 
   if (todayTimings) {
-    prayerTimesData = todayTimings;
+    prayerTimesData = applyPrayerOffsets(todayTimings);
     displayPrayerTimes(cityName);
     startCountdown();
     reconcilePrayerSchedules(cityName);
@@ -3177,7 +3324,7 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
     if (!monthData || !todayTimings || isStale) {
       monthData = await fetchAndStoreMonthCalendar(latitude, longitude, currentYear, currentMonth, cityName);
       if (monthData && monthData.days && monthData.days[currentDay]) {
-        prayerTimesData = monthData.days[currentDay];
+        prayerTimesData = applyPrayerOffsets(monthData.days[currentDay]);
         displayPrayerTimes(cityName);
         startCountdown();
         reconcilePrayerSchedules(cityName);
@@ -3196,14 +3343,17 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
       // Fallback: try single day API call
       try {
         const timestamp = Math.floor(today.getTime() / 1000);
-        const method = detectCalculationMethod(latitude, longitude);
+        const cfg = getEffectivePrayerConfig(latitude, longitude);
+        const query = window.TazkeerUtils && typeof window.TazkeerUtils.buildAlAdhanQueryParams === "function"
+          ? window.TazkeerUtils.buildAlAdhanQueryParams(latitude, longitude, cfg.settings)
+          : `latitude=${latitude}&longitude=${longitude}&method=${cfg.method}&school=${cfg.school}`;
         const fallbackRes = await fetch(
-          `https://api.aladhan.com/v1/timings/${timestamp}?latitude=${latitude}&longitude=${longitude}&method=${method}`,
+          `https://api.aladhan.com/v1/timings/${timestamp}?${query}`,
         );
         if (fallbackRes.ok) {
           const fallbackData = await fallbackRes.json();
           if (fallbackData && fallbackData.data && fallbackData.data.timings) {
-            prayerTimesData = fallbackData.data.timings;
+            prayerTimesData = applyPrayerOffsets(fallbackData.data.timings);
             displayPrayerTimes(cityName);
             startCountdown();
             reconcilePrayerSchedules(cityName);
@@ -3222,25 +3372,28 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
 }
 
 function reconcilePrayerSchedules(cityName) {
-    if (window.AdhanNative && window.AdhanNative.onPrayerTimesUpdated) {
-      try {
-        window.AdhanNative.onPrayerTimesUpdated(prayerTimesData, cityName);
-      } catch (error) {
-        console.warn("Adhan sync hook error:", error);
-      }
-    }
-    if (typeof window.syncAzkarNativeSchedule === "function") {
-      window.syncAzkarNativeSchedule();
+  if (window.AdhanNative && window.AdhanNative.onPrayerTimesUpdated) {
+    try {
+      window.AdhanNative.onPrayerTimesUpdated(prayerTimesData, cityName);
+    } catch (error) {
+      console.warn("Adhan sync hook error:", error);
     }
   }
+  if (typeof window.syncAzkarNativeSchedule === "function") {
+    window.syncAzkarNativeSchedule();
+  }
+}
 
 // Display prayer times cards
 function displayPrayerTimes(cityName) {
   const grid = document.getElementById("prayerTimesGrid");
   const locationEl = document.getElementById("cityName");
 
+  const resolvedCity = cityName || activePrayerCityName || getActiveLocation().city;
+  activePrayerCityName = resolvedCity;
+
   if (locationEl) {
-    locationEl.textContent = cityName;
+    locationEl.textContent = resolvedCity;
   }
 
   if (!grid || !prayerTimesData) return;
@@ -3418,8 +3571,7 @@ function updateCountdown() {
 
   if (diffMs <= 0) {
     if (typeof displayPrayerTimes === "function") {
-      const cityName = localStorage.getItem("cachedPrayerCity") || "";
-      displayPrayerTimes(cityName);
+      displayPrayerTimes(activePrayerCityName || getActiveLocation().city);
     }
     return;
   }
@@ -4297,36 +4449,12 @@ document.addEventListener("keydown", function (e) {
  * and displays a daily random Duaa.
  */
 /**
- * Live Digital Clock for the Hero Calendar
- */
-let liveClockInterval = null;
-function startLiveClock() {
-  if (liveClockInterval) clearInterval(liveClockInterval);
-  const updateClock = () => {
-    const el = document.getElementById("liveClockText");
-    if (!el) return;
-    const now = new Date();
-    let hours = now.getHours();
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
-    const period = hours >= 12 ? "م" : "ص";
-    hours = hours % 12 || 12;
-    el.textContent = `${hours}:${minutes}:${seconds} ${period}`;
-  };
-  updateClock();
-  liveClockInterval = setInterval(updateClock, 1000);
-}
-
-/**
  * Updates the date section with current Hijri and Gregorian dates,
  * renders interactive calendar strip with fasting indicators,
  * and displays a daily random Duaa.
  */
 function updateDailyInfo() {
   const now = new Date();
-
-  // Start live clock
-  startLiveClock();
 
   // 1. Greeting (static) + weekday for the Hijri line
   const weekdayName = new Intl.DateTimeFormat("ar-SA", {
@@ -5508,6 +5636,12 @@ function setAzkarReminderEnabled(enabled) {
 }
 
 function azkarStableId(dateKey, reminderKey) {
+  if (
+    window.TazkeerScheduleUtils &&
+    typeof window.TazkeerScheduleUtils.stableNotificationId === "function"
+  ) {
+    return window.TazkeerScheduleUtils.stableNotificationId("azkar", dateKey, reminderKey);
+  }
   let hash = 2166136261;
   const value = "azkar:" + dateKey + ":" + reminderKey;
   for (let i = 0; i < value.length; i += 1) {
@@ -5547,53 +5681,93 @@ async function buildAzkarNativeSchedule() {
     { key: "night", prayer: "Isha", section: "tab-azkar" },
   ];
   const schedule = [];
-  const addOneHour = (date, timeValue) => {
-    const match = String(timeValue || "").match(/(\d{1,2}):(\d{2})/);
-    if (!match) return null;
-    const at = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-      Number(match[1]),
-      Number(match[2]),
-      0,
-      0,
-    );
-    at.setMinutes(at.getMinutes() + 60);
-    return at;
-  };
-  const formatLocalTime = (date) =>
-    `${String(date.getHours()).padStart(2, "0")}:${String(
-      date.getMinutes(),
-    ).padStart(2, "0")}`;
+  const toLocalKey = (d) =>
+    window.TazkeerScheduleUtils && typeof window.TazkeerScheduleUtils.localDateKey === "function"
+      ? window.TazkeerScheduleUtils.localDateKey(d)
+      : [
+          d.getFullYear(),
+          String(d.getMonth() + 1).padStart(2, "0"),
+          String(d.getDate()).padStart(2, "0"),
+        ].join("-");
 
   days.forEach((day) => {
     const date = day.date instanceof Date ? day.date : new Date(day.date);
     const timings = day.timings || {};
     if (Number.isNaN(date.getTime())) return;
-    const dateKey = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, "0"),
-      String(date.getDate()).padStart(2, "0")
-    ].join("-");
+    const baseDateKey = toLocalKey(date);
 
     reminders.forEach((reminder) => {
-      const at = addOneHour(date, timings[reminder.prayer]);
-      if (!at) return;
-      if (at.getTime() <= Date.now() + 5000) return;
+      const match = String(timings[reminder.prayer] || "").match(/(\d{1,2}):(\d{2})/);
+      if (!match) return;
+      const hhmm = `${String(match[1]).padStart(2, "0")}:${match[2]}`;
+
+      // Safely roll over across midnight (e.g. Isha 23:20 + 60m -> next day 00:20)
+      let shifted;
+      if (
+        window.TazkeerScheduleUtils &&
+        typeof window.TazkeerScheduleUtils.addMinutesToLocalDateTime === "function"
+      ) {
+        shifted = window.TazkeerScheduleUtils.addMinutesToLocalDateTime(baseDateKey, hhmm, 60);
+      } else {
+        const at = new Date(
+          date.getFullYear(),
+          date.getMonth(),
+          date.getDate(),
+          Number(match[1]),
+          Number(match[2]),
+          0,
+          0,
+        );
+        at.setMinutes(at.getMinutes() + 60);
+        shifted = {
+          dateKey: toLocalKey(at),
+          timeOfDay: `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`,
+          timestamp: at.getTime(),
+        };
+      }
+      if (!shifted || shifted.timestamp <= Date.now() + 5000) return;
+
       const text = getAzkarReminderText(reminder.key);
       if (!text) return;
       schedule.push({
-        id: azkarStableId(dateKey, reminder.key),
-        date: dateKey,
-        time: at.getTime(),
-        timeOfDay: formatLocalTime(at),
+        id: azkarStableId(shifted.dateKey, reminder.key),
+        date: shifted.dateKey,
+        time: shifted.timestamp,
+        timeOfDay: shifted.timeOfDay,
         key: reminder.key,
         title: text.title,
         body: text.body,
-        section: reminder.section
+        section: reminder.section,
       });
     });
+
+    // Schedule Friday Surah Al-Kahf reminder at 10:00 local time
+    if (date.getDay() === 5) {
+      const kahfDate = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        10,
+        0,
+        0,
+        0,
+      );
+      if (kahfDate.getTime() > Date.now() + 5000) {
+        const fridayText = getAzkarReminderText("friday");
+        if (fridayText) {
+          schedule.push({
+            id: azkarStableId(baseDateKey, "friday"),
+            date: baseDateKey,
+            time: kahfDate.getTime(),
+            timeOfDay: "10:00",
+            key: "friday",
+            title: fridayText.title,
+            body: fridayText.body,
+            section: "tab-quran",
+          });
+        }
+      }
+    }
 
     if (typeof checkFastingOccasions === "function") {
       const events = checkFastingOccasions(date);
@@ -5611,18 +5785,10 @@ async function buildAzkarNativeSchedule() {
           const event = events[0];
           const eventLabel =
             (event && (event.name || event.badge)) || "نافلة";
-          const fastingDateKey = [
-            date.getFullYear(),
-            String(date.getMonth() + 1).padStart(2, "0"),
-            String(date.getDate()).padStart(2, "0"),
-          ].join("-");
+          const reminderDateKey = toLocalKey(reminderDate);
           schedule.push({
-            id: azkarStableId(fastingDateKey, "fasting"),
-            date: [
-              reminderDate.getFullYear(),
-              String(reminderDate.getMonth() + 1).padStart(2, "0"),
-              String(reminderDate.getDate()).padStart(2, "0"),
-            ].join("-"),
+            id: azkarStableId(baseDateKey, "fasting"),
+            date: reminderDateKey,
             time: reminderDate.getTime(),
             timeOfDay: "20:00",
             key: "fasting",
@@ -5665,26 +5831,9 @@ async function syncAzkarNativeSchedule() {
 }
 
 /**
- * Plays a clean, pleasant notification chime:
- * 1. Native device notification tone via Capacitor AdhanScheduler.playNotificationSound()
- * 2. In-app melodious chime via Web Audio API
+ * Plays a single pleasant in-app chime on Web (or fallback when native notification is absent).
  */
 function playAzkarChime() {
-  // 1. Try native device notification tone
-  if (
-    window.Capacitor &&
-    window.Capacitor.isNativePlatform &&
-    window.Capacitor.isNativePlatform() &&
-    window.Capacitor.Plugins &&
-    window.Capacitor.Plugins.AdhanScheduler &&
-    typeof window.Capacitor.Plugins.AdhanScheduler.playNotificationSound === "function"
-  ) {
-    try {
-      window.Capacitor.Plugins.AdhanScheduler.playNotificationSound();
-    } catch (e) {}
-  }
-
-  // 2. In-app gentle chime using Web Audio API
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
@@ -5699,7 +5848,7 @@ function playAzkarChime() {
         osc.type = "sine";
         osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
         gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.12);
-        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + idx * 0.12 + 0.03);
+        gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + idx * 0.12 + 0.03);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.12 + 0.45);
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -5711,13 +5860,10 @@ function playAzkarChime() {
 }
 
 /**
- * Send a system notification (browser Notification API or Capacitor).
+ * Send a system notification (single sound source — never overlaps native + Web Audio).
  */
-function sendAzkarSystemNotification(titleText, bodyText) {
-  // Play audible chime immediately
-  playAzkarChime();
-
-  // Try native Android AdhanScheduler plugin first (high-priority channel with native sound)
+function sendAzkarSystemNotification(titleText, bodyText, section) {
+  // 1. Native Android AdhanScheduler plugin (channel plays the system notification tone ONCE)
   if (
     window.Capacitor &&
     window.Capacitor.isNativePlatform &&
@@ -5729,7 +5875,8 @@ function sendAzkarSystemNotification(titleText, bodyText) {
     try {
       window.Capacitor.Plugins.AdhanScheduler.sendAzkarNotification({
         title: titleText,
-        body: bodyText
+        body: bodyText,
+        section: section || "tab-azkar",
       });
       return;
     } catch (e) {
@@ -5737,7 +5884,7 @@ function sendAzkarSystemNotification(titleText, bodyText) {
     }
   }
 
-  // Fallback: Capacitor LocalNotifications
+  // 2. Fallback: Capacitor LocalNotifications (plays its own default sound once)
   if (
     window.Capacitor &&
     window.Capacitor.isNativePlatform &&
@@ -5754,23 +5901,25 @@ function sendAzkarSystemNotification(titleText, bodyText) {
             body: bodyText,
             smallIcon: "ic_stat_adhan",
             sound: "default",
-            schedule: { at: new Date(Date.now() + 300) }
-          }
-        ]
+            schedule: { at: new Date(Date.now() + 300) },
+          },
+        ],
       });
       return;
     } catch (e) {}
   }
 
-  // Fallback: Web Notification API
+  // 3. Web mode: play gentle Web Audio chime + show Web Notification with valid icon
+  playAzkarChime();
+
   if ("Notification" in window) {
     if (Notification.permission === "granted") {
       try {
         new Notification(titleText, {
           body: bodyText,
-          icon: "images/icons/icon-192x192.png",
+          icon: "images/icon-192.png",
           tag: "azkar-reminder",
-          renotify: true
+          renotify: true,
         });
       } catch (e) {}
     } else if (Notification.permission !== "denied") {
@@ -5779,9 +5928,9 @@ function sendAzkarSystemNotification(titleText, bodyText) {
           try {
             new Notification(titleText, {
               body: bodyText,
-              icon: "images/icons/icon-192x192.png",
+              icon: "images/icon-192.png",
               tag: "azkar-reminder",
-              renotify: true
+              renotify: true,
             });
           } catch (e) {}
         }
@@ -5797,14 +5946,14 @@ function testAzkarReminder() {
   const currentMode = getHeroCardMode(new Date());
   const reminder = getAzkarReminderText(currentMode) || {
     title: "تذكير الأذكار",
-    body: "تجربة إشعار وصوت تنبيه الأذكار، يعمل بنجاح"
+    body: "تجربة إشعار وصوت تنبيه الأذكار، يعمل بنجاح",
   };
   showNotification(reminder.body, "info", 5000);
-  sendAzkarSystemNotification(reminder.title, reminder.body);
+  sendAzkarSystemNotification(reminder.title, reminder.body, currentMode === "friday" ? "tab-quran" : "tab-azkar");
 }
 
 /**
- * Check first launch and open settings modal automatically
+ * Check first launch and queue settings modal sequentially (no overlap with location/install modals)
  */
 function checkFirstLaunchSettings() {
   try {
@@ -5813,11 +5962,20 @@ function checkFirstLaunchSettings() {
     if (!done) {
       localStorage.setItem(KEY, "true");
       sessionStorage.setItem("tazkeer_is_first_launch", "true");
-      setTimeout(function () {
-        if (typeof openAdhanModal === "function") {
-          openAdhanModal();
-        }
-      }, 700);
+      if (window.TazkeerModalQueue && typeof window.TazkeerModalQueue.enqueue === "function") {
+        window.TazkeerModalQueue.enqueue({
+          id: "first-launch-settings",
+          modalId: "adhanModal",
+          delayMs: 650,
+          open: function () {
+            if (typeof openAdhanModal === "function") openAdhanModal();
+          },
+        });
+      } else {
+        setTimeout(function () {
+          if (typeof openAdhanModal === "function") openAdhanModal();
+        }, 700);
+      }
     }
   } catch (e) {}
 }
@@ -6184,16 +6342,6 @@ function closeFastingGuideModal() {
   }
 }
 
-/**
- * Scroll smoothly to Qibla compass
- */
-function scrollToQibla() {
-  const qibla = document.getElementById("qiblaSection");
-  if (qibla) {
-    qibla.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-}
-
 // Simple pseudo-random number generator seeded with a string
 function stringToSeed(str) {
   let hash = 0;
@@ -6210,7 +6358,7 @@ function random(seed) {
   return x - Math.floor(x);
 }
 
-// Close modals when clicking outside
+// Close modals when clicking outside or pressing Escape
 window.addEventListener("click", (e) => {
   const fastingModal = document.getElementById("fastingGuideModal");
   if (fastingModal && e.target === fastingModal) {
@@ -6218,106 +6366,86 @@ window.addEventListener("click", (e) => {
   }
 });
 
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const dialog = document.getElementById("tazkeerAppDialog");
+  if (dialog && dialog.classList.contains("is-open")) return;
+
+  const installModal = document.getElementById("installInstructionsModal");
+  if (installModal) {
+    dismissInstallModal(false);
+    return;
+  }
+  const locModal = document.getElementById("locationPermissionModal");
+  if (locModal && locModal.classList.contains("is-open")) {
+    closeLocationPermissionModal();
+    return;
+  }
+  const adhanModal = document.getElementById("adhanModal");
+  if (adhanModal && adhanModal.style.display === "flex" && typeof closeAdhanModal === "function") {
+    closeAdhanModal();
+    return;
+  }
+  const qiblaModal = document.getElementById("qiblaModal");
+  if (qiblaModal && qiblaModal.style.display === "flex" && typeof closeQiblaModal === "function") {
+    closeQiblaModal();
+    return;
+  }
+  const fastingModal = document.getElementById("fastingGuideModal");
+  if (fastingModal && fastingModal.style.display === "flex") {
+    closeFastingGuideModal();
+  }
+});
+
 // Initialize on load
 document.addEventListener("DOMContentLoaded", () => {
   updateDailyInfo();
+  if (typeof initPrayerSettingsUI === "function") {
+    initPrayerSettingsUI();
+  }
 });
 
 /* ========================================
-   GLOBAL NUMBERS TO ARABIC CONVERTER
+   ARABIC NUMERALS HELPER (no global MutationObserver)
    ======================================== */
 function toArabicNumerals(str) {
+  if (typeof window.toArabicDigits === "function") {
+    return window.toArabicDigits(str);
+  }
   return String(str).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[d]);
 }
 
 function convertNodeTextToArabic(node) {
+  if (!node) return;
   if (node.nodeType === Node.TEXT_NODE) {
     if (
       node.parentElement &&
-      node.parentElement.tagName !== "STYLE" &&
-      node.parentElement.tagName !== "SCRIPT" &&
-      node.parentElement.tagName !== "LINK" // Just in case
+      !["STYLE", "SCRIPT", "LINK", "OPTION"].includes(node.parentElement.tagName) &&
+      !node.parentElement.closest("#prayerSettingsCard, #adhanVolumeValue")
     ) {
       if (/\d/.test(node.nodeValue)) {
         node.nodeValue = toArabicNumerals(node.nodeValue);
       }
     }
   } else if (node.nodeType === Node.ELEMENT_NODE) {
-    if (["SCRIPT", "STYLE", "INPUT", "TEXTAREA"].includes(node.tagName)) return;
+    if (["SCRIPT", "STYLE", "INPUT", "TEXTAREA", "SELECT"].includes(node.tagName)) return;
     if (
       node.classList &&
-      (node.classList.contains("fa") || node.classList.contains("fas"))
-    )
-      return; // skip font awesome base
+      (node.classList.contains("fa") || node.classList.contains("fas") || node.classList.contains("po-val"))
+    ) {
+      return;
+    }
     node.childNodes.forEach(convertNodeTextToArabic);
   }
 }
 
-// Ensure the conversion runs after everything else initializes
-setTimeout(() => {
-  convertNodeTextToArabic(document.body);
-
-  // Watch for dynamic changes globally
-  const numObserver = new MutationObserver((mutations) => {
-    // Collect all unique nodes to change to prevent recursive mutation loops
-    const textNodesToUpdate = new Set();
-
-    mutations.forEach((mutation) => {
-      if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((added) => {
-          convertNodeTextToArabic(added);
-        });
-      } else if (mutation.type === "characterData") {
-        const val = mutation.target.nodeValue;
-        if (/\d/.test(val)) {
-          const parent = mutation.target.parentElement;
-          if (
-            parent &&
-            parent.tagName !== "STYLE" &&
-            parent.tagName !== "SCRIPT"
-          ) {
-            textNodesToUpdate.add(mutation.target);
-          }
-        }
-      }
-    });
-
-    // Apply the updates safely
-    textNodesToUpdate.forEach((node) => {
-      const newVal = toArabicNumerals(node.nodeValue);
-      if (node.nodeValue !== newVal) {
-        node.nodeValue = newVal;
-      }
-    });
-  });
-
-  numObserver.observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-  });
-}, 100);
+// Single lightweight pass on static initial markup (dynamic views use toArabicNumerals directly)
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => convertNodeTextToArabic(document.body), 80);
+});
 
 /* ================================================================
    MISBAHA (Digital Prayer Beads) — Extracted to js/modules/misbaha.js
    ================================================================ */
 // Managed via js/modules/misbaha.js with Haptics, AppRouter & SafeStorage;
 
-// Carousel scroll listener for Quick Actions indicator dots
-document.addEventListener("DOMContentLoaded", function () {
-  const quickGrid = document.getElementById("homeQuickGrid");
-  if (quickGrid) {
-    quickGrid.addEventListener("scroll", function () {
-      const dots = document.querySelectorAll("#homeQuickDots .hq-dot");
-      if (!dots.length) return;
-      const scrollLeft = Math.abs(quickGrid.scrollLeft);
-      const maxScroll = quickGrid.scrollWidth - quickGrid.clientWidth;
-      if (maxScroll <= 0) return;
-      const ratio = scrollLeft / maxScroll;
-      const activeIdx = ratio > 0.4 ? 1 : 0;
-      dots.forEach((dot, idx) => {
-        dot.classList.toggle("active", idx === activeIdx);
-      });
-    });
-  }
-});

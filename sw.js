@@ -1,4 +1,4 @@
-const CACHE_NAME = "tazkeer-v11.2.0";
+const CACHE_NAME = "tazkeer-v12.0.0";
 const QURAN_CACHE_NAME = "tazkeer-quran-pages-v1";
 const PROPHETS_CACHE_NAME = "tazkeer-prophets-v1";
 const API_CACHE_NAME = "tazkeer-api-v1";
@@ -20,8 +20,13 @@ const CORE_LOCAL_ASSETS = [
   "./css/pages/prophets.css",
   "./css/pages/profile.css",
   "./css/pages/settings-modal.css",
+  "./js/core/storage-schema.js",
+  "./js/core/schedule-utils.js",
+  "./js/core/app-utils.js",
   "./js/core/storage.js",
   "./js/core/router.js",
+  "./js/data/adhkar-data.js",
+  "./js/features/prayer/daily-refresh.js",
   "./js/native/adhan-native.js",
   "./js/modules/qibla.js",
   "./js/modules/misbaha.js",
@@ -38,7 +43,7 @@ const CORE_LOCAL_ASSETS = [
 
 // 2. External CDN assets (cached fault-tolerantly so CDN slowdowns never block install)
 const EXTERNAL_CDN_ASSETS = [
-  "https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=Cairo:wght@300;400;600;700&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap",
+  "https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=Aref+Ruqaa:wght@400;700&family=Cairo:wght@300;400;600;700&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap",
   "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
   "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/webfonts/fa-solid-900.woff2",
   "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/webfonts/fa-regular-400.woff2"

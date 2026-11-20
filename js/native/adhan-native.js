@@ -61,7 +61,7 @@
     abdulbasit: {
       id: "abdulbasit",
       name: "الشيخ عبد الباسط عبد الصمد",
-      desc: "الأذان الأساسي المعتمد في التطبيق",
+      desc: "الأذان الأساسي المدمج داخل التطبيق",
       sound: "adhan_abdulbasit",
       fajrSound: "adhan_abdulbasit",
       isBuiltIn: true,
@@ -70,10 +70,10 @@
     alafasy: {
       id: "alafasy",
       name: "الشيخ مشاري العفاسي",
-      desc: "أذان بصوت الشيخ مشاري العفاسي",
+      desc: "أذان بصوت الشيخ مشاري راشد العفاسي",
       sound: "adhan_alafasy",
       fajrSound: "adhan_fajr",
-      downloadUrl: "https://archive.org/download/adhan.recordings.from.doha.qatar/Adhan_Doha_Qatar_02_Dhuhr_Adhan.mp3",
+      downloadUrl: "https://www.islamcan.com/audio/adhan/azan2.mp3",
       icon: "fa-microphone"
     },
     makkah: {
@@ -88,7 +88,7 @@
     fajr: {
       id: "fajr",
       name: "أذان الفجر (الصلاة خير من النوم)",
-      desc: "تسجيل فجر مخصص مع التثويب",
+      desc: "تسجيل فجر مخصص مع التثويب (يُستخدم تلقائياً لصلاة الفجر عند تحميله)",
       sound: "adhan_fajr",
       fajrSound: "adhan_fajr",
       downloadUrl: "https://archive.org/download/azaan-of-world-mosques_202608/2nd%20Fajr%20Haram%20Makkah%20best.mp3",
@@ -164,6 +164,9 @@
   }
 
   function readJSON(key, fallback) {
+    if (global.SafeStorage && typeof global.SafeStorage.getJSON === "function") {
+      return global.SafeStorage.getJSON(key, fallback);
+    }
     try {
       var raw = global.localStorage.getItem(key);
       if (!raw) return fallback;
@@ -174,6 +177,9 @@
   }
 
   function writeJSON(key, value) {
+    if (global.SafeStorage && typeof global.SafeStorage.setJSON === "function") {
+      return global.SafeStorage.setJSON(key, value);
+    }
     try {
       global.localStorage.setItem(key, JSON.stringify(value));
       return true;
@@ -341,6 +347,16 @@
   // ---------------------------------------------------------------------------
 
   function getLocation() {
+    if (global.TazkeerUtils && typeof global.TazkeerUtils.getPrayerSettings === "function") {
+      var prayerCfg = global.TazkeerUtils.getPrayerSettings();
+      if (prayerCfg && prayerCfg.manualCity) {
+        return {
+          lat: Number(prayerCfg.manualCity.lat),
+          lng: Number(prayerCfg.manualCity.lng),
+          city: prayerCfg.manualCity.name || "موقعك"
+        };
+      }
+    }
     var saved = readJSON("prayerLocation", null);
     if (saved && isFinite(saved.latitude) && isFinite(saved.longitude)) {
       return {
@@ -352,13 +368,30 @@
     return { lat: 30.0444, lng: 31.2357, city: "القاهرة" };
   }
 
+  function getMethodAndSchool(lat, lng) {
+    if (global.TazkeerUtils) {
+      var cfg = global.TazkeerUtils.getPrayerSettings();
+      return {
+        method: global.TazkeerUtils.getEffectivePrayerMethod(lat, lng, cfg),
+        school: global.TazkeerUtils.getEffectivePrayerSchool(cfg),
+        offsets: cfg.offsets
+      };
+    }
+    return { method: 5, school: 0, offsets: null };
+  }
+
   function calendarCacheKey(lat, lng, year, month) {
+    var ms = getMethodAndSchool(lat, lng);
     return (
       CALENDAR_PREFIX +
       "." +
       lat.toFixed(2) +
       "." +
       lng.toFixed(2) +
+      ".m" +
+      ms.method +
+      ".s" +
+      ms.school +
       "." +
       year +
       "-" +
@@ -406,12 +439,23 @@
       return cached.days;
     }
 
+    var ms = getMethodAndSchool(lat, lng);
+    var queryParams =
+      global.TazkeerUtils && typeof global.TazkeerUtils.buildAlAdhanQueryParams === "function"
+        ? global.TazkeerUtils.buildAlAdhanQueryParams(lat, lng)
+        : "latitude=" +
+          encodeURIComponent(lat) +
+          "&longitude=" +
+          encodeURIComponent(lng) +
+          "&method=" +
+          encodeURIComponent(ms.method) +
+          "&school=" +
+          encodeURIComponent(ms.school);
+
     var url =
-      "https://api.aladhan.com/v1/calendar?latitude=" +
-      encodeURIComponent(lat) +
-      "&longitude=" +
-      encodeURIComponent(lng) +
-      "&method=5&month=" +
+      "https://api.aladhan.com/v1/calendar?" +
+      queryParams +
+      "&month=" +
       month +
       "&year=" +
       year;
@@ -432,6 +476,14 @@
     var today = startOfDay(new Date());
     var monthRequests = {};
     var index;
+    var ms = getMethodAndSchool(lat, lng);
+
+    function withOffsets(timings) {
+      if (global.TazkeerUtils && typeof global.TazkeerUtils.applyMinuteOffsets === "function") {
+        return global.TazkeerUtils.applyMinuteOffsets(timings, ms.offsets);
+      }
+      return timings;
+    }
 
     for (index = 0; index < daysAhead; index++) {
       var cursor = addDays(today, index);
@@ -463,7 +515,7 @@
       days.forEach(function (day) {
         var parsed = parseAladhanDay(day);
         if (parsed && day.timings) {
-          byDate[dateKey(parsed)] = day.timings;
+          byDate[dateKey(parsed)] = withOffsets(day.timings);
         }
       });
     });
@@ -477,27 +529,29 @@
       }
     }
 
-    // Offline fallback for *today only*: reuse the timings cached by script.js
-    // so a device that has never downloaded a calendar still gets today's
-    // remaining adhans.
+    // Offline fallback: reuse monthly calendar cache from script.js (or in-memory fallbackTimings)
     if (!collected.length) {
-      var cachedToday = readJSON("cachedPrayerTimes", null);
-      var cachedDate = global.localStorage.getItem("cachedPrayerDate");
-      var cachedLat = Number(global.localStorage.getItem("cachedPrayerLatitude"));
-      var cachedLng = Number(global.localStorage.getItem("cachedPrayerLongitude"));
-      var cacheMatchesLocation =
-        Number.isFinite(cachedLat) &&
-        Number.isFinite(cachedLng) &&
-        Math.abs(cachedLat - lat) < 0.01 &&
-        Math.abs(cachedLng - lng) < 0.01;
-      if (
-        cachedToday &&
-        typeof cachedToday === "object" &&
-        cachedDate === dateKey(today) &&
-        cacheMatchesLocation
-      ) {
-        collected.push({ date: today, timings: cachedToday });
+      var sharedCal = readJSON("prayerMonthlyCalendar", null);
+      if (sharedCal && Array.isArray(sharedCal.days)) {
+        var calByDate = {};
+        sharedCal.days.forEach(function (day) {
+          var parsed = parseAladhanDay(day);
+          if (parsed && day.timings) {
+            calByDate[dateKey(parsed)] = withOffsets(day.timings);
+          }
+        });
+        for (index = 0; index < daysAhead; index++) {
+          var fallbackDate = addDays(today, index);
+          var fallbackTimings = calByDate[dateKey(fallbackDate)];
+          if (fallbackTimings) {
+            collected.push({ date: fallbackDate, timings: fallbackTimings });
+          }
+        }
       }
+    }
+
+    if (!collected.length && state.fallbackTimings && typeof state.fallbackTimings === "object") {
+      collected.push({ date: today, timings: withOffsets(state.fallbackTimings) });
     }
 
     return collected;
@@ -505,6 +559,7 @@
 
   function buildAlarms(days, settings) {
     var muezzin = MUEZZINS[settings.muezzin] || MUEZZINS.abdulbasit;
+    var fajrDedicatedReady = isMuezzinReady("fajr");
     var now = Date.now();
     var alarms = [];
 
@@ -528,14 +583,22 @@
         if (!isFinite(time) || time <= now + 3000) return;
 
         var isFajr = prayer.key === "Fajr";
+        var effectiveSound = isFajr && fajrDedicatedReady ? "adhan_fajr" : muezzin.sound;
+        var alarmDate = dateKey(when);
+        var alarmId =
+          global.TazkeerScheduleUtils &&
+          typeof global.TazkeerScheduleUtils.stableNotificationId === "function"
+            ? global.TazkeerScheduleUtils.stableNotificationId("adhan", alarmDate, prayer.key)
+            : dayIndex * 10 + prayerIndex;
+
         alarms.push({
-          id: dayIndex * 10 + prayerIndex,
+          id: alarmId,
           time: time,
-          date: dateKey(when),
+          date: alarmDate,
           timeOfDay: parsed.text,
           prayer: prayer.key,
           label: "حان الآن وقت صلاة " + prayer.name,
-          sound: isFajr ? muezzin.fajrSound : muezzin.sound,
+          sound: effectiveSound,
           fajr: isFajr,
           volume: settings.volume
         });
@@ -879,28 +942,27 @@
     if (!item || item.isBuiltIn || !item.downloadUrl) return;
     if (downloadingMuezzins[key]) return;
 
+    var plugin = getPlugin();
+    if (!isNativePlatform() || !plugin || typeof plugin.downloadMuezzin !== "function") {
+      notify("تحميل أصوات المؤذنين الإضافية متاح داخل تطبيق أندرويد فقط.", "info");
+      return;
+    }
+
     downloadingMuezzins[key] = true;
     renderMuezzinList();
     notify("جاري تحميل أذان " + item.name + "...", "info");
 
-    var plugin = getPlugin();
     var success = false;
-
-    if (plugin && typeof plugin.downloadMuezzin === "function") {
-      try {
-        var res = await plugin.downloadMuezzin({
-          sound: item.sound,
-          url: item.downloadUrl
-        });
-        if (res && res.success) {
-          success = true;
-        }
-      } catch (err) {
-        console.error("[Adhan] download error", err);
+    try {
+      var res = await plugin.downloadMuezzin({
+        sound: item.sound,
+        url: item.downloadUrl
+      });
+      if (res && res.success) {
+        success = true;
       }
-    } else {
-      await new Promise(function (resolve) { setTimeout(resolve, 1200); });
-      success = true;
+    } catch (err) {
+      console.error("[Adhan] download error", err);
     }
 
     delete downloadingMuezzins[key];
@@ -1042,6 +1104,11 @@
       headerButton.classList.toggle("is-active", settings.enabled);
     }
 
+    var safeError =
+      typeof global.escapeHtml === "function"
+        ? global.escapeHtml(state.lastError || "")
+        : String(state.lastError || "").replace(/[<>&"']/g, "");
+
     var summaryHtml = "";
     if (!native) {
       summaryHtml =
@@ -1057,7 +1124,7 @@
     } else if (state.lastError) {
       summaryHtml =
         '<i class="fas fa-triangle-exclamation"></i><span>' +
-        state.lastError +
+        safeError +
         "</span>";
     } else {
       summaryHtml =
@@ -1079,7 +1146,7 @@
       } else if (state.lastError) {
         nextInfo.innerHTML =
           '<i class="fas fa-triangle-exclamation"></i><span>' +
-          state.lastError +
+          safeError +
           "</span>";
       } else {
         nextInfo.innerHTML =
@@ -1095,7 +1162,7 @@
     var footnote = document.getElementById("adhanFootnote");
     if (footnote) {
       footnote.textContent = native
-        ? "التسجيلات الصوتية مضمّنة داخل التطبيق وتعمل بدون إنترنت."
+        ? "صوت الشيخ عبد الباسط مدمج للعمل فوراً دون إنترنت، ويمكن تحميل بقية الأصوات مرة واحدة."
         : "لتشغيل الأذان في الخلفية ثبّت نسخة أندرويد من التطبيق.";
     }
   }
@@ -1251,14 +1318,22 @@
       return;
     }
     var settings = getSettings();
+    var muezzin = MUEZZINS[settings.muezzin] || MUEZZINS.abdulbasit;
+    var hasFajrAudio = isMuezzinReady("fajr");
+    var soundRes = hasFajrAudio ? "adhan_fajr" : muezzin.sound;
     try {
       await plugin.testAdhan({
         delaySeconds: 10,
-        soundRes: "adhan_fajr",
+        soundRes: soundRes,
         prayer: "الفجر",
         volume: settings.volume
       });
-      notify("سيُشغَّل أذان الفجر التجريبي بعد 10 ثوانٍ.", "success");
+      notify(
+        hasFajrAudio
+          ? "سيُشغَّل أذان الفجر المخصص بعد ١٠ ثوانٍ."
+          : "سيُشغَّل أذان الفجر بالصوت الحالي بعد ١٠ ثوانٍ (يمكنك تحميل أذان الفجر المخصص من القائمة أعلاه).",
+        "success"
+      );
     } catch (error) {
       notify("تعذر تشغيل تجربة أذان الفجر.", "error");
     }
@@ -1305,6 +1380,9 @@
     ) {
       document.body.style.overflow = "";
     }
+    if (global.TazkeerModalQueue && typeof global.TazkeerModalQueue.notifyClosed === "function") {
+      global.TazkeerModalQueue.notifyClosed("adhanModal");
+    }
   }
 
   function openAdhanModal() {
@@ -1317,6 +1395,9 @@
     syncDownloadedMuezzins();
     if (typeof global.updateThemeSwitcherUI === "function") {
       global.updateThemeSwitcherUI();
+    }
+    if (typeof global.initPrayerSettingsUI === "function") {
+      global.initPrayerSettingsUI();
     }
     refreshPermissions(true);
     refreshNextAlarm();
@@ -1363,13 +1444,45 @@
   // ---------------------------------------------------------------------------
 
   function setupAppLockdown() {
-    // Viewport meta already sets user-scalable=no; these guards cover WebView
-    // builds that ignore it and iOS Safari.
+    function isZoomableMushafTarget(target) {
+      return Boolean(
+        target &&
+          typeof target.closest === "function" &&
+          target.closest("#mushafReader, .mushaf-stage, .quran-page-viewport, .mushaf-page-img")
+      );
+    }
+
+    function isFastTapInteractiveTarget(target) {
+      if (!target) return false;
+      var tag = target.tagName;
+      if (
+        tag === "BUTTON" ||
+        tag === "A" ||
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        tag === "LABEL"
+      ) {
+        return true;
+      }
+      if (typeof target.closest === "function") {
+        return Boolean(
+          target.closest(
+            "button, a, .misbaha-container, #misbahaOverlay, .azkar-card, .zekr-card, [role='button']"
+          )
+        );
+      }
+      return false;
+    }
+
+    // Preserve pinch-to-zoom inside Mushaf pages; prevent accidental pinch zoom on shell chrome.
     ["gesturestart", "gesturechange", "gestureend"].forEach(function (event) {
       document.addEventListener(
         event,
         function (e) {
-          e.preventDefault();
+          if (!isZoomableMushafTarget(e.target)) {
+            e.preventDefault();
+          }
         },
         { passive: false }
       );
@@ -1378,30 +1491,25 @@
     document.addEventListener(
       "touchmove",
       function (e) {
-        if (e.touches && e.touches.length > 1) {
+        if (e.touches && e.touches.length > 1 && !isZoomableMushafTarget(e.target)) {
           e.preventDefault();
         }
       },
       { passive: false }
     );
 
-    // Prevent double-tap to zoom
+    // Prevent accidental double-tap zoom on static chrome without swallowing rapid taps in Misbaha/Azkar.
     var lastTouchEnd = 0;
     document.addEventListener(
       "touchend",
       function (e) {
         var now = Date.now();
-        if (now - lastTouchEnd <= 300) {
-          var tag = e.target && e.target.tagName;
-          if (
-            tag !== "BUTTON" &&
-            tag !== "A" &&
-            tag !== "INPUT" &&
-            tag !== "TEXTAREA" &&
-            tag !== "SELECT"
-          ) {
-            e.preventDefault();
-          }
+        if (
+          now - lastTouchEnd <= 300 &&
+          !isFastTapInteractiveTarget(e.target) &&
+          !isZoomableMushafTarget(e.target)
+        ) {
+          e.preventDefault();
         }
         lastTouchEnd = now;
       },
@@ -1419,12 +1527,32 @@
 
     var darkMode = document.body.classList.contains("dark-mode");
     try {
-      statusBar.setStyle({ style: darkMode ? "LIGHT" : "DARK" });
+      // Capacitor StatusBar: Style.Dark = light icons for dark backgrounds;
+      // Style.Light = dark icons for light backgrounds.
+      statusBar.setStyle({ style: darkMode ? "DARK" : "LIGHT" });
       statusBar.setBackgroundColor({
         color: darkMode ? "#0b1418" : "#f4f7f5"
       });
     } catch (error) {
       /* non-fatal */
+    }
+  }
+
+  function handleDeepLinkUrl(url) {
+    if (!url || typeof url !== "string") return;
+    var match = url.match(/tazkeer:\/\/open\/([^?#]+)/);
+    if (!match || !match[1]) return;
+    var target = match[1].trim();
+    if (/^tab-(home|azkar|quran|prophets|profile)$/.test(target)) {
+      if (typeof global.switchTab === "function") global.switchTab(target);
+      return;
+    }
+    if (
+      /^(morning|evening|night|prayer|wakeup|quran|prophets|friday)$/.test(target) &&
+      typeof global.showCategoryPage === "function"
+    ) {
+      if (typeof global.switchTab === "function") global.switchTab("tab-azkar");
+      global.showCategoryPage(target);
     }
   }
 
@@ -1474,11 +1602,16 @@
           if (appState && appState.isActive) onResume();
         });
         appPlugin.addListener("appUrlOpen", function (event) {
-          var match = event && event.url && event.url.match(/tazkeer:\/\/open\/([^?]+)/);
-          if (match && /^tab-(home|azkar|quran|prophets|profile)$/.test(match[1])) {
-            if (typeof global.switchTab === "function") global.switchTab(match[1]);
-          }
+          if (event && event.url) handleDeepLinkUrl(event.url);
         });
+      }
+      if (appPlugin && typeof appPlugin.getLaunchUrl === "function") {
+        appPlugin
+          .getLaunchUrl()
+          .then(function (launch) {
+            if (launch && launch.url) handleDeepLinkUrl(launch.url);
+          })
+          .catch(function () {});
       }
     } catch (error) {
       /* non-fatal */
@@ -1596,6 +1729,7 @@
     resync: resyncNow,
     fixPermission: fixPermission,
     formatNextAlarm: formatNextAlarm,
+    updateStatusBar: updateStatusBar,
     PRAYERS: PRAYERS,
     MUEZZINS: MUEZZINS
   };

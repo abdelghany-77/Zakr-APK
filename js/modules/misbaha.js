@@ -19,6 +19,9 @@
   var MISBAHA_CIRCUMFERENCE = 2 * Math.PI * 90; // ~565.48
 
   function _toArabicNumerals(str) {
+    if (typeof global.toArabicDigits === "function") {
+      return global.toArabicDigits(str);
+    }
     return String(str).replace(/\d/g, function (d) {
       return "٠١٢٣٤٥٦٧٨٩"[d];
     });
@@ -215,10 +218,20 @@
     updateMisbahaUI();
   }
 
-  function resetMisbaha() {
+  async function resetMisbaha() {
     if (misbahaCount === 0 && misbahaTotal === 0 && misbahaRounds === 0) return;
 
-    if (confirm("هل تريد تصفير عداد المسبحة والدورات؟")) {
+    var confirmed =
+      global.AppDialog && typeof global.AppDialog.confirm === "function"
+        ? await global.AppDialog.confirm("هل تريد تصفير عداد المسبحة والدورات؟", {
+            title: "تصفير المسبحة",
+            confirmText: "تصفير",
+            cancelText: "إلغاء",
+            danger: true
+          })
+        : false;
+
+    if (confirmed) {
       misbahaCount = 0;
       misbahaTotal = 0;
       misbahaRounds = 0;

@@ -59,21 +59,29 @@
     modal.style.display = "flex";
     document.body.style.overflow = "hidden";
 
-    // Always fetch latest user location coords from storage or Cairo default
-    var saved = null;
-    if (global.SafeStorage && typeof global.SafeStorage.getJSON === "function") {
-      saved = global.SafeStorage.getJSON("prayerLocation");
-    }
-    if (!saved) {
-      try {
-        var raw = localStorage.getItem("prayerLocation");
-        if (raw) saved = JSON.parse(raw);
-      } catch (e) {}
-    }
-    if (saved && saved.latitude && saved.longitude) {
-      userLocation = { lat: parseFloat(saved.latitude), lng: parseFloat(saved.longitude) };
+    // Always fetch latest user location coords from manual city, saved GPS, or Cairo default
+    var manualCity =
+      global.TazkeerUtils && typeof global.TazkeerUtils.getPrayerSettings === "function"
+        ? global.TazkeerUtils.getPrayerSettings().manualCity
+        : null;
+    if (manualCity && isFinite(manualCity.lat) && isFinite(manualCity.lng)) {
+      userLocation = { lat: Number(manualCity.lat), lng: Number(manualCity.lng) };
     } else {
-      userLocation = { lat: 30.0444, lng: 31.2357 }; // Cairo default fallback
+      var saved = null;
+      if (global.SafeStorage && typeof global.SafeStorage.getJSON === "function") {
+        saved = global.SafeStorage.getJSON("prayerLocation");
+      }
+      if (!saved) {
+        try {
+          var raw = localStorage.getItem("prayerLocation");
+          if (raw) saved = JSON.parse(raw);
+        } catch (e) {}
+      }
+      if (saved && saved.latitude && saved.longitude) {
+        userLocation = { lat: parseFloat(saved.latitude), lng: parseFloat(saved.longitude) };
+      } else {
+        userLocation = { lat: 30.0444, lng: 31.2357 }; // Cairo default fallback
+      }
     }
 
     displayStaticQibla();
@@ -95,7 +103,8 @@
 
   function initializeQiblaCompass() {
     var calibrateBtn = document.getElementById("qiblaCalibrateBtn");
-    if (calibrateBtn) {
+    if (calibrateBtn && !calibrateBtn._qiblaBound) {
+      calibrateBtn._qiblaBound = true;
       calibrateBtn.addEventListener("click", requestQiblaPermissions);
     }
   }
@@ -180,7 +189,17 @@
     ) {
       try {
         var plugin = global.Capacitor.Plugins.AdhanScheduler;
-        plugin.startCompass();
+        var compassArgs = userLocation
+          ? { latitude: userLocation.lat, longitude: userLocation.lng }
+          : {};
+        Promise.resolve(plugin.startCompass(compassArgs))
+          .then(function (res) {
+            if (res && res.started === false) {
+              var dir = Math.round(calculateQiblaDirection());
+              updateQiblaStatus("لا يتوفر حساس بوصلة — اتجاه القبلة: " + dir + "° من الشمال");
+            }
+          })
+          .catch(function () {});
 
         if (!nativeCompassListener) {
           plugin.addListener("compassHeading", function (data) {
@@ -193,7 +212,7 @@
           });
         }
 
-        updateQiblaStatus("البوصلة تعمل بالحساسات الأصلية - حرّك هاتفك بشكل أفقي");
+        updateQiblaStatus("البوصلة تعمل بالحساسات الأصلية — حرّك هاتفك بشكل أفقي");
         return;
       } catch (e) {
         console.warn("[Qibla] Native compass initialization error:", e);

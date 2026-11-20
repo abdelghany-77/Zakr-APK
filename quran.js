@@ -14,12 +14,17 @@ const imageCache = new Map();
 // ===== ARABIC SEARCH NORMALIZATION =====
 function normalizeArabic(str) {
   if (!str) return "";
-  return str
-    .replace(/[٠١٢٣٤٥٦٧٨٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d)) // Convert Eastern Arabic digits to Western digits
-    .replace(/[\u064B-\u065F\u0670\u0640]/g, "") // Remove tashkeel (diacritics) & tatweel
-    .replace(/[أإآٱ]/g, "ا")             // Normalize alef
-    .replace(/ة/g, "ه")                  // Normalize taa marbouta
-    .replace(/ى/g, "ي")                  // Normalize alef maqsura
+  const westernDigits = String(str).replace(/[٠١٢٣٤٥٦٧٨٩]/g, (d) =>
+    "٠١٢٣٤٥٦٧٨٩".indexOf(d)
+  );
+  if (window.TazkeerUtils && typeof window.TazkeerUtils.normalizeArabic === "function") {
+    return window.TazkeerUtils.normalizeArabic(westernDigits);
+  }
+  return westernDigits
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
     .trim()
     .toLowerCase();
 }
@@ -170,7 +175,14 @@ function pauseOfflineQuranDownload() {
  * Delete cached offline Quran pages to free up device storage.
  */
 async function deleteOfflineQuranCache() {
-  if (!confirm("هل أنت متأكد من حذف صفحات المصحف المحملة؟ ستحتاج إلى اتصال بالإنترنت للقراءة مجدداً.")) {
+  const confirmed =
+    window.AppDialog && typeof window.AppDialog.confirm === "function"
+      ? await window.AppDialog.confirm(
+          "هل أنت متأكد من حذف صفحات المصحف المحملة؟ ستحتاج إلى اتصال بالإنترنت للقراءة مجدداً.",
+          { title: "حذف المصحف المحمل", confirmText: "حذف", cancelText: "إلغاء", danger: true }
+        )
+      : false;
+  if (!confirmed) {
     return;
   }
 
@@ -195,17 +207,25 @@ async function deleteOfflineQuranCache() {
 }
 
 /**
- * Update the UI of all Offline Cards dynamically.
- */
-/**
- * Update the UI of all Offline Cards dynamically.
+ * Update the UI of all Offline Cards without thrashing DOM during progress ticks.
  */
 function updateOfflineCardUI() {
   const percent = Math.round((quranOfflineState.downloadedPages / TOTAL_QURAN_PAGES) * 100);
-
   const widgets = document.querySelectorAll(".quran-offline-widget");
-  widgets.forEach(widget => {
-    widget.setAttribute("data-status", quranOfflineState.status);
+
+  widgets.forEach((widget) => {
+    const prevStatus = widget.getAttribute("data-status");
+    if (prevStatus === quranOfflineState.status && (quranOfflineState.status === "downloading" || quranOfflineState.status === "paused")) {
+      const countEl = widget.querySelector(".quran-offline-count-text");
+      const fillEl = widget.querySelector(".quran-offline-progress-fill");
+      if (countEl) {
+        countEl.textContent = `${toArabicNumber(quranOfflineState.downloadedPages)} / ${toArabicNumber(TOTAL_QURAN_PAGES)} صفحة (${toArabicNumber(percent)}٪)`;
+      }
+      if (fillEl) {
+        fillEl.style.width = `${percent}%`;
+      }
+      return;
+    }
     widget.outerHTML = renderOfflineQuranCardHtml();
   });
 }
@@ -539,8 +559,24 @@ function getPageImageUrl(pageNumber) {
   return `${QURAN_IMAGE_BASE}/${padded}.jpg`;
 }
 
-// In-memory cache of object URLs created from CacheStorage (pageNumber -> blobUrl)
+// Bounded LRU cache of object URLs created from CacheStorage (pageNumber -> blobUrl)
+const MAX_BLOB_URL_CACHE = 24;
 const pageBlobUrlCache = new Map();
+
+function rememberPageBlobUrl(pageNumber, blobUrl) {
+  if (pageBlobUrlCache.has(pageNumber)) {
+    pageBlobUrlCache.delete(pageNumber);
+  }
+  pageBlobUrlCache.set(pageNumber, blobUrl);
+  while (pageBlobUrlCache.size > MAX_BLOB_URL_CACHE) {
+    const oldestKey = pageBlobUrlCache.keys().next().value;
+    const oldestUrl = pageBlobUrlCache.get(oldestKey);
+    pageBlobUrlCache.delete(oldestKey);
+    try {
+      URL.revokeObjectURL(oldestUrl);
+    } catch (e) {}
+  }
+}
 
 /**
  * Asynchronously resolve the image source for a Quran page.
@@ -549,7 +585,11 @@ const pageBlobUrlCache = new Map();
  */
 async function getPageImageSrc(pageNumber) {
   if (pageBlobUrlCache.has(pageNumber)) {
-    return pageBlobUrlCache.get(pageNumber);
+    const existing = pageBlobUrlCache.get(pageNumber);
+    // Refresh LRU order
+    pageBlobUrlCache.delete(pageNumber);
+    pageBlobUrlCache.set(pageNumber, existing);
+    return existing;
   }
 
   const url = getPageImageUrl(pageNumber);
@@ -560,7 +600,7 @@ async function getPageImageSrc(pageNumber) {
       if (match) {
         const blob = await match.blob();
         const blobUrl = URL.createObjectURL(blob);
-        pageBlobUrlCache.set(pageNumber, blobUrl);
+        rememberPageBlobUrl(pageNumber, blobUrl);
         return blobUrl;
       }
     } catch (e) {
@@ -2428,9 +2468,15 @@ function startKhatmah() {
   renderKhatmahDashboard();
 }
 
-function resetKhatmah() {
-  if (!confirm("هل أنت متأكد من إعادة تعيين الختمة؟ سيتم فقد كل التقدم."))
-    return;
+async function resetKhatmah() {
+  const confirmed =
+    window.AppDialog && typeof window.AppDialog.confirm === "function"
+      ? await window.AppDialog.confirm(
+          "هل أنت متأكد من إعادة تعيين الختمة؟ سيتم فقد كل التقدم.",
+          { title: "إعادة تعيين الختمة", confirmText: "إعادة تعيين", cancelText: "إلغاء", danger: true }
+        )
+      : false;
+  if (!confirmed) return;
 
   khatmahState = getDefaultKhatmahState();
   saveKhatmahState(khatmahState);

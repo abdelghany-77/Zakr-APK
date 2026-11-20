@@ -23,7 +23,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="ar_SA" />
 
-  <link rel="icon" type="image/svg+xml" href="images/icon.png" />
+  <link rel="icon" type="image/png" href="images/icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="images/icon.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="images/icon.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="images/icon.png" />
@@ -339,7 +339,7 @@
                 </div>
                 <h2 class="pt-suggest__title">حان وقت أذكار المساء</h2>
                 <p class="pt-suggest__sub">من ٢٦ ذكرًا · نحو ٨ دقائق</p>
-                <button class="pt-suggest__cta" onclick="showCategoryPage('morning')">
+                <button class="pt-suggest__cta" onclick="showCategoryPage('evening')">
                   <i class="fas fa-play"></i>
                   <span>ابدأ الأذكار</span>
                 </button>
@@ -643,6 +643,14 @@
           <i class="fas fa-crosshairs"></i>
           <span>تفعيل الموقع الآن</span>
         </button>
+        <div class="loc-manual-picker">
+          <label for="locModalCitySearch" class="loc-manual-label">أو اختر مدينتك يدوياً بدون GPS:</label>
+          <div class="prayer-city-search-wrap">
+            <i class="fas fa-magnifying-glass"></i>
+            <input type="text" id="locModalCitySearch" class="prayer-city-input" placeholder="ابحث عن مدينتك (مثل: الرياض، مكة، الإسكندرية)..." autocomplete="off" oninput="filterManualCities(this.value, 'locModalCityList')" />
+          </div>
+          <div class="prayer-city-results" id="locModalCityList" role="listbox" aria-label="اختر مدينة"></div>
+        </div>
         <button type="button" class="loc-btn-secondary" onclick="handleDismissLocationModal()">
           <span>المتابعة بتوقيت القاهرة حالياً</span>
         </button>
@@ -658,7 +666,7 @@
           <i class="fas fa-moon modal-gold-icon"></i>
           <h3>دليل سنن ومناسبات الصيام</h3>
         </div>
-        <span class="close" onclick="closeFastingGuideModal()">&times;</span>
+        <button type="button" class="close" onclick="closeFastingGuideModal()" aria-label="إغلاق">&times;</button>
       </div>
       <div class="modal-body fasting-modal-body">
         <div class="fasting-guide-intro">
@@ -763,7 +771,7 @@
           <i class="fas fa-compass modal-gold-icon"></i>
           <h3>اتجاه القبلة الشريفة</h3>
         </div>
-        <span class="close" onclick="closeQiblaModal()">&times;</span>
+        <button type="button" class="close" onclick="closeQiblaModal()" aria-label="إغلاق">&times;</button>
       </div>
       <div class="modal-body qibla-modal-body">
         <div class="qibla-modal-compass-wrap">
@@ -783,7 +791,7 @@
           <div class="qibla-modal-info">
             <div class="qibla-deg-badge" id="qiblaDegrees">136°</div>
             <p class="qibla-modal-status" id="qiblaStatus">وجّه هاتفك نحو الكعبة المشرفة</p>
-            <button class="qibla-calibrate-action-btn" id="qiblaCalibrateBtn" onclick="requestQiblaPermissions()">
+            <button type="button" class="qibla-calibrate-action-btn" id="qiblaCalibrateBtn">
               <i class="fas fa-sync-alt"></i>
               <span>تفعيل / معايرة البوصلة</span>
             </button>
@@ -854,11 +862,91 @@
             <span class="adhan-slider"></span>
           </label>
         </div>
-        <div style="margin-top: 0.6rem; display: flex; justify-content: flex-end;">
-          <!-- <button type="button" class="adhan-action-btn is-ghost" onclick="testAzkarReminder()">
-            <i class="fas fa-volume-high"></i>
-            <span>تجربة صوت تنبيه الأذكار</span>
-          </button> -->
+        <!-- Prayer Calculation & Manual City Settings -->
+        <div class="adhan-section-title" style="margin-top: 1.25rem;">
+          <i class="fas fa-location-dot"></i>
+          <span>مواقيت الصلاة والموقع</span>
+        </div>
+        <div class="prayer-settings-card" id="prayerSettingsCard">
+          <div class="prayer-setting-row prayer-setting-row--city">
+            <div class="prayer-setting-head">
+              <span class="prayer-setting-label">المدينة الحالية</span>
+              <span class="prayer-city-badge" id="prayerActiveCityBadge">القاهرة (تلقائي)</span>
+            </div>
+            <div class="prayer-city-controls">
+              <div class="prayer-city-search-wrap">
+                <i class="fas fa-magnifying-glass"></i>
+                <input type="text" id="prayerManualCitySearch" class="prayer-city-input" placeholder="ابحث واختر مدينتك يدوياً..." autocomplete="off" oninput="filterManualCities(this.value, 'prayerManualCityResults')" />
+              </div>
+              <button type="button" class="prayer-gps-btn" id="prayerUseGpsBtn" onclick="useAutoGpsLocation()" title="تحديد الموقع تلقائياً">
+                <i class="fas fa-crosshairs"></i>
+                <span>تلقائي (GPS)</span>
+              </button>
+            </div>
+            <div class="prayer-city-results" id="prayerManualCityResults" role="listbox" aria-label="قائمة المدن"></div>
+          </div>
+
+          <div class="prayer-setting-row">
+            <label for="prayerMethodSelect" class="prayer-setting-label">طريقة حساب المواقيت</label>
+            <select id="prayerMethodSelect" class="prayer-select" onchange="onPrayerMethodChange(this.value)"></select>
+          </div>
+
+          <div class="prayer-setting-row">
+            <span class="prayer-setting-label">مذهب حساب وقت العصر</span>
+            <div class="prayer-seg" role="group" aria-label="مذهب العصر">
+              <button type="button" class="prayer-seg-btn active" id="prayerSchool0" onclick="onPrayerSchoolChange(0)">الجمهور (شافعي/مالكي/حنبلي)</button>
+              <button type="button" class="prayer-seg-btn" id="prayerSchool1" onclick="onPrayerSchoolChange(1)">الحنفي</button>
+            </div>
+          </div>
+
+          <div class="prayer-setting-row">
+            <div class="prayer-setting-head">
+              <span class="prayer-setting-label">تعديل الدقائق اليدوي (مطابقة مسجدك)</span>
+              <button type="button" class="prayer-reset-offsets-btn" onclick="resetPrayerOffsets()">تصفير</button>
+            </div>
+            <div class="prayer-offsets-grid" id="prayerOffsetsGrid">
+              <div class="prayer-offset-item" data-prayer="Fajr">
+                <span class="po-name">الفجر</span>
+                <div class="po-stepper">
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Fajr', -1)" aria-label="إنقاص دقيقة للفجر">−</button>
+                  <span class="po-val" id="poValFajr">0</span>
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Fajr', 1)" aria-label="زيادة دقيقة للفجر">+</button>
+                </div>
+              </div>
+              <div class="prayer-offset-item" data-prayer="Dhuhr">
+                <span class="po-name">الظهر</span>
+                <div class="po-stepper">
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Dhuhr', -1)" aria-label="إنقاص دقيقة للظهر">−</button>
+                  <span class="po-val" id="poValDhuhr">0</span>
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Dhuhr', 1)" aria-label="زيادة دقيقة للظهر">+</button>
+                </div>
+              </div>
+              <div class="prayer-offset-item" data-prayer="Asr">
+                <span class="po-name">العصر</span>
+                <div class="po-stepper">
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Asr', -1)" aria-label="إنقاص دقيقة للعصر">−</button>
+                  <span class="po-val" id="poValAsr">0</span>
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Asr', 1)" aria-label="زيادة دقيقة للعصر">+</button>
+                </div>
+              </div>
+              <div class="prayer-offset-item" data-prayer="Maghrib">
+                <span class="po-name">المغرب</span>
+                <div class="po-stepper">
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Maghrib', -1)" aria-label="إنقاص دقيقة للمغرب">−</button>
+                  <span class="po-val" id="poValMaghrib">0</span>
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Maghrib', 1)" aria-label="زيادة دقيقة للمغرب">+</button>
+                </div>
+              </div>
+              <div class="prayer-offset-item" data-prayer="Isha">
+                <span class="po-name">العشاء</span>
+                <div class="po-stepper">
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Isha', -1)" aria-label="إنقاص دقيقة للعشاء">−</button>
+                  <span class="po-val" id="poValIsha">0</span>
+                  <button type="button" class="po-btn" onclick="stepPrayerOffset('Isha', 1)" aria-label="زيادة دقيقة للعشاء">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="adhan-section-title" style="margin-top: 1.25rem;">
@@ -1104,6 +1192,9 @@
   </div>
 
   <!-- Application Core Modules -->
+  <script src="js/core/storage-schema.js"></script>
+  <script src="js/core/schedule-utils.js"></script>
+  <script src="js/core/app-utils.js"></script>
   <script src="js/core/storage.js"></script>
   <script src="js/core/router.js"></script>
   <script src="js/modules/qibla.js"></script>

@@ -10,7 +10,16 @@
 (function (global) {
   "use strict";
 
-  var BACKUP_SCHEMA_VERSION = 1;
+  var BACKUP_SCHEMA_VERSION =
+    (global.TazkeerStorageSchema && global.TazkeerStorageSchema.BACKUP_SCHEMA_VERSION) || 1;
+
+  function showStorageError(message) {
+    if (global.AppDialog && typeof global.AppDialog.alert === "function") {
+      global.AppDialog.alert(message, { title: "تنبيه", danger: true });
+    } else if (typeof alert === "function") {
+      alert(message);
+    }
+  }
 
   var isStorageAvailable = (function () {
     try {
@@ -167,13 +176,16 @@
         });
       }
 
-      var payload = {
-        app: "tazkeer",
-        type: "tazkeer-progress-backup",
-        version: BACKUP_SCHEMA_VERSION,
-        exportedAt: new Date().toISOString(),
-        keys: data,
-      };
+      var payload =
+        global.TazkeerStorageSchema && typeof global.TazkeerStorageSchema.createBackupPayload === "function"
+          ? global.TazkeerStorageSchema.createBackupPayload(data)
+          : {
+              app: "tazkeer",
+              type: "tazkeer-progress-backup",
+              version: BACKUP_SCHEMA_VERSION,
+              exportedAt: new Date().toISOString(),
+              keys: data,
+            };
       var fileName = "tazkeer-backup-" + new Date().toISOString().slice(0, 10) + ".json";
       var json = JSON.stringify(payload, null, 2);
       var capacitor = global.Capacitor;
@@ -222,7 +234,7 @@
       }
     } catch (err) {
       console.error("[SafeStorage] Export error:", err);
-      alert("تعذر تصدير البيانات: " + err.message);
+      showStorageError("تعذر تصدير البيانات: " + err.message);
     }
   };
 
@@ -248,7 +260,7 @@
     var reader = new FileReader();
     reader.onerror = function (err) {
       console.error("[SafeStorage] FileReader error:", err);
-      alert("تعذر قراءة الملف المختار. يرجى المحاولة مرة أخرى.");
+      showStorageError("تعذر قراءة الملف المختار. يرجى المحاولة مرة أخرى.");
       if (input) input.value = "";
     };
 
@@ -274,13 +286,18 @@
           data.app !== undefined ||
           data.exportedAt !== undefined;
         if (hasEnvelope) {
-          if (
-            data.type !== "tazkeer-progress-backup" ||
-            data.version !== BACKUP_SCHEMA_VERSION ||
-            typeof data.keys !== "object" ||
-            data.keys === null ||
-            Array.isArray(data.keys)
-          ) {
+          var schemaCheck =
+            global.TazkeerStorageSchema && typeof global.TazkeerStorageSchema.validateBackupPayload === "function"
+              ? global.TazkeerStorageSchema.validateBackupPayload(data)
+              : {
+                  valid:
+                    data.type === "tazkeer-progress-backup" &&
+                    data.version === BACKUP_SCHEMA_VERSION &&
+                    typeof data.keys === "object" &&
+                    data.keys !== null &&
+                    !Array.isArray(data.keys),
+                };
+          if (!schemaCheck.valid) {
             throw new Error("إصدار أو نوع النسخة الاحتياطية غير مدعوم");
           }
         }
@@ -388,7 +405,7 @@
         }, 800);
       } catch (err) {
         console.error("[SafeStorage] Import error:", err);
-        alert("فشل استيراد الملف: " + (err.message || "يرجى التأكد من اختيار ملف JSON صالح لتطبيق ذَكِّرْ."));
+        showStorageError("فشل استيراد الملف: " + (err.message || "يرجى التأكد من اختيار ملف JSON صالح لتطبيق ذَكِّرْ."));
       } finally {
         if (input) input.value = "";
       }

@@ -33,10 +33,14 @@ public class AdhkarAlarmReceiver extends BroadcastReceiver {
         if (manager == null) return;
         ensureChannel(manager);
 
-        Intent openIntent = new Intent(context, MainActivity.class);
         String section = intent.getStringExtra("adhkar_section");
-        openIntent.setData(Uri.parse("tazkeer://open/" + (section == null ? "tab-azkar" : section)));
-        openIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        String safeSection = (section == null || section.trim().isEmpty()) ? "tab-azkar" : section.trim();
+        Intent openIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("tazkeer://open/" + safeSection), context, MainActivity.class);
+        openIntent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
+        );
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
         PendingIntent contentIntent = PendingIntent.getActivity(

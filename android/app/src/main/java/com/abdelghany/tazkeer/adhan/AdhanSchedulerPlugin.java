@@ -11,6 +11,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.hardware.GeomagneticField;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -25,6 +26,13 @@ import android.provider.Settings;
 import android.util.Log;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -74,6 +82,18 @@ import org.json.JSONException;
 public class AdhanSchedulerPlugin extends Plugin {
 
     private static final String TAG = "TazkeerAdhan";
+    private static final Pattern SAFE_SOUND_PATTERN = Pattern.compile("^[a-z0-9_]{1,40}$");
+    private static final int MAX_DOWNLOAD_REDIRECTS = 5;
+    private static final Set<String> ALLOWED_AUDIO_HOSTS = new HashSet<>(Arrays.asList(
+            "archive.org",
+            "cdn.islamic.network",
+            "download.quranicaudio.com",
+            "islamcan.com",
+            "www.islamcan.com",
+            "cdn.jsdelivr.net",
+            "raw.githubusercontent.com"
+    ));
+    private final ExecutorService downloadExecutor = Executors.newSingleThreadExecutor();
 
     // ------------------------------------------------------------------------
     // Scheduling
@@ -161,11 +181,38 @@ public class AdhanSchedulerPlugin extends Plugin {
         call.resolve(result);
     }
 
+    private static boolean isValidSoundId(String sound) {
+        return sound != null && SAFE_SOUND_PATTERN.matcher(sound).matches();
+    }
+
+    private static boolean isAllowedDownloadUrl(String urlString) {
+        if (urlString == null || urlString.isEmpty()) {
+            return false;
+        }
+        try {
+            java.net.URL url = new java.net.URL(urlString);
+            if (!"https".equalsIgnoreCase(url.getProtocol())) {
+                return false;
+            }
+            String host = url.getHost();
+            if (host == null || host.isEmpty()) {
+                return false;
+            }
+            String lowerHost = host.toLowerCase(Locale.US);
+            if (ALLOWED_AUDIO_HOSTS.contains(lowerHost)) {
+                return true;
+            }
+            return lowerHost.endsWith(".archive.org");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @PluginMethod
     public void isMuezzinDownloaded(PluginCall call) {
         String sound = call.getString("sound");
-        if (sound == null || sound.isEmpty()) {
-            call.reject("sound parameter is required");
+        if (!isValidSoundId(sound)) {
+            call.reject("Invalid sound parameter");
             return;
         }
         File file = new File(getContext().getFilesDir(), sound + ".mp3");
@@ -180,41 +227,56 @@ public class AdhanSchedulerPlugin extends Plugin {
     public void downloadMuezzin(PluginCall call) {
         String sound = call.getString("sound");
         String urlString = call.getString("url");
-        if (sound == null || urlString == null) {
-            call.reject("sound and url parameters are required");
+        if (!isValidSoundId(sound)) {
+            call.reject("Invalid sound identifier");
+            return;
+        }
+        if (!isAllowedDownloadUrl(urlString)) {
+            call.reject("Unsupported or insecure audio download URL");
             return;
         }
 
-        new Thread(() -> {
+        downloadExecutor.execute(() -> {
             File targetFile = new File(getContext().getFilesDir(), sound + ".mp3");
             File tempFile = new File(getContext().getFilesDir(), sound + ".tmp");
             java.io.InputStream in = null;
             java.io.FileOutputStream out = null;
+            java.net.HttpURLConnection conn = null;
             try {
-                java.net.URL url = new java.net.URL(urlString);
-                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(30000);
-                conn.setInstanceFollowRedirects(true);
-                conn.setRequestProperty("User-Agent", "Tazkeer-App/2.1");
-                conn.connect();
-
-                int responseCode = conn.getResponseCode();
-                if (responseCode == java.net.HttpURLConnection.HTTP_MOVED_PERM ||
-                    responseCode == java.net.HttpURLConnection.HTTP_MOVED_TEMP ||
-                    responseCode == 307 || responseCode == 308) {
-                    String newUrl = conn.getHeaderField("Location");
-                    conn.disconnect();
-                    url = new java.net.URL(newUrl);
+                String currentUrl = urlString;
+                int responseCode = -1;
+                for (int redirectCount = 0; redirectCount <= MAX_DOWNLOAD_REDIRECTS; redirectCount++) {
+                    if (!isAllowedDownloadUrl(currentUrl)) {
+                        throw new java.io.IOException("Redirected to disallowed URL");
+                    }
+                    java.net.URL url = new java.net.URL(currentUrl);
                     conn = (java.net.HttpURLConnection) url.openConnection();
                     conn.setConnectTimeout(15000);
                     conn.setReadTimeout(30000);
+                    conn.setInstanceFollowRedirects(false);
                     conn.setRequestProperty("User-Agent", "Tazkeer-App/2.1");
                     conn.connect();
+
                     responseCode = conn.getResponseCode();
+                    if (responseCode == java.net.HttpURLConnection.HTTP_MOVED_PERM
+                            || responseCode == java.net.HttpURLConnection.HTTP_MOVED_TEMP
+                            || responseCode == java.net.HttpURLConnection.HTTP_SEE_OTHER
+                            || responseCode == 307
+                            || responseCode == 308) {
+                        String location = conn.getHeaderField("Location");
+                        conn.disconnect();
+                        conn = null;
+                        if (location == null || location.isEmpty()) {
+                            throw new java.io.IOException("Missing redirect location");
+                        }
+                        java.net.URL nextUrl = new java.net.URL(url, location);
+                        currentUrl = nextUrl.toString();
+                        continue;
+                    }
+                    break;
                 }
 
-                if (responseCode != java.net.HttpURLConnection.HTTP_OK) {
+                if (conn == null || responseCode != java.net.HttpURLConnection.HTTP_OK) {
                     throw new java.io.IOException("HTTP error code: " + responseCode);
                 }
 
@@ -257,16 +319,20 @@ public class AdhanSchedulerPlugin extends Plugin {
                 try {
                     if (in != null) in.close();
                     if (out != null) out.close();
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
+                if (conn != null) {
+                    conn.disconnect();
+                }
             }
-        }).start();
+        });
     }
 
     @PluginMethod
     public void deleteMuezzin(PluginCall call) {
         String sound = call.getString("sound");
-        if (sound == null) {
-            call.reject("sound is required");
+        if (!isValidSoundId(sound)) {
+            call.reject("Invalid sound parameter");
             return;
         }
         File targetFile = new File(getContext().getFilesDir(), sound + ".mp3");
@@ -523,15 +589,25 @@ public class AdhanSchedulerPlugin extends Plugin {
             return;
         }
 
-        Intent intent = new Intent(context, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        String section = call.getString("section", "tab-azkar");
+        String safeSection = (section == null || section.trim().isEmpty()) ? "tab-azkar" : section.trim();
+        Intent intent = new Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("tazkeer://open/" + safeSection),
+                context,
+                MainActivity.class
+        );
+        intent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
+        );
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 1001, intent, flags);
-
-        Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        int notifId = call.getInt("id", 99001);
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, notifId, intent, flags);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, AZKAR_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_adhan)
@@ -541,15 +617,16 @@ public class AdhanSchedulerPlugin extends Plugin {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
                 .setAutoCancel(true)
-                .setSound(soundUri)
-                .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setContentIntent(pendingIntent);
 
-        int notifId = call.getInt("id", 99001);
-        manager.notify(notifId, builder.build());
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            builder.setSound(soundUri).setDefaults(NotificationCompat.DEFAULT_VIBRATE);
+        }
 
-        // Play the device notification ringtone
-        playNotificationTone();
+        // Channel sound plays automatically on Android 8+; do not call playNotificationTone()
+        // again or the sound will play multiple times.
+        manager.notify(notifId, builder.build());
 
         JSObject res = new JSObject();
         res.put("success", true);
@@ -624,7 +701,6 @@ public class AdhanSchedulerPlugin extends Plugin {
 
     private SensorManager sensorManager;
     private Sensor rotationSensor;
-    private Sensor orientationSensor;
     private Sensor accelerometer;
     private Sensor magnetometer;
     private final float[] lastAccelerometer = new float[3];
@@ -632,9 +708,13 @@ public class AdhanSchedulerPlugin extends Plugin {
     private boolean lastAccelerometerSet = false;
     private boolean lastMagnetometerSet = false;
     private final float[] rMatrix = new float[9];
+    private final float[] remappedMatrix = new float[9];
     private final float[] orientationValues = new float[3];
     private long lastCompassUpdate = 0;
     private boolean isCompassListening = false;
+    private boolean compassRequested = false;
+    private float smoothedHeading = -1f;
+    private float magneticDeclination = 0f;
 
     private final SensorEventListener compassListener = new SensorEventListener() {
         @Override
@@ -644,99 +724,171 @@ public class AdhanSchedulerPlugin extends Plugin {
                 return;
             }
 
-            float azimuth = -1;
+            boolean hasRotation = false;
 
             if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
                 SensorManager.getRotationMatrixFromVector(rMatrix, event.values);
-                SensorManager.getOrientation(rMatrix, orientationValues);
-                azimuth = (float) Math.toDegrees(orientationValues[0]);
-                azimuth = (azimuth + 360) % 360;
-            } else if (event.sensor.getType() == Sensor.TYPE_ORIENTATION) {
-                azimuth = event.values[0];
+                hasRotation = true;
             } else {
                 if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                    System.arraycopy(event.values, 0, lastAccelerometer, 0, event.values.length);
+                    System.arraycopy(event.values, 0, lastAccelerometer, 0, Math.min(3, event.values.length));
                     lastAccelerometerSet = true;
                 } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-                    System.arraycopy(event.values, 0, lastMagnetometer, 0, event.values.length);
+                    System.arraycopy(event.values, 0, lastMagnetometer, 0, Math.min(3, event.values.length));
                     lastMagnetometerSet = true;
                 }
 
                 if (lastAccelerometerSet && lastMagnetometerSet) {
-                    boolean success = SensorManager.getRotationMatrix(rMatrix, null, lastAccelerometer, lastMagnetometer);
-                    if (success) {
-                        SensorManager.getOrientation(rMatrix, orientationValues);
-                        azimuth = (float) Math.toDegrees(orientationValues[0]);
-                        azimuth = (azimuth + 360) % 360;
-                    }
+                    hasRotation = SensorManager.getRotationMatrix(rMatrix, null, lastAccelerometer, lastMagnetometer);
                 }
             }
 
-            if (azimuth >= 0) {
-                lastCompassUpdate = now;
-                JSObject ret = new JSObject();
-                ret.put("heading", azimuth);
-                notifyListeners("compassHeading", ret);
+            if (!hasRotation) {
+                return;
             }
+
+            // Remap axes if device is tilted upright (e.g., held vertically while checking Qibla)
+            float[] activeMatrix = rMatrix;
+            if (Math.abs(rMatrix[8]) < 0.35f) {
+                if (SensorManager.remapCoordinateSystem(
+                        rMatrix,
+                        SensorManager.AXIS_X,
+                        SensorManager.AXIS_Z,
+                        remappedMatrix
+                )) {
+                    activeMatrix = remappedMatrix;
+                }
+            }
+
+            SensorManager.getOrientation(activeMatrix, orientationValues);
+            float rawAzimuth = (float) Math.toDegrees(orientationValues[0]);
+            rawAzimuth = (rawAzimuth + magneticDeclination + 360f) % 360f;
+
+            // Circular low-pass filter handling 0/360 wraparound cleanly
+            if (smoothedHeading < 0f) {
+                smoothedHeading = rawAzimuth;
+            } else {
+                float delta = ((rawAzimuth - smoothedHeading + 540f) % 360f) - 180f;
+                smoothedHeading = (smoothedHeading + 0.22f * delta + 360f) % 360f;
+            }
+
+            lastCompassUpdate = now;
+            JSObject ret = new JSObject();
+            ret.put("heading", smoothedHeading);
+            notifyListeners("compassHeading", ret);
         }
 
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {}
     };
 
-    @PluginMethod
-    public void startCompass(PluginCall call) {
+    private boolean registerCompassSensors() {
         if (sensorManager == null) {
             sensorManager = (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
         }
-
         if (sensorManager == null) {
-            call.reject("SensorManager unavailable");
-            return;
+            return false;
+        }
+        if (isCompassListening) {
+            return true;
         }
 
-        if (!isCompassListening) {
-            rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-            if (rotationSensor != null) {
-                sensorManager.registerListener(compassListener, rotationSensor, SensorManager.SENSOR_DELAY_UI);
-            } else {
-                orientationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-                if (orientationSensor != null) {
-                    sensorManager.registerListener(compassListener, orientationSensor, SensorManager.SENSOR_DELAY_UI);
-                } else {
-                    accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-                    magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-                    if (accelerometer != null && magnetometer != null) {
-                        sensorManager.registerListener(compassListener, accelerometer, SensorManager.SENSOR_DELAY_UI);
-                        sensorManager.registerListener(compassListener, magnetometer, SensorManager.SENSOR_DELAY_UI);
-                    }
-                }
+        lastAccelerometerSet = false;
+        lastMagnetometerSet = false;
+        smoothedHeading = -1f;
+
+        rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        if (rotationSensor != null) {
+            isCompassListening = sensorManager.registerListener(
+                    compassListener,
+                    rotationSensor,
+                    SensorManager.SENSOR_DELAY_UI
+            );
+            return isCompassListening;
+        }
+
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        if (accelerometer != null && magnetometer != null) {
+            boolean accOk = sensorManager.registerListener(compassListener, accelerometer, SensorManager.SENSOR_DELAY_UI);
+            boolean magOk = sensorManager.registerListener(compassListener, magnetometer, SensorManager.SENSOR_DELAY_UI);
+            isCompassListening = accOk && magOk;
+            if (!isCompassListening) {
+                sensorManager.unregisterListener(compassListener);
             }
-            isCompassListening = true;
+            return isCompassListening;
+        }
+
+        return false;
+    }
+
+    private void unregisterCompassSensors() {
+        if (sensorManager != null && isCompassListening) {
+            sensorManager.unregisterListener(compassListener);
+            isCompassListening = false;
+        }
+    }
+
+    @PluginMethod
+    public void startCompass(PluginCall call) {
+        Double lat = call.getDouble("latitude");
+        Double lng = call.getDouble("longitude");
+        if (lat != null && lng != null) {
+            try {
+                GeomagneticField field = new GeomagneticField(
+                        lat.floatValue(),
+                        lng.floatValue(),
+                        0f,
+                        System.currentTimeMillis()
+                );
+                magneticDeclination = field.getDeclination();
+            } catch (Exception e) {
+                magneticDeclination = 0f;
+            }
+        } else {
+            magneticDeclination = 0f;
+        }
+
+        compassRequested = true;
+        boolean started = registerCompassSensors();
+        if (!started) {
+            compassRequested = false;
         }
 
         JSObject res = new JSObject();
-        res.put("started", true);
+        res.put("started", started);
+        res.put("available", started);
         call.resolve(res);
     }
 
     @PluginMethod
     public void stopCompass(PluginCall call) {
-        if (sensorManager != null && isCompassListening) {
-            sensorManager.unregisterListener(compassListener);
-            isCompassListening = false;
-        }
+        compassRequested = false;
+        unregisterCompassSensors();
         JSObject res = new JSObject();
         res.put("stopped", true);
         call.resolve(res);
     }
 
     @Override
-    protected void handleOnDestroy() {
-        if (sensorManager != null && isCompassListening) {
-            sensorManager.unregisterListener(compassListener);
-            isCompassListening = false;
+    protected void handleOnPause() {
+        unregisterCompassSensors();
+        super.handleOnPause();
+    }
+
+    @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        if (compassRequested) {
+            registerCompassSensors();
         }
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        compassRequested = false;
+        unregisterCompassSensors();
+        downloadExecutor.shutdownNow();
         super.handleOnDestroy();
     }
 }

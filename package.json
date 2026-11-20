@@ -6,6 +6,8 @@
   "author": "Abdelghany-77",
   "license": "UNLICENSED",
   "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "start": "node scripts/dev-server.mjs",
     "build": "node scripts/prepare-www.mjs",
     "test": "node --test tests/core-utils.test.mjs tests/storage-atomic.test.mjs",
     "sync": "npm run build && cap sync android",

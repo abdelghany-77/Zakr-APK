@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import test from "node:test";
 import {
   buildDailySchedule,
@@ -96,6 +97,10 @@ test("uses local date boundaries for midnight and timezone transitions", () => {
   );
 });
 
+const require = createRequire(import.meta.url);
+const appUtils = require("../js/core/app-utils.js");
+const scheduleCjs = require("../js/core/schedule-utils.js");
+
 test("detects schedule replacement and preserves unchanged schedules", () => {
   const schedule = buildDailySchedule(new Date(2026, 10, 10, 0, 0), [
     { key: "morning", time: "07:00" },
@@ -104,3 +109,52 @@ test("detects schedule replacement and preserves unchanged schedules", () => {
   assert.equal(hasScheduleChanged(schedule, [{ ...schedule[0], time: schedule[0].time + 60000 }]), true);
   assert.equal(hasScheduleChanged(schedule, []), true);
 });
+
+test("rolls post-23:00 reminder times accurately into the next local date", () => {
+  const shifted = scheduleCjs.addMinutesToLocalDateTime("2026-06-21", "23:25", 60);
+  assert.ok(shifted);
+  assert.equal(shifted.dateKey, "2026-06-22");
+  assert.equal(shifted.timeOfDay, "00:25");
+  assert.notEqual(
+    stableNotificationId("azkar", "2026-06-21", "night"),
+    stableNotificationId("azkar", shifted.dateKey, "night")
+  );
+});
+
+test("normalizes Arabic diacritics, hamza, and taa marbuta consistently", () => {
+  assert.equal(appUtils.normalizeArabic("أَذْكَارُ الصَّبَاحِ"), "اذكار الصباح");
+  assert.equal(appUtils.normalizeArabic("إبراهيم وموسى وعيسى"), "ابراهيم وموسي وعيسي");
+  assert.equal(appUtils.normalizeArabic("مكّة المكرّمة"), "مكه المكرمه");
+});
+
+test("resolves prayer calculation methods, offsets, and query params uniformly", () => {
+  assert.equal(appUtils.detectCalculationMethod(30.04, 31.23), 5); // Egypt
+  assert.equal(appUtils.detectCalculationMethod(21.42, 39.82), 4); // Saudi Arabia
+  assert.equal(appUtils.detectCalculationMethod(40.71, -74.0), 2); // North America
+  assert.equal(appUtils.detectCalculationMethod(51.5, -0.12), 3); // Default MWL
+
+  const shifted = appUtils.applyMinuteOffsets(
+    { Fajr: "04:30 (EET)", Dhuhr: "12:00", Asr: "15:30", Maghrib: "18:15", Isha: "23:55" },
+    { Fajr: -5, Dhuhr: 0, Asr: 2, Maghrib: 0, Isha: 10 }
+  );
+  assert.equal(shifted.Fajr, "04:25");
+  assert.equal(shifted.Asr, "15:32");
+  assert.equal(shifted.Isha, "00:05");
+
+  const params = appUtils.buildAlAdhanQueryParams(30.04, 31.23, {
+    method: 4,
+    school: 1,
+    offsets: { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 },
+    manualCity: null,
+  });
+  assert.ok(params.includes("method=4"));
+  assert.ok(params.includes("school=1"));
+});
+
+test("searches preset Arabic cities with normalized matching", () => {
+  const results = appUtils.searchPresetCities("الاسكندريه");
+  assert.ok(results.some((c) => c.id === "alexandria"));
+  const makkah = appUtils.searchPresetCities("مكه");
+  assert.ok(makkah.some((c) => c.id === "makkah"));
+});
+

@@ -13,11 +13,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- Exact alarms (Android 12+). USE_EXACT_ALARM is auto-granted for
-         alarm-clock-like apps; SCHEDULE_EXACT_ALARM is the user-granted
-         fallback used by requestExactAlarmPermission(). -->
+    <!-- Exact alarms (Android 12+). SCHEDULE_EXACT_ALARM is user-granted
+         and complies with Google Play policy for prayer-time apps. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <!-- Android 13+ notification runtime permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -59,6 +57,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tazkeer" android:host="open" />
             </intent-filter>
 
         </activity>
