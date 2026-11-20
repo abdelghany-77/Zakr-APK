@@ -1072,3 +1072,395 @@
     padding: 6px 6px;
   }
 }
+
+/* ── Accessible <button class="close"> reset ─────────────────────────────── */
+button.close {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Prayer Calculation & Manual City Settings ───────────────────────────── */
+#adhanModal .prayer-settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s1);
+  padding: 13px 14px;
+}
+
+#adhanModal .prayer-setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+#adhanModal .prayer-setting-row + .prayer-setting-row {
+  padding-top: 11px;
+  border-top: 1px solid var(--pt-line);
+}
+
+#adhanModal .prayer-setting-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#adhanModal .prayer-setting-label,
+.loc-manual-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+
+#adhanModal .prayer-city-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--pt-em);
+  background: var(--pt-em-bg);
+  border: 1px solid var(--pt-em-line);
+  border-radius: 999px;
+  padding: 2px 10px;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#adhanModal .prayer-city-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prayer-city-search-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.prayer-city-search-wrap i {
+  position: absolute;
+  right: 11px;
+  font-size: 11px;
+  color: var(--pt-mu);
+  pointer-events: none;
+}
+
+.prayer-city-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 32px 6px 10px;
+  border-radius: 11px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+  color: var(--pt-tx);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.prayer-city-input:focus {
+  border-color: var(--pt-em-line);
+}
+
+#adhanModal .prayer-gps-btn {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 6px 11px;
+  border-radius: 11px;
+  border: 1px solid var(--pt-em-line);
+  background: var(--pt-em-bg);
+  color: var(--pt-em);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.prayer-city-results {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 165px;
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-bg);
+  padding: 5px;
+}
+
+.prayer-city-results.has-items {
+  display: flex;
+}
+
+.prayer-city-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--pt-tx);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  text-align: right;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.prayer-city-option:hover,
+.prayer-city-option:focus-visible {
+  background: var(--pt-s2);
+  outline: none;
+}
+
+.prayer-city-option small {
+  font-size: 10px;
+  color: var(--pt-mu);
+}
+
+.prayer-city-empty {
+  padding: 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--pt-mu);
+}
+
+#adhanModal .prayer-select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+  color: var(--pt-tx);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  outline: none;
+}
+
+#adhanModal .prayer-select:focus {
+  border-color: var(--pt-em-line);
+}
+
+#adhanModal .prayer-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+}
+
+#adhanModal .prayer-seg-btn {
+  min-height: 34px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--pt-mu);
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#adhanModal .prayer-seg-btn.active {
+  background: var(--pt-em-bg);
+  border-color: var(--pt-em-line);
+  color: var(--pt-em);
+}
+
+#adhanModal .prayer-reset-offsets-btn {
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+  color: var(--pt-mu);
+  border-radius: 8px;
+  padding: 3px 9px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#adhanModal .prayer-offsets-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+#adhanModal .prayer-offset-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 4px;
+  border-radius: 11px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+}
+
+#adhanModal .po-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--pt-mu);
+}
+
+#adhanModal .po-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 2px;
+}
+
+#adhanModal .po-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s1);
+  color: var(--pt-tx);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#adhanModal .po-val {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--pt-tx);
+  direction: ltr;
+  min-width: 18px;
+  text-align: center;
+}
+
+#adhanModal .po-val.is-nonzero {
+  color: var(--pt-gd);
+}
+
+/* Manual city picker inside #locationPermissionModal */
+.loc-manual-picker {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: right;
+  margin: 4px 0;
+}
+
+@media (max-width: 420px) {
+  #adhanModal .prayer-offsets-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ── Reusable In-App Dialog (AppDialog) ──────────────────────────────────── */
+.tazkeer-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10090;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.62);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.tazkeer-dialog-overlay.is-open {
+  display: flex;
+}
+
+.tazkeer-dialog-card {
+  width: 100%;
+  max-width: 380px;
+  border-radius: 20px;
+  border: 1px solid var(--pt-line, rgba(255, 255, 255, 0.12));
+  background: var(--pt-bg, #0d161b);
+  color: var(--pt-tx, #f4f7f6);
+  padding: 20px 18px 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tazkeer-dialog-title {
+  margin: 0;
+  font-family: var(--font-sans, "Cairo", sans-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pt-tx, #f4f7f6);
+}
+
+.tazkeer-dialog-message {
+  margin: 0;
+  font-family: var(--font-sans, "Cairo", sans-serif);
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--pt-mu, #9fb1b7);
+  white-space: pre-line;
+}
+
+.tazkeer-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tazkeer-dialog-btn {
+  min-height: 38px;
+  padding: 7px 16px;
+  border-radius: 11px;
+  font-family: var(--font-sans, "Cairo", sans-serif);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.tazkeer-dialog-btn-secondary {
+  background: var(--pt-s2, rgba(255, 255, 255, 0.08));
+  border-color: var(--pt-line, rgba(255, 255, 255, 0.12));
+  color: var(--pt-tx, #f4f7f6);
+}
+
+.tazkeer-dialog-btn-primary {
+  background: var(--pt-em, #10b981);
+  color: #062118;
+}
+
+.tazkeer-dialog-btn-danger {
+  background: rgba(229, 115, 115, 0.18);
+  border-color: rgba(229, 115, 115, 0.45);
+  color: #f87171;
+}
+
