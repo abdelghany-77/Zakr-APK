@@ -1008,6 +1008,8 @@ body.dark-mode .adhan-footnote {
 /* Suppress all web install prompts and banners in native app */
 body.capacitor-native .install-btn,
 body.is-native-app .install-btn,
+body.capacitor-native .pt-web-only-row,
+body.is-native-app .pt-web-only-row,
 body.capacitor-native #installInstructionsModal,
 body.is-native-app #installInstructionsModal,
 body.capacitor-native .install-modal,

@@ -320,10 +320,9 @@
 }
 
 .pt-cats .category-card-info {
-  display: flex;
-  flex-direction: column;
   display: block;
-  padding-top: 58px;
+  padding-top: 56px;
+  padding-bottom: 24px;
   gap: 4px;
 }
 
@@ -350,7 +349,7 @@
   bottom: 0;
   left: 0;
   margin-top: 0;
-  direction: ltr !important;
+  direction: rtl !important;
   flex-direction: row !important;
 }
 
@@ -483,4 +482,44 @@
 #categoryPage .swiper-dots-wrap .active,
 #categoryPage .swiper-dot.active {
   background: var(--pt-em) !important;
+}
+
+@media (max-width: 360px) {
+  .pt-cats {
+    gap: 9px;
+  }
+
+  .pt-cats .category-card {
+    min-height: 128px;
+    padding: 12px;
+    border-radius: 17px;
+  }
+
+  .pt-cats .category-card-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    font-size: 16.5px;
+    border-radius: 12px;
+  }
+
+  .pt-cats .category-card-info {
+    padding-top: 48px;
+    padding-bottom: 22px;
+  }
+
+  .pt-cats .category-title {
+    font-size: 13.5px;
+  }
+
+  .pt-misbaha-row {
+    padding: 10px 14px;
+    min-height: 68px;
+  }
+}
+
+@media (min-width: 720px) {
+  .pt-cats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
