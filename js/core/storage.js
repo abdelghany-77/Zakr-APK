@@ -394,10 +394,15 @@
           }
         }
 
+        var restoredLabel =
+          typeof global.formatArabicCount === "function"
+            ? global.formatArabicCount(count, "item")
+            : count + " عناصر";
+
         if (typeof global.showNotification === "function") {
-          global.showNotification("تمت استعادة " + count + " عنصر بنجاح! جاري التحديث...");
+          global.showNotification("تمت استعادة " + restoredLabel + " بنجاح! جارٍ التحديث...");
         } else if (typeof global.showEnhancedNotification === "function") {
-          global.showEnhancedNotification("تمت استعادة " + count + " عنصر بنجاح! جاري التحديث...", "success", 3000);
+          global.showEnhancedNotification("تمت استعادة " + restoredLabel + " بنجاح! جارٍ التحديث...", "success", 3000);
         }
 
         setTimeout(function () {
@@ -405,7 +410,7 @@
         }, 800);
       } catch (err) {
         console.error("[SafeStorage] Import error:", err);
-        showStorageError("فشل استيراد الملف: " + (err.message || "يرجى التأكد من اختيار ملف JSON صالح لتطبيق ذَكِّرْ."));
+        showStorageError("فشل استيراد الملف: " + (err.message || "يرجى التأكد من اختيار ملف نسخة احتياطية صالح لتطبيق ذَكِّرْ."));
       } finally {
         if (input) input.value = "";
       }

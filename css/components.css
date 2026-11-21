@@ -296,7 +296,9 @@ body.light-mode .pt-ring {
   width: 100%;
   max-width: 520px;
   max-height: 92vh;
+  max-height: 92dvh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: var(--pt-bg);
   border: 1px solid var(--pt-line);
   border-bottom: none;
@@ -361,8 +363,12 @@ body.light-mode .pt-ring {
 .loc-modal-content {
   max-width: 420px;
   width: 100%;
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 24px !important;
-  padding: 26px 22px 20px !important;
+  padding: 24px 20px 18px !important;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -485,4 +491,92 @@ body.light-mode .pt-ring {
 .loc-btn-secondary:hover,
 .loc-btn-secondary:active {
   color: var(--pt-tx);
+}
+
+/* ── In-App Privacy Policy & About Sheet ─────────────────────────────────── */
+.pt-privacy-body {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding-bottom: 6px;
+}
+
+.pt-privacy-block {
+  background: var(--pt-s1);
+  border: 1px solid var(--pt-line);
+  border-radius: 15px;
+  padding: 13px 14px;
+  text-align: start;
+}
+
+.pt-privacy-block h3 {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--pt-em);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.pt-privacy-block p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--pt-tx);
+  opacity: 0.92;
+}
+
+.pt-privacy-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding-top: 4px;
+  font-size: 11px;
+  color: var(--pt-mu);
+  text-align: center;
+}
+
+/* ── Shared Modal & Small-Screen Polish ──────────────────────────────────── */
+.qibla-modal-content,
+.fasting-modal-content {
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 360px) {
+  .pt-iconbtn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    font-size: 15.5px;
+  }
+
+  .pt-sheet__panel {
+    padding-inline: 14px;
+  }
+
+  .loc-modal-content {
+    padding: 18px 14px 16px !important;
+    gap: 10px;
+  }
+
+  .loc-modal-icon-wrap {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+  }
+
+  .loc-modal-title {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 720px) {
+  .pt-sheet__panel {
+    max-width: 600px;
+  }
 }

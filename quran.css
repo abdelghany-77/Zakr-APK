@@ -15,19 +15,19 @@
   --quran-ornament: #8b6914;
   --quran-page-bg: #fffdf7;
   --quran-header-bg: linear-gradient(135deg, #2c5f3f 0%, #1a4a30 100%);
-  --mushaf-parchment: #f4ecd8;
+  --mushaf-parchment: #ffffff;
 }
 
 /* Dark mode overrides */
 .mushaf-dark-mode {
-  --quran-bg: #1a1a2e;
-  --quran-text: #e8dcc8;
-  --quran-page-bg: #16213e;
+  --quran-bg: #121514;
+  --quran-text: #e8ecea;
+  --quran-page-bg: #171b1a;
   --quran-border: #8b6914;
   --quran-shadow: rgba(0, 0, 0, 0.3);
   --quran-ornament: #d4a847;
   --quran-header-bg: linear-gradient(135deg, #1a3a2a 0%, #0d2818 100%);
-  --mushaf-parchment: #1e1e2e;
+  --mushaf-parchment: #121514;
 }
 
 /* ===== Quran Category Card ===== */
@@ -290,7 +290,7 @@
   background: linear-gradient(90deg, var(--quran-primary), var(--quran-gold));
   border-radius: 4px;
   outline: none;
-  direction: ltr;
+  direction: rtl;
 }
 .goal-slider-wrapper input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -1093,7 +1093,7 @@
 .mushaf-header {
   background: var(--quran-header-bg);
   color: white;
-  padding: 0.5rem 0.8rem;
+  padding: calc(0.5rem + env(safe-area-inset-top, 0px)) max(0.8rem, env(safe-area-inset-right, 0px)) 0.5rem max(0.8rem, env(safe-area-inset-left, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1187,6 +1187,7 @@
   border-radius: 14px;
   padding: 1rem;
   min-width: 220px;
+  max-width: calc(100vw - 24px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
   z-index: 100;
   display: none;
@@ -1289,12 +1290,17 @@
 /* ---- Image Area ---- */
 .mushaf-image-area {
   flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
   min-height: 0;
+  padding: 0;
+  margin: 0;
+  background: var(--mushaf-parchment);
+  isolation: isolate;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
@@ -1303,9 +1309,10 @@
 .mushaf-page-img {
   width: 100%;
   height: 100%;
-  object-fit: fill;
-  /* object-position: center top; */
+  object-fit: contain;
+  object-position: center;
   display: block;
+  mix-blend-mode: multiply;
   -webkit-user-select: none;
   user-select: none;
   pointer-events: none;
@@ -1348,7 +1355,8 @@
 }
 
 .mushaf-dark-mode .mushaf-page-img {
-  filter: invert(0.88) hue-rotate(180deg);
+  filter: invert(1) contrast(1.06) brightness(0.9);
+  mix-blend-mode: screen;
 }
 .mushaf-dark-mode .mushaf-image-area::before {
   background: linear-gradient(
@@ -2058,7 +2066,7 @@ body.light-mode .khatmah-dua-view-btn {
     font-size: 1.5rem;
   }
   .mushaf-header {
-    padding: 0.4rem 0.6rem;
+    padding: calc(0.4rem + env(safe-area-inset-top, 0px)) max(0.6rem, env(safe-area-inset-right, 0px)) 0.4rem max(0.6rem, env(safe-area-inset-left, 0px));
   }
   .mushaf-back-btn,
   .mushaf-action-btn {
@@ -2084,7 +2092,7 @@ body.light-mode .khatmah-dua-view-btn {
   }
   .mushaf-settings-dropdown {
     min-width: 190px;
-    left: -10px;
+    left: 0;
   }
   .progress-ring-wrapper {
     width: 160px;

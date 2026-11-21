@@ -6463,13 +6463,15 @@ body.light-mode .qibla-mini-dial {
 /* Direction labels */
 .qmc-dir {
   position: absolute;
-  font-size: 0.6rem;
+  font-size: 0.54rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  line-height: 1;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.45);
   z-index: 2;
 }
 body.light-mode .qmc-dir {
-  color: rgba(0, 0, 0, 0.3);
+  color: rgba(0, 0, 0, 0.35);
 }
 .qmc-n {
   top: 4px;
@@ -6479,17 +6481,17 @@ body.light-mode .qmc-dir {
   color: unset !important;
 }
 .qmc-s {
-  bottom: 6px;
+  bottom: 5px;
   left: 50%;
   transform: translateX(-50%);
 }
 .qmc-e {
-  right: 8px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
 }
 .qmc-w {
-  left: 8px;
+  left: 6px;
   top: 50%;
   transform: translateY(-50%);
 }

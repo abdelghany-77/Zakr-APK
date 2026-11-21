@@ -1,9 +1,14 @@
 package com.abdelghany.tazkeer.adhan;
 
+import android.app.AlarmManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * ============================================================================
@@ -21,10 +26,22 @@ import android.util.Log;
  *  - BOOT_COMPLETED is not delivered if the user force-stopped the app from
  *    Settings. Opening the app once restores the schedule.
  *  - MY_PACKAGE_REPLACED covers APK updates.
+ *  - ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED upgrades alarms
+ *    immediately once the user grants exact-alarm permission on Android 12+.
  */
 public class AdhanBootReceiver extends BroadcastReceiver {
 
     private static final String TAG = "TazkeerAdhan";
+    private static final Set<String> ALLOWED_ACTIONS = new HashSet<>(Arrays.asList(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_DATE_CHANGED,
+            "android.intent.action.QUICKBOOT_POWERON",
+            "com.htc.intent.action.QUICKBOOT_POWERON",
+            AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED
+    ));
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -33,6 +50,11 @@ public class AdhanBootReceiver extends BroadcastReceiver {
         }
 
         String action = intent.getAction();
+        if (!ALLOWED_ACTIONS.contains(action)) {
+            Log.w(TAG, "Ignoring unexpected broadcast action: " + action);
+            return;
+        }
+
         Log.i(TAG, "Rescheduling adhan alarms after: " + action);
 
         try {

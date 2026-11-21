@@ -339,7 +339,7 @@
     });
     if (!prayerName && alarm.label) prayerName = alarm.label;
 
-    return dayLabel + " · " + timeLabel + (prayerName ? " · " + prayerName : "");
+    return dayLabel + " — " + timeLabel + (prayerName ? " — " + prayerName : "");
   }
 
   // ---------------------------------------------------------------------------
@@ -950,7 +950,7 @@
 
     downloadingMuezzins[key] = true;
     renderMuezzinList();
-    notify("جاري تحميل أذان " + item.name + "...", "info");
+    notify("جارٍ تحميل أذان " + item.name + "...", "info");
 
     var success = false;
     try {
@@ -997,7 +997,7 @@
       if (item.isBuiltIn) {
         actionHtml = '<span class="adhan-badge-builtin"><i class="fas fa-bolt"></i> أساسي</span>';
       } else if (isDownloading) {
-        actionHtml = '<span class="adhan-muezzin-downloading"><i class="fas fa-spinner fa-spin"></i> جاري التحميل</span>';
+        actionHtml = '<span class="adhan-muezzin-downloading"><i class="fas fa-spinner fa-spin"></i> جارٍ التحميل</span>';
       } else if (isReady) {
         actionHtml = '<span class="adhan-badge-downloaded"><i class="fas fa-check"></i> جاهز</span>';
       } else {
@@ -1073,7 +1073,7 @@
     if (volume) volume.value = String(Math.round(settings.volume * 100));
     var volumeValue = document.getElementById("adhanVolumeValue");
     if (volumeValue)
-      volumeValue.textContent = arNum(Math.round(settings.volume * 100)) + "%";
+      volumeValue.textContent = arNum(Math.round(settings.volume * 100)) + "٪";
 
     var statusPill = document.getElementById("adhanStatusPill");
     var summary = document.getElementById("adhanSummary");
@@ -1087,7 +1087,11 @@
     } else if (!settings.enabled) {
       statusText = "متوقف";
     } else if (state.scheduledCount > 0) {
-      statusText = "مفعّل · " + arNum(state.scheduledCount) + " موعد";
+      var apptText =
+        typeof global.formatArabicCount === "function"
+          ? global.formatArabicCount(state.scheduledCount, "appointment")
+          : arNum(state.scheduledCount) + " موعد";
+      statusText = "مفعّل — " + apptText;
     } else {
       statusText = "مفعّل";
     }
@@ -1128,7 +1132,7 @@
         "</span>";
     } else {
       summaryHtml =
-        '<i class="fas fa-hourglass-half"></i><span>جاري تجهيز جدول الأذان للأيام القادمة...</span>';
+        '<i class="fas fa-hourglass-half"></i><span>جارٍ تجهيز جدول الأذان للأيام القادمة...</span>';
     }
 
     if (summary) summary.innerHTML = summaryHtml;
@@ -1197,7 +1201,7 @@
 
     var plugin = getPlugin();
     if (!plugin) {
-      notify("جاري تهيئة محرك الأذان... أعد فتح التطبيق.", "info");
+      notify("جارٍ تهيئة محرك الأذان... أعد فتح التطبيق.", "info");
       return;
     }
 
@@ -1262,7 +1266,7 @@
     updateSettings({ volume: normalized });
     var volumeValue = document.getElementById("adhanVolumeValue");
     if (volumeValue)
-      volumeValue.textContent = Math.round(normalized * 100) + "%";
+      volumeValue.textContent = arNum(Math.round(normalized * 100)) + "٪";
 
     var plugin = getPlugin();
     if (plugin && typeof plugin.setVolume === "function") {
@@ -1298,8 +1302,12 @@
       });
 
       if (result && result.scheduled) {
+        var delayText =
+          typeof global.formatArabicCount === "function"
+            ? global.formatArabicCount(delay, "second")
+            : arNum(delay) + " ثانية";
         notify(
-          "سيُشغَّل الأذان بعد " + delay + " ثانية. يمكنك إغلاق التطبيق الآن.",
+          "سيُشغَّل الأذان بعد " + delayText + ". يمكنك إغلاق التطبيق الآن.",
           "success"
         );
       } else {

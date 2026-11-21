@@ -2,8 +2,75 @@
    Tazkeer v2 — Base layout & the application shell
    ============================================================================ */
 
+/* Pure native-app feel: zero web tap-highlight boxes, callouts, ghost drags, or browser bounce */
+*,
+*::before,
+*::after {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none;
+}
+
 html {
   background-color: transparent !important;
+  overscroll-behavior-y: none;
+}
+
+body {
+  overscroll-behavior-y: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+img,
+svg,
+a,
+button {
+  -webkit-user-drag: none;
+}
+
+button,
+a,
+[role="button"],
+.category-card,
+.azkar-slide,
+.slide-counter-btn,
+.slide-nav-arrow,
+.bottom-nav-item,
+.pt-surah,
+.pt-proph-row,
+.pt-remind-row,
+.pt-settings__row,
+.misbaha-tap-btn {
+  touch-action: manipulation;
+}
+
+button:focus,
+a:focus,
+[role="button"]:focus,
+.nav-btn:focus,
+.action-btn:focus,
+.count-btn:focus,
+.slide-counter-btn:focus,
+.slide-nav-arrow:focus,
+.azkar-slide:focus,
+.bottom-nav-item:focus,
+.category-card:focus,
+.misbaha-tap-btn:focus {
+  outline: none !important;
+}
+
+/* Disable browser/web-style DOM tap ripples everywhere */
+.tap-anywhere-ripple,
+.mushaf-tap-ripple {
+  display: none !important;
 }
 
 body::before {
@@ -67,9 +134,18 @@ main,
   display: none !important;
 }
 
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 .container {
+  width: 100%;
   max-width: 520px;
+  margin-inline: auto;
   padding-inline: 18px;
+  box-sizing: border-box;
 }
 
 .main {
@@ -120,7 +196,7 @@ main,
 }
 
 .pt-title {
-  font-size: 28px;
+  font-size: clamp(22px, 6.8vw, 28px);
   line-height: 1.25;
   font-weight: 700;
   color: var(--pt-tx);
@@ -128,7 +204,7 @@ main,
 }
 
 .pt-title--hijri {
-  font-size: 19px;
+  font-size: clamp(16.5px, 4.9vw, 19.5px);
   font-weight: 700;
   line-height: 1.4;
 }
@@ -196,6 +272,10 @@ main,
 
 /* ── Bottom navigation ───────────────────────────────────────────────────── */
 .bottom-nav {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 0.82fr) minmax(0, 1.24fr) minmax(0, 1.24fr) minmax(0, 0.82fr) !important;
+  align-items: center !important;
+  gap: 4px !important;
   height: calc(var(--pt-nav-h) + env(safe-area-inset-bottom, 0px)) !important;
   min-height: calc(var(--pt-nav-h) + env(safe-area-inset-bottom, 0px)) !important;
   padding: 6px 6px max(6px, env(safe-area-inset-bottom, 0px)) !important;
@@ -204,6 +284,11 @@ main,
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28) !important;
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
+}
+
+.bottom-nav.hidden,
+.bottom-nav[style*="display: none"] {
+  display: none !important;
 }
 
 body.light-mode .bottom-nav {
@@ -218,9 +303,10 @@ body.light-mode .bottom-nav {
 }
 
 .bottom-nav-item {
-  flex: 1;
+  width: 100% !important;
+  min-width: 0 !important;
   gap: 4px !important;
-  padding: 4px 0 !important;
+  padding: 4px 2px !important;
   color: var(--pt-mu) !important;
   font-size: 10.5px !important;
   font-weight: 600 !important;
@@ -237,28 +323,110 @@ body.light-mode .bottom-nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
+  width: min(48px, 100%);
   height: 30px;
   border-radius: 15px;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .pt-nav-ico i {
-  font-size: 19px;
+  font-size: 18.5px;
   line-height: 1;
 }
 
 .bottom-nav-item span.pt-nav-label {
-  line-height: 1.1;
-  font-size: 11px;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  line-height: 1.2;
+  font-size: clamp(9.5px, 2.55vw, 11px) !important;
   font-weight: 600;
   white-space: nowrap;
 }
 
-@media (max-width: 365px) {
+@media (max-width: 380px) {
+  .container {
+    padding-inline: 13px;
+  }
+
+  .pt-topbar__actions {
+    gap: 6px;
+  }
+
+  .bottom-nav {
+    gap: 3px !important;
+    padding-inline: 4px !important;
+  }
+
+  .pt-nav-ico {
+    width: min(42px, 100%);
+    height: 28px;
+  }
+
+  .pt-nav-ico i {
+    font-size: 17px;
+  }
+
   .bottom-nav-item span.pt-nav-label,
   .bottom-nav-item {
-    font-size: 10.5px !important;
+    font-size: 9.4px !important;
+  }
+}
+
+@media (max-width: 340px) {
+  .container {
+    padding-inline: 10px;
+  }
+
+  .bottom-nav {
+    gap: 2px !important;
+    padding-inline: 3px !important;
+  }
+
+  .pt-nav-ico {
+    width: min(36px, 100%);
+    height: 26px;
+  }
+
+  .pt-nav-ico i {
+    font-size: 15.5px;
+  }
+
+  .bottom-nav-item span.pt-nav-label,
+  .bottom-nav-item {
+    font-size: 8.8px !important;
+  }
+}
+
+/* Foldables & Tablets: balanced reading width and ergonomic bottom nav */
+@media (min-width: 720px) {
+  .container {
+    max-width: 640px;
+    padding-inline: 24px;
+  }
+
+  .bottom-nav {
+    padding-inline: max(16px, calc((100vw - 640px) / 2)) !important;
+  }
+}
+
+/* Short landscape phones: compact bottom nav so more content stays visible */
+@media (orientation: landscape) and (max-height: 520px) {
+  :root,
+  body.dark-mode,
+  body.light-mode {
+    --pt-nav-h: 58px;
+  }
+
+  .bottom-nav {
+    padding-top: 4px !important;
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .pt-nav-ico {
+    height: 24px;
   }
 }
 
@@ -278,6 +446,38 @@ body.light-mode .bottom-nav {
 
 .bottom-nav-item:active .pt-nav-ico {
   transform: scale(0.94);
+}
+
+/* Respect safe areas on Misbaha & Prophets reader overlays */
+.misbaha-container {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+}
+
+.pr-topbar {
+  padding-top: calc(0.6rem + env(safe-area-inset-top, 0px));
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .misbaha-container {
+    padding-bottom: 1.25rem;
+  }
+
+  .misbaha-presets,
+  .misbaha-targets,
+  .misbaha-dhikr-display,
+  .misbaha-counter-wrap {
+    margin-bottom: 0.75rem;
+  }
+
+  .misbaha-tap-btn {
+    width: 148px;
+    height: 148px;
+  }
+
+  .misbaha-count-num {
+    font-size: 2.5rem;
+  }
 }
 
 /* Keep floating legacy widgets above the taller nav */

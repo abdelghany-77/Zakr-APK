@@ -109,8 +109,15 @@
     }
   }
 
+  function _arDeg(val) {
+    var rounded = Math.round(val);
+    return typeof global.toArabicDigits === "function"
+      ? global.toArabicDigits(rounded)
+      : String(rounded);
+  }
+
   function requestQiblaPermissions() {
-    updateQiblaStatus("جاري تحديد الموقع بدقة ومعايرة البوصلة...");
+    updateQiblaStatus("جارٍ تحديد الموقع بدقة ومعايرة البوصلة...");
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -131,11 +138,11 @@
                 if (response === "granted") {
                   setupCompass();
                 } else {
-                  updateQiblaStatus("اتجاه القبلة: " + Math.round(calculateQiblaDirection()) + "° من الشمال");
+                  updateQiblaStatus("اتجاه القبلة: " + _arDeg(calculateQiblaDirection()) + "° من الشمال");
                 }
               })
               .catch(function () {
-                updateQiblaStatus("اتجاه القبلة: " + Math.round(calculateQiblaDirection()) + "° من الشمال");
+                updateQiblaStatus("اتجاه القبلة: " + _arDeg(calculateQiblaDirection()) + "° من الشمال");
               });
           } else {
             setupCompass();
@@ -195,8 +202,7 @@
         Promise.resolve(plugin.startCompass(compassArgs))
           .then(function (res) {
             if (res && res.started === false) {
-              var dir = Math.round(calculateQiblaDirection());
-              updateQiblaStatus("لا يتوفر حساس بوصلة — اتجاه القبلة: " + dir + "° من الشمال");
+              updateQiblaStatus("لا يتوفر حساس بوصلة — اتجاه القبلة: " + _arDeg(calculateQiblaDirection()) + "° من الشمال");
             }
           })
           .catch(function () {});
@@ -226,10 +232,9 @@
       } else {
         window.addEventListener("deviceorientation", handleOrientationStandard, true);
       }
-      updateQiblaStatus("البوصلة تعمل - حرّك هاتفك بشكل أفقي");
+      updateQiblaStatus("البوصلة تعمل — حرّك هاتفك بشكل أفقي");
     } else {
-      var dir = Math.round(calculateQiblaDirection());
-      updateQiblaStatus("اتجاه القبلة: " + dir + "° من الشمال");
+      updateQiblaStatus("اتجاه القبلة: " + _arDeg(calculateQiblaDirection()) + "° من الشمال");
     }
   }
 
@@ -278,7 +283,7 @@
     needle.style.transform = "translate(-50%, -100%) rotate(" + currentNeedleAngle + "deg)";
 
     if (degreesEl) {
-      degreesEl.textContent = Math.round(qiblaDirection) + "°";
+      degreesEl.textContent = _arDeg(qiblaDirection) + "°";
     }
 
     // Alignment detection: check if needle points straight UP (within +/- 8 deg)
@@ -304,7 +309,7 @@
         }
       } else {
         lastHapticAligned = false;
-        statusEl.textContent = "وجّه هاتفك نحو الكعبة المشرفة (" + Math.round(qiblaDirection) + "°)";
+        statusEl.textContent = "وجّه هاتفك نحو الكعبة المشرفة (" + _arDeg(qiblaDirection) + "°)";
       }
     }
   }
@@ -317,7 +322,7 @@
     var needle = document.getElementById("compassNeedle");
 
     if (degreesEl) {
-      degreesEl.textContent = Math.round(qiblaDirection) + "°";
+      degreesEl.textContent = _arDeg(qiblaDirection) + "°";
     }
 
     if (needle) {

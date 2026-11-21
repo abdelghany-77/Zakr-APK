@@ -1,7 +1,6 @@
 package com.abdelghany.tazkeer.adhan;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -254,7 +253,7 @@ public class AdhanSchedulerPlugin extends Plugin {
                     conn.setConnectTimeout(15000);
                     conn.setReadTimeout(30000);
                     conn.setInstanceFollowRedirects(false);
-                    conn.setRequestProperty("User-Agent", "Tazkeer-App/2.1");
+                    conn.setRequestProperty("User-Agent", "Tazkeer-App/2.2");
                     conn.connect();
 
                     responseCode = conn.getResponseCode();
@@ -419,7 +418,6 @@ public class AdhanSchedulerPlugin extends Plugin {
         call.resolve(result);
     }
 
-    @SuppressLint("BatteryLife")
     @PluginMethod
     public void requestBatteryOptimizationExemption(PluginCall call) {
         Context context = getContext();
@@ -437,22 +435,19 @@ public class AdhanSchedulerPlugin extends Plugin {
             return;
         }
 
+        // Google Play policy restricts REQUEST_IGNORE_BATTERY_OPTIMIZATIONS.
+        // Directing the user to the standard system battery optimization list
+        // (or app details) requires no restricted permission while preserving
+        // full background reliability.
         try {
-            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-            intent.setData(Uri.parse("package:" + context.getPackageName()));
+            Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
         } catch (ActivityNotFoundException e) {
-            // Some OEMs (MIUI/EMUI) hide the direct dialog.
-            try {
-                Intent fallback = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(fallback);
-            } catch (ActivityNotFoundException ignored) {
-                openAppDetails();
-            }
+            openAppDetails();
         } catch (Exception e) {
-            Log.e(TAG, "Could not request battery exemption", e);
+            Log.e(TAG, "Could not open battery optimization settings", e);
+            openAppDetails();
         }
 
         JSObject result = buildStatus();

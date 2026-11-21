@@ -196,7 +196,7 @@
       '<h1 class="pt-title">قصص الأنبياء</h1>' +
       '<span class="pt-sub">' +
       arDigit(prophetsIndex.length) +
-      " نبيًا · موثقة من القرآن والسنة</span>" +
+      " نبياً — موثقة من القرآن والسنة</span>" +
       "</div>" +
       '<div class="pt-topbar__actions">' +
       '<button class="pt-iconbtn" onclick="window.focusProphetSearch()" title="بحث" aria-label="بحث">' +
@@ -325,10 +325,11 @@
       html += '<span class="pt-proph-row__meta">';
       if (available) {
         if (p.chapterCount > 0) {
-          html +=
-            '<span class="pt-proph-row__pill">' +
-            arDigit(p.chapterCount) +
-            " فصول</span>";
+          var chaptersLabel =
+            typeof window.formatArabicCount === "function"
+              ? window.formatArabicCount(p.chapterCount, "chapter")
+              : arDigit(p.chapterCount) + " فصول";
+          html += '<span class="pt-proph-row__pill">' + chaptersLabel + "</span>";
         }
         if (p.readingTimeMinutes) {
           html +=
@@ -337,13 +338,17 @@
             " د</span>";
         }
         if (p.quranMentions) {
+          var mentionsLabel =
+            typeof window.formatArabicCount === "function"
+              ? window.formatArabicCount(p.quranMentions, "mention")
+              : arDigit(p.quranMentions) + " مرة";
           html +=
             '<span class="pt-proph-row__pill"><i class="fas fa-book-open"></i> ' +
-            arDigit(p.quranMentions) +
-            " ذكرًا</span>";
+            mentionsLabel +
+            "</span>";
         }
       } else {
-        html += '<span class="pt-proph-row__pill">قريبًا</span>';
+        html += '<span class="pt-proph-row__pill">قريباً</span>';
       }
       html += "</span>";
       html += "</span>";
@@ -678,11 +683,16 @@
       " من " +
       convertToArabicNum(p.chapters.length) +
       "</span>";
-    if (ch.readingTimeMinutes)
+    if (ch.readingTimeMinutes) {
+      var readMinText =
+        typeof window.formatArabicCount === "function"
+          ? window.formatArabicCount(ch.readingTimeMinutes, "minute")
+          : convertToArabicNum(ch.readingTimeMinutes) + " دقيقة";
       html +=
         '<span><i class="fas fa-clock"></i> ' +
-        ch.readingTimeMinutes +
-        " دقيقة قراءة</span>";
+        readMinText +
+        " قراءة</span>";
+    }
     html += "</div>";
 
     // Paragraphs with drop cap on first
@@ -747,8 +757,11 @@
     // Update reading time
     var readingTime = document.getElementById("prReadingTime");
     if (readingTime && ch.readingTimeMinutes) {
-      readingTime.innerHTML =
-        '<i class="fas fa-clock"></i> ' + ch.readingTimeMinutes + " دقيقة";
+      var topReadMin =
+        typeof window.formatArabicCount === "function"
+          ? window.formatArabicCount(ch.readingTimeMinutes, "minute")
+          : convertToArabicNum(ch.readingTimeMinutes) + " دقيقة";
+      readingTime.innerHTML = '<i class="fas fa-clock"></i> ' + topReadMin;
     }
 
     // Update nav indicator
@@ -913,10 +926,22 @@
     html += '<p class="pr-completion-subtitle">أتممت قراءة قصة ' + p.name + ' بنجاح. بارك الله فيك وزادك علمًا ونورًا.</p>';
 
     // Stats
+    var chUnit =
+      typeof window.formatArabicUnitLabel === "function"
+        ? window.formatArabicUnitLabel(readCount, "chapter")
+        : "فصل";
+    var minUnit =
+      typeof window.formatArabicUnitLabel === "function"
+        ? window.formatArabicUnitLabel(totalTime, "minute")
+        : "دقيقة";
+    var mentionUnit =
+      typeof window.formatArabicUnitLabel === "function"
+        ? window.formatArabicUnitLabel(p.quranMentions, "mention")
+        : "مرة";
     html += '<div class="pr-completion-stats">';
-    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(readCount) + '</span><span class="pr-completion-stat-label">فصل مقروء</span></div>';
-    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(totalTime) + '</span><span class="pr-completion-stat-label">دقيقة قراءة</span></div>';
-    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(p.quranMentions) + '</span><span class="pr-completion-stat-label">ذكر في القرآن</span></div>';
+    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(readCount) + '</span><span class="pr-completion-stat-label">' + chUnit + '</span></div>';
+    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(totalTime) + '</span><span class="pr-completion-stat-label">' + minUnit + ' قراءة</span></div>';
+    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(p.quranMentions) + '</span><span class="pr-completion-stat-label">' + mentionUnit + ' في القرآن</span></div>';
     html += '</div>';
 
     // Dua
@@ -926,8 +951,8 @@
     html += '<div class="pr-completion-actions">';
     if (nextProphet && nextProphet.chapterCount > 0) {
       html += '<button class="pr-completion-btn pr-completion-btn--primary" onclick="window._exitReader(); setTimeout(function(){ window._openProphet(\'' + nextProphet.slug + '\'); }, 300);">';
-      html += '<i class="fas fa-arrow-left"></i>';
       html += '<span>القصة التالية: ' + nextProphet.name + '</span>';
+      html += '<i class="fas fa-arrow-left"></i>';
       html += '</button>';
     }
     html += '<button class="pr-completion-btn pr-completion-btn--secondary" onclick="window._exitReader()">';
@@ -1039,7 +1064,11 @@
 
     var html = '';
     html += '<div class="pr-drawer-progress-bar"><div class="pr-drawer-progress-fill" style="width:' + pct + '%"></div></div>';
-    html += '<div class="pr-drawer-progress-text">' + convertToArabicNum(readChapters.length) + ' من ' + convertToArabicNum(total) + ' فصول مقروءة (' + convertToArabicNum(pct) + '٪)</div>';
+    var totalChaptersText =
+      typeof window.formatArabicCount === "function"
+        ? window.formatArabicCount(total, "chapter")
+        : convertToArabicNum(total) + " فصول";
+    html += '<div class="pr-drawer-progress-text">تمت قراءة ' + convertToArabicNum(readChapters.length) + ' من ' + totalChaptersText + ' (' + convertToArabicNum(pct) + '٪)</div>';
     progressEl.innerHTML = html;
   }
 

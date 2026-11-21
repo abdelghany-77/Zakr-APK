@@ -133,7 +133,7 @@
             <div class="pt-hero" id="nextPrayerCountdown">
               <div class="pt-hero__top">
                 <div class="pt-hero__chips" id="prayerLocation">
-                  <button class="pt-chip pt-chip--glass" id="locationBtn" title="تحديث موقعي (GPS)">
+                  <button class="pt-chip pt-chip--glass" id="locationBtn" title="تحديث موقعي تلقائياً">
                     <i class="fas fa-location-crosshairs"></i>
                     <span id="cityName">القاهرة</span>
                   </button>
@@ -214,7 +214,7 @@
 
               <div class="prayer-times-loading hidden" id="prayerTimesLoading">
                 <i class="fas fa-spinner fa-spin"></i>
-                <p>جاري تحديث المواقيت...</p>
+                <p>جارٍ تحديث المواقيت...</p>
               </div>
 
               <div class="prayer-times-error hidden" id="prayerTimesError">
@@ -305,7 +305,7 @@
           <div class="pt-topbar">
             <div class="pt-topbar__titles">
               <h1 class="pt-title">الأذكار</h1>
-              <span class="pt-sub">حصن المسلم · ١٣١ ذكرًا · ١٢ أقسام</span>
+              <span class="pt-sub">حصن المسلم — ١٣١ ذكراً — ١٢ قسماً</span>
             </div>
             <div class="pt-topbar__actions">
               <button class="pt-iconbtn" id="azkarSearchBtn" onclick="toggleAzkarSearch()" title="بحث في الأذكار"
@@ -338,7 +338,7 @@
                   <span class="pt-suggest__ico"><i class="fas fa-moon"></i></span>
                 </div>
                 <h2 class="pt-suggest__title">حان وقت أذكار المساء</h2>
-                <p class="pt-suggest__sub">من ٢٦ ذكرًا · نحو ٨ دقائق</p>
+                <p class="pt-suggest__sub">٢٦ ذكراً — نحو ٨ دقائق</p>
                 <button class="pt-suggest__cta" onclick="showCategoryPage('evening')">
                   <i class="fas fa-play"></i>
                   <span>ابدأ الأذكار</span>
@@ -521,7 +521,7 @@
                     <div class="chart-bar-col" data-day="1">
                       <div class="chart-bar-value"></div>
                       <div class="chart-bar-track"><div class="chart-bar-fill" data-day="1"></div></div>
-                      <span>الإثنين</span>
+                      <span>الاثنين</span>
                     </div>
                     <div class="chart-bar-col" data-day="2">
                       <div class="chart-bar-value"></div>
@@ -561,7 +561,7 @@
                     <div class="chart-bar-col" data-day="1">
                       <div class="chart-bar-value"></div>
                       <div class="chart-bar-track"><div class="chart-bar-fill quran-fill" data-day="1"></div></div>
-                      <span>الإثنين</span>
+                      <span>الاثنين</span>
                     </div>
                     <div class="chart-bar-col" data-day="2">
                       <div class="chart-bar-value"></div>
@@ -591,21 +591,27 @@
             <!-- ── Settings & data ── -->
             <div class="pt-section-label">الإعدادات والبيانات</div>
             <div class="pt-settings pt-card pt-card--pad-sm">
-              <button class="pt-settings__row" onclick="exportUserData()" title="نسخ احتياطي كملف JSON">
+              <button class="pt-settings__row" onclick="exportUserData()" title="حفظ نسخة احتياطية من بياناتك">
                 <i class="fas fa-cloud-arrow-down pt-settings__ico is-gold"></i>
                 <span class="pt-settings__label">نسخ احتياطي للإنجازات</span>
                 <i class="fas fa-chevron-left pt-settings__chev"></i>
               </button>
               <hr class="pt-hr" />
-              <button class="pt-settings__row" onclick="triggerImportData()" title="استيراد البيانات من ملف JSON">
+              <button class="pt-settings__row" onclick="triggerImportData()" title="استعادة البيانات من نسخة احتياطية">
                 <i class="fas fa-file-import pt-settings__ico is-gold"></i>
                 <span class="pt-settings__label">استيراد البيانات</span>
                 <i class="fas fa-chevron-left pt-settings__chev"></i>
               </button>
               <hr class="pt-hr" />
-              <button class="pt-settings__row" onclick="showInstallModal()" title="تثبيت تطبيق الأندرويد">
+              <button class="pt-settings__row" onclick="openPrivacyModal()" title="سياسة الخصوصية وحول التطبيق">
+                <i class="fas fa-shield-halved pt-settings__ico is-em"></i>
+                <span class="pt-settings__label">سياسة الخصوصية وحول التطبيق</span>
+                <i class="fas fa-chevron-left pt-settings__chev"></i>
+              </button>
+              <hr class="pt-hr pt-web-only-row" />
+              <button class="pt-settings__row pt-web-only-row install-btn" onclick="showInstallModal()" title="تثبيت التطبيق على الجهاز">
                 <i class="fab fa-android pt-settings__ico is-em"></i>
-                <span class="pt-settings__label">تثبيت تطبيق الأندرويد</span>
+                <span class="pt-settings__label">تثبيت التطبيق على الجهاز</span>
                 <i class="fas fa-chevron-left pt-settings__chev"></i>
               </button>
               <input type="file" id="importJsonInput" accept=".json,application/json" style="display:none"
@@ -644,7 +650,7 @@
           <span>تفعيل الموقع الآن</span>
         </button>
         <div class="loc-manual-picker">
-          <label for="locModalCitySearch" class="loc-manual-label">أو اختر مدينتك يدوياً بدون GPS:</label>
+          <label for="locModalCitySearch" class="loc-manual-label">أو اختر مدينتك يدوياً دون تحديد الموقع:</label>
           <div class="prayer-city-search-wrap">
             <i class="fas fa-magnifying-glass"></i>
             <input type="text" id="locModalCitySearch" class="prayer-city-input" placeholder="ابحث عن مدينتك (مثل: الرياض، مكة، الإسكندرية)..." autocomplete="off" oninput="filterManualCities(this.value, 'locModalCityList')" />
@@ -712,7 +718,7 @@
           <div class="fasting-occasion-card foc-card--green">
             <div class="foc-head">
               <span class="foc-badge foc-badge--green">سنة أسبوعية</span>
-              <h4>صيام يومي الإثنين والخميس</h4>
+              <h4>صيام يومَي الاثنين والخميس</h4>
             </div>
             <p class="foc-hadith">
               قال النبي ﷺ: «تُعْرَضُ الأَعْمَالُ يَوْمَ الاِثْنَيْنِ وَالْخَمِيسِ، فَأُحِبُّ أَنْ يُعْرَضَ عَمَلِي
@@ -778,9 +784,9 @@
           <div class="qibla-mini-compass" id="compass">
             <div class="qibla-mini-dial">
               <span class="qmc-dir qmc-n">🕋</span>
-              <span class="qmc-dir qmc-e">E</span>
-              <span class="qmc-dir qmc-s">S</span>
-              <span class="qmc-dir qmc-w">W</span>
+              <span class="qmc-dir qmc-e">شرق</span>
+              <span class="qmc-dir qmc-s">جنوب</span>
+              <span class="qmc-dir qmc-w">غرب</span>
               <div class="qibla-mini-needle" id="compassNeedle">
                 <div class="qmn-tip"></div>
                 <div class="qmn-tail"></div>
@@ -789,7 +795,7 @@
             </div>
           </div>
           <div class="qibla-modal-info">
-            <div class="qibla-deg-badge" id="qiblaDegrees">136°</div>
+            <div class="qibla-deg-badge" id="qiblaDegrees">١٣٦°</div>
             <p class="qibla-modal-status" id="qiblaStatus">وجّه هاتفك نحو الكعبة المشرفة</p>
             <button type="button" class="qibla-calibrate-action-btn" id="qiblaCalibrateBtn">
               <i class="fas fa-sync-alt"></i>
@@ -880,7 +886,7 @@
               </div>
               <button type="button" class="prayer-gps-btn" id="prayerUseGpsBtn" onclick="useAutoGpsLocation()" title="تحديد الموقع تلقائياً">
                 <i class="fas fa-crosshairs"></i>
-                <span>تلقائي (GPS)</span>
+                <span>تلقائي</span>
               </button>
             </div>
             <div class="prayer-city-results" id="prayerManualCityResults" role="listbox" aria-label="قائمة المدن"></div>
@@ -956,8 +962,7 @@
 
         <div class="adhan-web-notice" id="adhanWebNotice">
           <i class="fas fa-circle-info"></i>
-          <span>المحرك الأصلي للأذان يعمل في تطبيق أندرويد. افتح التطبيق المثبّت لتفعيل الأذان في الخلفية ووضع
-            Doze.</span>
+          <span>المحرك الأصلي للأذان يعمل في تطبيق أندرويد. افتح التطبيق المثبّت لتفعيل الأذان في الخلفية حتى في وضع توفير الطاقة.</span>
         </div>
 
         <!-- Master switch -->
@@ -1001,7 +1006,7 @@
           <i class="fas fa-volume-low"></i>
           <input type="range" id="adhanVolume" min="5" max="100" step="5" value="100"
             oninput="AdhanNative.setVolume(this.value)" aria-label="مستوى صوت الأذان" />
-          <span class="adhan-volume-value" id="adhanVolumeValue">100%</span>
+          <span class="adhan-volume-value" id="adhanVolumeValue">١٠٠٪</span>
         </div>
 
         <!-- Permissions diagnostic -->
@@ -1042,7 +1047,7 @@
         <!-- Next alarm status -->
         <div class="adhan-next-info" id="adhanNextInfo">
           <i class="fas fa-clock"></i>
-          <span>جاري قراءة جدول الأذان...</span>
+          <span>جارٍ قراءة جدول الأذان...</span>
         </div>
 
         <!-- Actions -->
@@ -1096,6 +1101,39 @@
     </div>
   </div>
 
+  <!-- Privacy Policy & About bottom sheet (Google Play Store compliance) -->
+  <div id="privacyModal" class="pt-sheet" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle">
+    <div class="pt-sheet__panel pt-privacy-sheet">
+      <div class="pt-sheet__handle"></div>
+      <div class="pt-ksheet-head">
+        <h2 id="privacyModalTitle"><i class="fas fa-shield-halved"></i> سياسة الخصوصية وحول التطبيق</h2>
+        <button type="button" class="pt-ksheet-close" onclick="closePrivacyModal()" aria-label="إغلاق">&times;</button>
+      </div>
+      <div class="pt-privacy-body">
+        <div class="pt-privacy-block">
+          <h3><i class="fas fa-lock"></i> خصوصيتك أولاً</h3>
+          <p>تطبيق <strong>ذَكِّرْ</strong> صدقة جارية مجانية بالكامل وخالٍ من الإعلانات وأدوات التتبع. لا يتطلب التطبيق إنشاء حساب، ولا نجمع أو نبيع أو نشارك أي بيانات شخصية.</p>
+        </div>
+        <div class="pt-privacy-block">
+          <h3><i class="fas fa-mobile-screen"></i> تخزين محلي على جهازك فقط</h3>
+          <p>جميع بياناتك (تقدم الختمة، إحصائيات الأذكار، المسبحة، العلامات المرجعية، وتفضيلات الأذان) تُحفظ محلياً على جهازك فقط ولا تُرفع لأي خادم خارجي.</p>
+        </div>
+        <div class="pt-privacy-block">
+          <h3><i class="fas fa-location-dot"></i> الموقع الجغرافي (اختياري)</h3>
+          <p>يُستخدم إذن الموقع — فقط بموافقتك — لحساب مواقيت الصلاة عبر اتصال آمن ومشفّر وتحديد اتجاه القبلة. ويمكنك دائماً اختيار مدينتك يدوياً من الإعدادات دون تفعيل خدمة الموقع.</p>
+        </div>
+        <div class="pt-privacy-block">
+          <h3><i class="fas fa-bell"></i> الإشعارات والمنبهات الدقيقة</h3>
+          <p>تُستخدم أذونات الإشعارات والمنبهات الدقيقة وتشغيل الصوت في الخلفية حصراً لرفع الأذان وتنبيهات الأذكار في مواعيدها المحددة.</p>
+        </div>
+        <div class="pt-privacy-meta">
+          <span>الإصدار ٢٫٢٫٠ — تطبيق ذَكِّرْ</span>
+          <span>يعمل دون إنترنت — مجاني وخالٍ من الإعلانات</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Offline Indicator -->
   <div class="offline-banner hidden" id="offlineBanner">
     <i class="fas fa-wifi-slash"></i>
@@ -1114,7 +1152,7 @@
     </button>
     <button class="bottom-nav-item" data-tab="tab-quran" onclick="switchTab('tab-quran')">
       <span class="pt-nav-ico"><i class="fas fa-book-quran"></i></span>
-      <span class="pt-nav-label">القرآن</span>
+      <span class="pt-nav-label">القرآن الكريم</span>
     </button>
     <button class="bottom-nav-item" data-tab="tab-prophets" onclick="switchTab('tab-prophets')">
       <span class="pt-nav-ico"><i class="fas fa-book-open"></i></span>
@@ -1122,7 +1160,7 @@
     </button>
     <button class="bottom-nav-item" data-tab="tab-profile" onclick="switchTab('tab-profile')">
       <span class="pt-nav-ico"><i class="fas fa-user"></i></span>
-      <span class="pt-nav-label">الملف الشخصي</span>
+      <span class="pt-nav-label">حسابي</span>
     </button>
   </nav>
 
@@ -1157,9 +1195,9 @@
 
       <div class="misbaha-targets" id="misbahaTargets">
         <span class="misbaha-targets-label">الهدف:</span>
-        <button class="misbaha-target-btn active" data-target="33" onclick="setMisbahaTarget(33)">33</button>
-        <button class="misbaha-target-btn" data-target="50" onclick="setMisbahaTarget(50)">50</button>
-        <button class="misbaha-target-btn" data-target="100" onclick="setMisbahaTarget(100)">100</button>
+        <button class="misbaha-target-btn active" data-target="33" onclick="setMisbahaTarget(33)">٣٣</button>
+        <button class="misbaha-target-btn" data-target="50" onclick="setMisbahaTarget(50)">٥٠</button>
+        <button class="misbaha-target-btn" data-target="100" onclick="setMisbahaTarget(100)">١٠٠</button>
         <button class="misbaha-target-btn" data-target="0" onclick="setMisbahaTarget(0)">∞</button>
       </div>
 
@@ -1172,8 +1210,8 @@
             <circle class="misbaha-ring-fill" id="misbahaRingFill" cx="100" cy="100" r="90" />
           </svg>
           <div class="misbaha-count-inner">
-            <span class="misbaha-count-num" id="misbahaCountNum">0</span>
-            <span class="misbaha-count-target" id="misbahaCountTarget">/ 33</span>
+            <span class="misbaha-count-num" id="misbahaCountNum">٠</span>
+            <span class="misbaha-count-target" id="misbahaCountTarget">/ ٣٣</span>
           </div>
         </button>
       </div>
@@ -1181,11 +1219,11 @@
       <div class="misbaha-stats-grid">
         <div class="misbaha-stat-card">
           <span class="misbaha-stat-label"><i class="fas fa-sync-alt"></i> عدد الدورات</span>
-          <span class="misbaha-stat-val" id="misbahaRoundsVal">0</span>
+          <span class="misbaha-stat-val" id="misbahaRoundsVal">٠</span>
         </div>
         <div class="misbaha-stat-card">
           <span class="misbaha-stat-label"><i class="fas fa-layer-group"></i> الإجمالي الكلي</span>
-          <span class="misbaha-stat-val" id="misbahaTotalValue">0</span>
+          <span class="misbaha-stat-val" id="misbahaTotalValue">٠</span>
         </div>
       </div>
     </div>

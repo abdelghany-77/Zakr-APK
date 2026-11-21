@@ -273,12 +273,18 @@ public class AdhanPlaybackService extends Service {
                 }
 
                 if (descriptor != null) {
-                    mediaPlayer.setDataSource(
-                            descriptor.getFileDescriptor(),
-                            descriptor.getStartOffset(),
-                            descriptor.getLength()
-                    );
-                    descriptor.close();
+                    try {
+                        mediaPlayer.setDataSource(
+                                descriptor.getFileDescriptor(),
+                                descriptor.getStartOffset(),
+                                descriptor.getLength()
+                        );
+                    } finally {
+                        try {
+                            descriptor.close();
+                        } catch (Exception ignored) {
+                        }
+                    }
                 } else {
                     mediaPlayer.setDataSource(
                             this,
@@ -326,7 +332,7 @@ public class AdhanPlaybackService extends Service {
         releaseWakeLock();
         abandonAudioFocus();
         watchdog.removeCallbacks(watchdogStop);
-        stopForeground(true);
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         stopSelf();
     }
 
@@ -536,14 +542,6 @@ public class AdhanPlaybackService extends Service {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
-        }
-
-        // Ask the system to light up the lock screen for the prayer call.
-        // On Android 14+ this is only honoured if USE_FULL_SCREEN_INTENT is
-        // granted; otherwise the heads-up notification is still shown.
-        try {
-            builder.setFullScreenIntent(contentIntent, true);
-        } catch (Exception ignored) {
         }
 
         return builder.build();

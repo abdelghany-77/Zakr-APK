@@ -81,7 +81,7 @@ async function startOfflineQuranDownload() {
 
   if (!('caches' in window)) {
     if (typeof showNotification === "function") {
-      showNotification("متصفحك لا يدعم تخزين الصفحات أوفلاين");
+      showNotification("هذا الجهاز لا يدعم حفظ الصفحات للقراءة دون إنترنت");
     }
     return;
   }
@@ -90,7 +90,7 @@ async function startOfflineQuranDownload() {
   updateOfflineCardUI();
 
   if (typeof showNotification === "function") {
-    showNotification("بدأ تحميل المصحف أوفلاين...");
+    showNotification("بدأ تحميل المصحف للقراءة دون إنترنت...");
   }
 
   try {
@@ -244,7 +244,7 @@ function renderOfflineQuranCardHtml() {
       ${isCompleted ? `
         <div class="quran-offline-pill quran-offline-done">
           <i class="fas fa-check-circle"></i>
-          <span>المصحف محمل أوفلاين</span>
+          <span>المصحف محفوظ للقراءة دون إنترنت</span>
           <button class="quran-offline-mini-del" onclick="deleteOfflineQuranCache()" title="حذف التنزيل">
             <i class="fas fa-trash-alt"></i>
           </button>
@@ -254,7 +254,7 @@ function renderOfflineQuranCardHtml() {
           <div class="quran-offline-progress-info">
             <span class="quran-offline-prog-title">
               <i class="${isDownloading ? 'fas fa-spinner fa-spin' : 'fas fa-pause-circle'}"></i>
-              ${isDownloading ? 'جاري تنزيل المصحف...' : 'التحميل متوقف مؤقتاً'}
+              ${isDownloading ? 'جارٍ تنزيل المصحف...' : 'التحميل متوقف مؤقتاً'}
             </span>
             <span class="quran-offline-count-text">${toArabicNumber(quranOfflineState.downloadedPages)} / ${toArabicNumber(TOTAL_QURAN_PAGES)} صفحة (${toArabicNumber(percent)}٪)</span>
           </div>
@@ -277,8 +277,8 @@ function renderOfflineQuranCardHtml() {
           </div>
         </div>
       ` : `
-        <button class="quran-offline-main-btn" onclick="startOfflineQuranDownload()" title="تحميل 604 صفحة للقراءة أوفلاين (~70MB)">
-          <span>تنزيل المصحف أوفلاين</span>
+        <button class="quran-offline-main-btn" onclick="startOfflineQuranDownload()" title="تحميل ٦٠٤ صفحات للقراءة دون إنترنت (نحو ٧٠ ميجابايت)">
+          <span>تنزيل المصحف للقراءة دون إنترنت</span>
           <i class="fas fa-cloud-download-alt"></i>
         </button>
       `}
@@ -883,7 +883,7 @@ function renderQuranHome() {
     <div class="pt-topbar">
       <div class="pt-topbar__titles">
         <h1 class="pt-title">القرآن الكريم</h1>
-        <span class="pt-sub">٦٠٤ صفحة · ١١٤ سورة</span>
+        <span class="pt-sub">٦٠٤ صفحات — ١١٤ سورة</span>
       </div>
       <div class="pt-topbar__actions">
         <button class="pt-iconbtn" onclick="switchQuranListTab('bookmarks')" title="المحفوظات" aria-label="المحفوظات">
@@ -900,8 +900,8 @@ function renderQuranHome() {
           <div class="pt-qhero__name">${bookmark ? "سورة " + bookmarkSurah.name : "الفاتحة"}</div>
           <div class="pt-qhero__meta">${
             bookmark
-              ? `صفحة ${toArabicNumber(bookmark)} · جزء ${toArabicNumber(bookmarkJuz.number)}`
-              : "صفحة ١ · جزء ١"
+              ? `صفحة ${toArabicNumber(bookmark)} — جزء ${toArabicNumber(bookmarkJuz.number)}`
+              : "صفحة ١ — جزء ١"
           }</div>
         </div>
         <span class="pt-qhero__glyph"><i class="fas fa-book-quran"></i></span>
@@ -926,11 +926,15 @@ function renderQuranHome() {
       }
       <div class="pt-khatma__body">
         <div class="pt-khatma__title">${
-          khatmahState.isActive ? "ختمتك الحالية" : "ابدأ ختمة جديدة"
+          khatmahState.isActive
+            ? khatmahState.isComplete
+              ? "أتممت ختمتك بحمد الله"
+              : "ختمتك الحالية"
+            : "ابدأ ختمة جديدة"
         }</div>
         <div class="pt-khatma__sub">${
           khatmahState.isActive
-            ? `${toArabicNumber(khatmahState.totalPagesRead || 0)} من ${toArabicNumber(totalPages)} صفحة`
+            ? `${toArabicNumber(khatmahState.totalPagesRead || 0)} من ${typeof window.formatArabicCount === "function" ? window.formatArabicCount(totalPages, "page") : `${toArabicNumber(totalPages)} صفحة`}`
             : "حدّد هدفك اليومي ودعنا نتابع معك"
         }</div>
         ${
@@ -994,7 +998,7 @@ function renderQuranHome() {
         <span class="pt-surah__num"><span>${toArabicNumber(surah.number)}</span></span>
         <span class="pt-surah__info">
           <span class="pt-surah__name">سورة ${surah.name}</span>
-          <span class="pt-surah__meta">${toArabicNumber(ayahCount)} آية · ${surah.type}</span>
+          <span class="pt-surah__meta">${typeof window.formatArabicCount === "function" ? window.formatArabicCount(ayahCount, "ayah") : `${toArabicNumber(ayahCount)} آية`} — ${surah.type}</span>
         </span>
         <span class="pt-surah__page">ص ${toArabicNumber(surah.startPage)}</span>
       </button>`;
@@ -1012,7 +1016,7 @@ function renderQuranHome() {
     html += `
       <button class="pt-juz" onclick="openFreeReader(${juz.startPage})">
         <span class="pt-juz__num">${toArabicNumber(juz.number)}</span>
-        <span>${juz.name}${surahName ? " · " + surahName : ""}</span>
+        <span>${juz.name}${surahName ? " — " + surahName : ""}</span>
         <span class="pt-juz__page">ص ${toArabicNumber(juz.startPage)}</span>
       </button>`;
   });
@@ -1027,7 +1031,7 @@ function renderQuranHome() {
               <span class="pt-surah__num"><span><i class="fas fa-bookmark"></i></span></span>
               <span class="pt-surah__info">
                 <span class="pt-surah__name">${bookmarkSurah.name}</span>
-                <span class="pt-surah__meta">صفحة ${toArabicNumber(bookmark)} · جزء ${toArabicNumber(bookmarkJuz.number)}</span>
+                <span class="pt-surah__meta">صفحة ${toArabicNumber(bookmark)} — جزء ${toArabicNumber(bookmarkJuz.number)}</span>
               </span>
               <span class="pt-surah__page">متابعة</span>
             </button>`
@@ -1168,7 +1172,7 @@ function getKhatmahSetupHtml() {
         <div class="calculation-preview" id="calculationPreview">
           <div class="calc-row">
             <span>الصفحات اليومية المطلوبة</span>
-            <span class="calc-value" id="calcDailyPages">21 صفحة</span>
+            <span class="calc-value" id="calcDailyPages">٢١ صفحة</span>
           </div>
           <div class="calc-row">
             <span>الأجزاء اليومية تقريباً</span>
@@ -1176,7 +1180,7 @@ function getKhatmahSetupHtml() {
           </div>
           <div class="calc-row">
             <span>الوقت المقدر يومياً</span>
-            <span class="calc-value" id="calcDailyTime">~42 دقيقة</span>
+            <span class="calc-value" id="calcDailyTime">نحو ٤٢ دقيقة</span>
           </div>
         </div>
 
@@ -1291,9 +1295,13 @@ function renderKhatmahDashboard() {
   const totalWirds = Math.ceil(adjustedTotal / khatmahState.dailyTarget);
 
   const daysElapsed = khatmahState.startDate
-    ? Math.floor(
-        (new Date() - new Date(khatmahState.startDate)) / (1000 * 60 * 60 * 24),
-      ) + 1
+    ? Math.max(
+        0,
+        Math.floor(
+          (new Date() - new Date(khatmahState.startDate)) /
+            (1000 * 60 * 60 * 24),
+        ),
+      )
     : 0;
 
   const estimatedDaysLeft =
@@ -1325,7 +1333,7 @@ function renderKhatmahDashboard() {
         </div>
         <div class="pt-topbar__actions">
           <button class="pt-iconbtn" onclick="renderQuranHome()" title="رجوع" aria-label="رجوع">
-            <i class="fas fa-arrow-right"></i>
+            <i class="fas fa-arrow-left"></i>
           </button>
         </div>
       </div>
@@ -1336,8 +1344,8 @@ function renderKhatmahDashboard() {
           <span class="pt-kdash-hero__pct">${toArabicNumber(progress)}٪</span>
         </div>
         <div class="pt-kdash-hero__body">
-          <div class="pt-kdash-hero__title">${toArabicNumber(khatmahState.totalPagesRead)} من ${toArabicNumber(adjustedTotal)} صفحة</div>
-          <div class="pt-kdash-hero__meta">${toArabicNumber(daysElapsed)} يوم مضى · ${toArabicNumber(estimatedDaysLeft)} يوم متبقٍّ</div>
+          <div class="pt-kdash-hero__title">${toArabicNumber(khatmahState.totalPagesRead)} من ${typeof window.formatArabicCount === "function" ? window.formatArabicCount(adjustedTotal, "page") : `${toArabicNumber(adjustedTotal)} صفحة`}</div>
+          <div class="pt-kdash-hero__meta">${typeof window.formatArabicCount === "function" ? window.formatArabicCount(daysElapsed, "dayElapsed") : `${toArabicNumber(daysElapsed)} يوم مضى`} — ${typeof window.formatArabicCount === "function" ? window.formatArabicCount(estimatedDaysLeft, "dayRemaining") : `${toArabicNumber(estimatedDaysLeft)} يوم متبقٍّ`}</div>
           <div class="pt-bar"><div class="pt-bar__fill pt-bar__fill--gd" style="width:${progress}%"></div></div>
         </div>
       </div>
@@ -1358,7 +1366,7 @@ function renderKhatmahDashboard() {
         <div class="pt-wird__surahs">${wirdSurahStart && wirdSurahEnd ? (wirdSurahStart.name === wirdSurahEnd.name ? wirdSurahStart.name : `${wirdSurahStart.name} — ${wirdSurahEnd.name}`) : ""}</div>
         <div class="pt-bar"><div class="pt-bar__fill" style="width:${wirdPercent}%"></div></div>
         <div class="pt-wird__meta">
-          <span>${toArabicNumber(wird.pagesRead)} / ${toArabicNumber(wird.totalPages)} صفحة</span>
+          <span>${toArabicNumber(wird.pagesRead)} / ${typeof window.formatArabicCount === "function" ? window.formatArabicCount(wird.totalPages, "page") : `${toArabicNumber(wird.totalPages)} صفحة`}</span>
           <span>${toArabicNumber(wirdPercent)}٪</span>
         </div>
       </div>`
@@ -1385,21 +1393,21 @@ function renderKhatmahDashboard() {
           <span class="pt-tint pt-tint--sm pt-c-em"><i class="fas fa-file-lines"></i></span>
           <span class="pt-stat__txt">
             <span class="pt-stat__val">${toArabicNumber(khatmahState.dailyTarget)}</span>
-            <span class="pt-stat__label">صفحة / ورد</span>
+            <span class="pt-stat__label">${typeof window.formatArabicUnitLabel === "function" ? window.formatArabicUnitLabel(khatmahState.dailyTarget, "page") : "صفحة"} / ورد</span>
           </span>
         </div>
         <div class="pt-stat">
           <span class="pt-tint pt-tint--sm pt-c-blue"><i class="fas fa-calendar-check"></i></span>
           <span class="pt-stat__txt">
             <span class="pt-stat__val">${toArabicNumber(daysElapsed)}</span>
-            <span class="pt-stat__label">يوم مضى</span>
+            <span class="pt-stat__label">${typeof window.formatArabicUnitLabel === "function" ? window.formatArabicUnitLabel(daysElapsed, "dayElapsed") : "يوم مضى"}</span>
           </span>
         </div>
         <div class="pt-stat">
           <span class="pt-tint pt-tint--sm pt-c-gold"><i class="fas fa-hourglass-half"></i></span>
           <span class="pt-stat__txt">
             <span class="pt-stat__val">${toArabicNumber(estimatedDaysLeft)}</span>
-            <span class="pt-stat__label">يوم متبقٍّ</span>
+            <span class="pt-stat__label">${typeof window.formatArabicUnitLabel === "function" ? window.formatArabicUnitLabel(estimatedDaysLeft, "dayRemaining") : "يوم متبقٍّ"}</span>
           </span>
         </div>
         <div class="pt-stat">
@@ -1420,7 +1428,11 @@ function renderKhatmahDashboard() {
           <i class="fas fa-book-open"></i>
           ${wird.isComplete ? "الورد التالي" : "متابعة الورد"}
         </button>`
-            : ""
+            : `
+        <button class="pt-btn pt-btn--block" onclick="startNewKhatmah()">
+          <i class="fas fa-plus-circle"></i>
+          بدء ختمة جديدة
+        </button>`
         }
         <button class="pt-btn pt-btn--ghost pt-btn--block" onclick="renderSurahList()">
           <i class="fas fa-book-reader"></i>
@@ -1517,7 +1529,7 @@ function renderMushafViewer() {
         </div>
         <div class="mushaf-header-center">
           <span class="mushaf-surah-name">سورة ${surah.name}</span>
-          <span class="mushaf-page-info">صفحة ${toArabicNumber(page)} · جزء ${toArabicNumber(juz.number)}</span>
+          <span class="mushaf-page-info">صفحة ${toArabicNumber(page)} — جزء ${toArabicNumber(juz.number)}</span>
         </div>
         <div class="mushaf-header-left">
           <button class="mushaf-action-btn" id="settingsBtn" onclick="toggleMushafSettings()" title="الإعدادات">
@@ -1539,17 +1551,17 @@ function renderMushafViewer() {
               </button>
             </div>
             <div class="settings-section">
-              <span class="settings-section-label">التنزيل أوفلاين</span>
+              <span class="settings-section-label">القراءة دون إنترنت</span>
               <button class="settings-theme-btn" onclick="startOfflineQuranDownload()">
                 <i class="fas fa-cloud-download-alt"></i>
-                <span class="quran-offline-pct-text">${quranOfflineState.status === 'completed' ? 'المصحف أوفلاين ✅' : 'تنزيل المصحف أوفلاين'}</span>
+                <span class="quran-offline-pct-text">${quranOfflineState.status === 'completed' ? 'المصحف محفوظ ✅' : 'تنزيل المصحف للقراءة دون إنترنت'}</span>
               </button>
             </div>
             <div class="settings-section">
               <span class="settings-section-label">انتقال لصفحة</span>
               <div class="settings-page-jump">
                 <input type="number" id="pageJumpInput" min="${navStart}" max="${navEnd}"
-                  placeholder="${page}" onkeydown="handlePageJump(event)" />
+                  placeholder="${toArabicNumber(page)}" onkeydown="handlePageJump(event)" />
                 <button class="settings-page-jump-btn" onclick="jumpToPage()">انتقال</button>
               </div>
             </div>
@@ -1563,7 +1575,7 @@ function renderMushafViewer() {
           class="mushaf-page-img loading"
           id="mushafPageImg"
           src="${imageUrl}"
-          alt="صفحة ${page} من المصحف"
+          alt="صفحة ${toArabicNumber(page)} من المصحف"
           crossorigin="anonymous"
           draggable="false"
         />
@@ -1575,7 +1587,7 @@ function renderMushafViewer() {
         <!-- Loading Overlay -->
         <div class="mushaf-loading-overlay" id="mushafLoading">
           <i class="fas fa-spinner fa-spin"></i>
-          <p>جاري تحميل الصفحة...</p>
+          <p>جارٍ تحميل الصفحة...</p>
         </div>
       </div>
 
@@ -1583,8 +1595,8 @@ function renderMushafViewer() {
       <div class="mushaf-bottom-bar ${atWirdEnd ? "at-wird-end" : ""}" id="mushafBottomBar">
         <div class="mushaf-progress-wrapper" id="mushafProgressWrapper">
           <div class="mushaf-bottom-info">
-            <span class="mushaf-page-counter">${page - navStart + 1} / ${navEnd - navStart + 1}</span>
-            <span class="mushaf-progress-percent">${progressPercent}%</span>
+            <span class="mushaf-page-counter">${toArabicNumber(page - navStart + 1)} / ${toArabicNumber(navEnd - navStart + 1)}</span>
+            <span class="mushaf-progress-percent">${toArabicNumber(progressPercent)}٪</span>
           </div>
           <div class="mushaf-progress-track">
             <div class="mushaf-progress-fill" style="width: ${progressPercent}%"></div>
@@ -1698,7 +1710,7 @@ async function retryLoadPage() {
   if (imgEl && loadingEl) {
     loadingEl.innerHTML = `
       <i class="fas fa-spinner fa-spin"></i>
-      <p>جاري تحميل الصفحة...</p>`;
+      <p>جارٍ تحميل الصفحة...</p>`;
     loadingEl.classList.remove("hidden");
     imgEl.classList.add("loading");
 
@@ -1753,7 +1765,7 @@ function navigateToPage(newPage, direction) {
   const pageInfoEl = document.querySelector(".mushaf-page-info");
   if (surahNameEl) surahNameEl.textContent = `سورة ${surah.name}`;
   if (pageInfoEl)
-    pageInfoEl.textContent = `صفحة ${toArabicNumber(newPage)} · جزء ${toArabicNumber(juz.number)}`;
+    pageInfoEl.textContent = `صفحة ${toArabicNumber(newPage)} — جزء ${toArabicNumber(juz.number)}`;
 
   // Update bookmark
   const bookmarkBtn = document.getElementById("bookmarkBtn");
@@ -1772,8 +1784,8 @@ function navigateToPage(newPage, direction) {
   const bottomInfo = document.querySelector(".mushaf-bottom-info");
   if (bottomInfo) {
     bottomInfo.innerHTML = `
-      <span>${newPage - navStart + 1} / ${navEnd - navStart + 1}</span>
-      <span>${progressPercent}%</span>`;
+      <span>${toArabicNumber(newPage - navStart + 1)} / ${toArabicNumber(navEnd - navStart + 1)}</span>
+      <span>${toArabicNumber(progressPercent)}٪</span>`;
   }
 
   // Update progress bar
@@ -1782,7 +1794,7 @@ function navigateToPage(newPage, direction) {
 
   // Update page jump placeholder
   const jumpInput = document.getElementById("pageJumpInput");
-  if (jumpInput) jumpInput.placeholder = newPage;
+  if (jumpInput) jumpInput.placeholder = toArabicNumber(newPage);
 
   // Toggle bottom bar state between progress and completion button
   const atWirdEnd = isKM && newPage >= navEnd;
@@ -1942,27 +1954,15 @@ function setupTapNavigation() {
   const prevZone = document.getElementById("tapZonePrev");
 
   if (nextZone) {
-    nextZone.addEventListener("click", function (e) {
-      createTapRipple(e, this);
+    nextZone.addEventListener("click", function () {
       mushafNextPage();
     });
   }
   if (prevZone) {
-    prevZone.addEventListener("click", function (e) {
-      createTapRipple(e, this);
+    prevZone.addEventListener("click", function () {
       mushafPrevPage();
     });
   }
-}
-
-function createTapRipple(event, zone) {
-  const ripple = document.createElement("div");
-  ripple.className = "mushaf-tap-ripple";
-  const rect = zone.getBoundingClientRect();
-  ripple.style.left = event.clientX - rect.left + "px";
-  ripple.style.top = event.clientY - rect.top + "px";
-  zone.appendChild(ripple);
-  ripple.addEventListener("animationend", () => ripple.remove());
 }
 
 // ===== SWIPE NAVIGATION =====
@@ -2130,6 +2130,13 @@ function showKhatmahDuaModal(isCelebration) {
         <button class="khatmah-dua-btn primary" onclick="closeKhatmahDuaModal()">
           <i class="fas fa-check"></i> تقبل الله منا ومنكم
         </button>
+        ${
+          isCelebration
+            ? `<button class="khatmah-dua-btn secondary" onclick="closeKhatmahDuaModal(); startNewKhatmah();">
+                 <i class="fas fa-plus-circle"></i> <span>بدء ختمة جديدة</span>
+               </button>`
+            : ""
+        }
         <button class="khatmah-dua-btn secondary" id="copyKhatmahDuaBtn" onclick="copyKhatmahDua()">
           <i class="fas fa-copy"></i> <span>نسخ الدعاء</span>
         </button>
@@ -2411,20 +2418,30 @@ function updateGoalPreview() {
   const calcDailyJuz = document.getElementById("calcDailyJuz");
   const calcDailyTime = document.getElementById("calcDailyTime");
 
-  if (calcDailyPages) calcDailyPages.textContent = `${toArabicNumber(dailyPages)} صفحة`;
+  const fmt = typeof window.formatArabicCount === "function" ? window.formatArabicCount : null;
+  if (calcDailyPages) {
+    calcDailyPages.textContent = fmt ? fmt(dailyPages, "page") : `${toArabicNumber(dailyPages)} صفحة`;
+  }
   if (calcDailyJuz) {
     calcDailyJuz.textContent =
       dailyJuz >= 1
-        ? `${toArabicNumber(dailyJuz.toFixed(1))} جزء`
+        ? dailyJuz === 1
+          ? "جزء واحد"
+          : dailyJuz === 2
+            ? "جزءان"
+            : `${toArabicNumber(dailyJuz.toFixed(1))} جزء`
         : `${toArabicNumber(Math.round(dailyJuz * 4))}/٤ حزب`;
   }
   if (calcDailyTime) {
     if (dailyMinutes >= 60) {
       const hours = Math.floor(dailyMinutes / 60);
       const mins = dailyMinutes % 60;
-      calcDailyTime.textContent = `~${toArabicNumber(hours)} ساعة${mins > 0 ? ` و ${toArabicNumber(mins)} دقيقة` : ""}`;
+      const hoursText = fmt ? fmt(hours, "hour") : `${toArabicNumber(hours)} ساعة`;
+      const minsText = mins > 0 ? (fmt ? fmt(mins, "minute") : `${toArabicNumber(mins)} دقيقة`) : "";
+      calcDailyTime.textContent = `نحو ${hoursText}${minsText ? ` و${minsText}` : ""}`;
     } else {
-      calcDailyTime.textContent = `~${toArabicNumber(dailyMinutes)} دقيقة`;
+      const minsText = fmt ? fmt(dailyMinutes, "minute") : `${toArabicNumber(dailyMinutes)} دقيقة`;
+      calcDailyTime.textContent = `نحو ${minsText}`;
     }
   }
 }
@@ -2459,20 +2476,28 @@ function startKhatmah() {
   saveKhatmahState(khatmahState);
 
   if (typeof showNotification === "function") {
-    showNotification(
-      `تم بدء ختمة جديدة - ${toArabicNumber(dailyTarget)} صفحة يومياً`,
-    );
+    const targetText =
+      typeof window.formatArabicCount === "function"
+        ? window.formatArabicCount(dailyTarget, "page")
+        : `${toArabicNumber(dailyTarget)} صفحة`;
+    showNotification(`تم بدء ختمة جديدة — ${targetText} يومياً`);
   }
 
   closeKhatmahSheet();
   renderKhatmahDashboard();
 }
 
+function startNewKhatmah() {
+  khatmahState = getDefaultKhatmahState();
+  saveKhatmahState(khatmahState);
+  renderKhatmahSetup();
+}
+
 async function resetKhatmah() {
   const confirmed =
     window.AppDialog && typeof window.AppDialog.confirm === "function"
       ? await window.AppDialog.confirm(
-          "هل أنت متأكد من إعادة تعيين الختمة؟ سيتم فقد كل التقدم.",
+          "هل أنت متأكد من إعادة تعيين الختمة؟ سيتم حذف تقدمك الحالي في هذه الختمة.",
           { title: "إعادة تعيين الختمة", confirmText: "إعادة تعيين", cancelText: "إلغاء", danger: true }
         )
       : false;
@@ -2482,11 +2507,13 @@ async function resetKhatmah() {
   saveKhatmahState(khatmahState);
 
   if (typeof showNotification === "function") {
-    showNotification("تم إعادة تعيين الختمة");
+    showNotification("تمت إعادة تعيين الختمة");
   }
 
   renderKhatmahSetup();
 }
+
+window.startNewKhatmah = startNewKhatmah;
 
 function openMushafViewer(page) {
   quranViewerState.mode = "free";

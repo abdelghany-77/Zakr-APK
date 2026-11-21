@@ -16,6 +16,7 @@
   width: 100%;
   max-width: 520px;
   max-height: 94vh;
+  max-height: 94dvh;
   border-radius: 26px 26px 0 0;
   border: 1px solid var(--pt-line);
   border-bottom: none;
@@ -763,6 +764,43 @@ button.close {
 @media (max-width: 420px) {
   #adhanModal .prayer-offsets-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 360px) {
+  #adhanModal .adhan-modal-body {
+    padding-inline: 13px;
+  }
+
+  #adhanModal .prayer-city-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #adhanModal .prayer-gps-btn {
+    justify-content: center;
+  }
+
+  #adhanModal .prayer-seg {
+    grid-template-columns: 1fr;
+  }
+
+  #adhanModal .prayer-offsets-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #adhanModal .adhan-perm-row {
+    flex-wrap: wrap;
+  }
+
+  #adhanModal .adhan-perm-fix {
+    margin-inline-start: auto;
+  }
+}
+
+@media (min-width: 720px) {
+  #adhanModal .adhan-modal-content {
+    max-width: 600px;
   }
 }
 

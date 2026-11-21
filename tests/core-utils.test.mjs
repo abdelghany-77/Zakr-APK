@@ -158,3 +158,42 @@ test("searches preset Arabic cities with normalized matching", () => {
   assert.ok(makkah.some((c) => c.id === "makkah"));
 });
 
+test("formats Arabic countable nouns with accurate grammatical agreement", () => {
+  assert.equal(appUtils.formatArabicCount(0, "dayStreak"), "٠ يوم متتالٍ");
+  assert.equal(appUtils.formatArabicCount(1, "dayStreak"), "يوم واحد متتالٍ");
+  assert.equal(appUtils.formatArabicCount(2, "dayStreak"), "يومان متتاليان");
+  assert.equal(appUtils.formatArabicCount(7, "dayStreak"), "٧ أيام متتالية");
+  assert.equal(appUtils.formatArabicCount(11, "dayStreak"), "١١ يوماً متتالياً");
+  assert.equal(appUtils.formatArabicCount(25, "dayStreak"), "٢٥ يوماً متتالياً");
+  assert.equal(appUtils.formatArabicCount(100, "dayStreak"), "١٠٠ يوم متتالٍ");
+  assert.equal(appUtils.formatArabicCount(107, "dayStreak"), "١٠٧ أيام متتالية");
+
+  assert.equal(appUtils.formatArabicCount(0, "dayElapsed"), "٠ يوم مضى");
+  assert.equal(appUtils.formatArabicCount(1, "dayElapsed"), "يوم واحد مضى");
+  assert.equal(appUtils.formatArabicCount(2, "dayElapsed"), "يومان مضيا");
+  assert.equal(appUtils.formatArabicCount(7, "dayElapsed"), "٧ أيام مضت");
+  assert.equal(appUtils.formatArabicCount(29, "dayRemaining"), "٢٩ يوماً متبقياً");
+  assert.equal(appUtils.formatArabicCount(0, "dayRemaining"), "٠ يوم متبقٍّ");
+
+  assert.equal(appUtils.formatArabicUnitLabel(0, "dayElapsed"), "يوم مضى");
+  assert.equal(appUtils.formatArabicUnitLabel(1, "dayStreak"), "يوم متتالٍ");
+  assert.equal(appUtils.formatArabicUnitLabel(2, "dayStreak"), "يومان متتاليان");
+  assert.equal(appUtils.formatArabicUnitLabel(7, "dayStreak"), "أيام متتالية");
+  assert.equal(appUtils.formatArabicUnitLabel(15, "dayStreak"), "يوماً متتالياً");
+  assert.equal(appUtils.formatArabicUnitLabel(100, "dayStreak"), "يوم متتالٍ");
+
+  assert.equal(appUtils.formatArabicCount(604, "page"), "٦٠٤ صفحات");
+  assert.equal(appUtils.formatArabicCount(114, "surah"), "١١٤ سورة");
+  assert.equal(appUtils.formatArabicCount(7, "ayah"), "٧ آيات");
+  assert.equal(appUtils.formatArabicCount(286, "ayah"), "٢٨٦ آية");
+  assert.equal(appUtils.formatArabicCount(10, "second"), "١٠ ثوانٍ");
+  assert.equal(appUtils.formatArabicCount(12, "section"), "١٢ قسماً");
+  assert.equal(appUtils.formatArabicCount(2, "chapter"), "فصلان");
+  assert.equal(appUtils.formatArabicCount(5, "chapter"), "٥ فصول");
+  assert.equal(appUtils.formatArabicCount(1, "mention"), "مرة واحدة");
+  assert.equal(appUtils.formatArabicCount(2, "mention"), "مرتان");
+  assert.equal(appUtils.formatArabicCount(7, "mention"), "٧ مرات");
+  assert.equal(appUtils.formatArabicCount(25, "mention"), "٢٥ مرة");
+});
+
+

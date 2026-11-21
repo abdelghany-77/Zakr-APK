@@ -27,6 +27,7 @@ const FILES = [
   "script.js",
   "sw.js",
   "manifest.json",
+  "privacy-policy.html",
 ];
 
 const DIRECTORIES = ["js", "data", "images", "css"];

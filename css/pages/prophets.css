@@ -463,3 +463,42 @@ body.light-mode .pt-proph-continue__bar {
 .pr-chapter-pill-bar {
   font-family: var(--font-sans);
 }
+
+@media (max-width: 360px) {
+  .pt-proph-row {
+    padding: 12px 11px 11px;
+    column-gap: 9px;
+  }
+
+  .pt-proph-row__ico {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    font-size: 18px;
+  }
+
+  .pt-proph-row__head {
+    flex-wrap: wrap;
+    row-gap: 3px;
+  }
+
+  .pt-proph-row__name {
+    font-size: 14.5px;
+  }
+
+  .pt-proph-continue {
+    padding: 12px 12px;
+  }
+
+  .pt-proph-continue__ico {
+    width: 42px;
+    height: 42px;
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 720px) {
+  .pt-proph-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

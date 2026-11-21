@@ -1,4 +1,4 @@
-const CACHE_NAME = "tazkeer-v12.0.0";
+const CACHE_NAME = "tazkeer-v12.2.4";
 const QURAN_CACHE_NAME = "tazkeer-quran-pages-v1";
 const PROPHETS_CACHE_NAME = "tazkeer-prophets-v1";
 const API_CACHE_NAME = "tazkeer-api-v1";
@@ -11,6 +11,7 @@ const CORE_LOCAL_ASSETS = [
   "./quran.css",
   "./adhan-native.css",
   "./manifest.json",
+  "./privacy-policy.html",
   "./css/tokens.css",
   "./css/base.css",
   "./css/components.css",

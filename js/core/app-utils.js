@@ -13,6 +13,8 @@
     root.TazkeerUtils = api;
     root.normalizeArabic = api.normalizeArabic;
     root.toArabicDigits = api.toArabicDigits;
+    root.formatArabicCount = api.formatArabicCount;
+    root.formatArabicUnitLabel = api.formatArabicUnitLabel;
     root.escapeHtml = api.escapeHtml;
     root.AppDialog = api.AppDialog;
     root.TazkeerModalQueue = api.ModalQueue;
@@ -27,8 +29,8 @@
     { id: "auto", label: "تلقائي حسب الموقع (موصى به)" },
     { id: 5, label: "الهيئة المصرية العامة للمساحة" },
     { id: 4, label: "أم القرى — مكة المكرمة" },
-    { id: 3, label: "رابطة العالم الإسلامي (MWL)" },
-    { id: 2, label: "الجمعية الإسلامية لأمريكا الشمالية (ISNA)" },
+    { id: 3, label: "رابطة العالم الإسلامي" },
+    { id: 2, label: "الجمعية الإسلامية لأمريكا الشمالية" },
     { id: 8, label: "منطقة الخليج" },
     { id: 9, label: "الكويت" },
     { id: 10, label: "قطر" },
@@ -105,6 +107,189 @@
     return String(value == null ? "" : value).replace(/[0-9]/g, function (d) {
       return ARABIC_DIGITS[Number(d)];
     });
+  }
+
+  // Classical Arabic countable grammar (قواعد تمييز العدد في الفصحى)
+  var ARABIC_COUNT_UNITS = {
+    day: {
+      one: "يوم واحد",
+      two: "يومان",
+      plural: "أيام",
+      acc: "يوماً",
+      gen: "يوم",
+      labelOne: "يوم",
+      labelTwo: "يومان",
+    },
+    dayGen: {
+      one: "يوم واحد",
+      two: "يومين",
+      plural: "أيام",
+      acc: "يوماً",
+      gen: "يوم",
+      labelOne: "يوم",
+      labelTwo: "يومين",
+    },
+    dayStreak: {
+      one: "يوم واحد متتالٍ",
+      two: "يومان متتاليان",
+      plural: "أيام متتالية",
+      acc: "يوماً متتالياً",
+      gen: "يوم متتالٍ",
+      labelOne: "يوم متتالٍ",
+      labelTwo: "يومان متتاليان",
+    },
+    dayElapsed: {
+      one: "يوم واحد مضى",
+      two: "يومان مضيا",
+      plural: "أيام مضت",
+      acc: "يوماً مضى",
+      gen: "يوم مضى",
+      labelOne: "يوم مضى",
+      labelTwo: "يومان مضيا",
+    },
+    dayRemaining: {
+      one: "يوم واحد متبقٍّ",
+      two: "يومان متبقيان",
+      plural: "أيام متبقية",
+      acc: "يوماً متبقياً",
+      gen: "يوم متبقٍّ",
+      labelOne: "يوم متبقٍّ",
+      labelTwo: "يومان متبقيان",
+    },
+    page: {
+      one: "صفحة واحدة",
+      two: "صفحتان",
+      plural: "صفحات",
+      acc: "صفحة",
+      gen: "صفحة",
+      labelOne: "صفحة",
+      labelTwo: "صفحتان",
+    },
+    surah: {
+      one: "سورة واحدة",
+      two: "سورتان",
+      plural: "سور",
+      acc: "سورة",
+      gen: "سورة",
+      labelOne: "سورة",
+      labelTwo: "سورتان",
+    },
+    ayah: {
+      one: "آية واحدة",
+      two: "آيتان",
+      plural: "آيات",
+      acc: "آية",
+      gen: "آية",
+      labelOne: "آية",
+      labelTwo: "آيتان",
+    },
+    dhikr: {
+      one: "ذكر واحد",
+      two: "ذكران",
+      plural: "أذكار",
+      acc: "ذكراً",
+      gen: "ذكر",
+      labelOne: "ذكر",
+      labelTwo: "ذكران",
+    },
+    section: {
+      one: "قسم واحد",
+      two: "قسمان",
+      plural: "أقسام",
+      acc: "قسماً",
+      gen: "قسم",
+      labelOne: "قسم",
+      labelTwo: "قسمان",
+    },
+    minute: {
+      one: "دقيقة واحدة",
+      two: "دقيقتان",
+      plural: "دقائق",
+      acc: "دقيقة",
+      gen: "دقيقة",
+      labelOne: "دقيقة",
+      labelTwo: "دقيقتان",
+    },
+    hour: {
+      one: "ساعة واحدة",
+      two: "ساعتان",
+      plural: "ساعات",
+      acc: "ساعة",
+      gen: "ساعة",
+      labelOne: "ساعة",
+      labelTwo: "ساعتان",
+    },
+    second: {
+      one: "ثانية واحدة",
+      two: "ثانيتان",
+      plural: "ثوانٍ",
+      acc: "ثانية",
+      gen: "ثانية",
+      labelOne: "ثانية",
+      labelTwo: "ثانيتان",
+    },
+    chapter: {
+      one: "فصل واحد",
+      two: "فصلان",
+      plural: "فصول",
+      acc: "فصلاً",
+      gen: "فصل",
+      labelOne: "فصل",
+      labelTwo: "فصلان",
+    },
+    mention: {
+      one: "مرة واحدة",
+      two: "مرتان",
+      plural: "مرات",
+      acc: "مرة",
+      gen: "مرة",
+      labelOne: "مرة",
+      labelTwo: "مرتان",
+    },
+    item: {
+      one: "عنصر واحد",
+      two: "عنصرين",
+      plural: "عناصر",
+      acc: "عنصراً",
+      gen: "عنصر",
+      labelOne: "عنصر",
+      labelTwo: "عنصران",
+    },
+    appointment: {
+      one: "موعد واحد",
+      two: "موعدان",
+      plural: "مواعيد",
+      acc: "موعداً",
+      gen: "موعد",
+      labelOne: "موعد",
+      labelTwo: "موعدان",
+    },
+  };
+
+  function formatArabicUnitLabel(count, unitKey) {
+    var forms = ARABIC_COUNT_UNITS[unitKey];
+    if (!forms) return "";
+    var n = Math.max(0, Math.round(Number(count) || 0));
+    if (n === 0) return forms.gen;
+    if (n === 1) return forms.labelOne || forms.gen;
+    if (n === 2) return forms.labelTwo || forms.two;
+    var mod100 = n % 100;
+    if (mod100 >= 3 && mod100 <= 10) return forms.plural;
+    if (mod100 >= 11 && mod100 <= 99) return forms.acc;
+    return forms.gen;
+  }
+
+  function formatArabicCount(count, unitKey) {
+    var forms = ARABIC_COUNT_UNITS[unitKey];
+    var n = Math.max(0, Math.round(Number(count) || 0));
+    if (!forms) return toArabicDigits(n);
+    if (n === 0) return toArabicDigits(0) + " " + forms.gen;
+    if (n === 1) return forms.one;
+    if (n === 2) return forms.two;
+    var mod100 = n % 100;
+    if (mod100 >= 3 && mod100 <= 10) return toArabicDigits(n) + " " + forms.plural;
+    if (mod100 >= 11 && mod100 <= 99) return toArabicDigits(n) + " " + forms.acc;
+    return toArabicDigits(n) + " " + forms.gen;
   }
 
   function escapeHtml(text) {
@@ -524,11 +709,54 @@
     };
   })();
 
+  function closePrivacyModal(silent) {
+    if (typeof document === "undefined") return;
+    var modal = document.getElementById("privacyModal");
+    if (!modal || !modal.classList.contains("is-open")) return;
+    modal.classList.remove("is-open");
+    if (!silent && root && root.AppRouter && typeof root.AppRouter.isModalOpen === "function" && root.AppRouter.isModalOpen("privacyModal")) {
+      root.AppRouter.closeModal("privacyModal");
+    }
+  }
+
+  function openPrivacyModal() {
+    if (typeof document === "undefined") return;
+    var modal = document.getElementById("privacyModal");
+    if (!modal) return;
+    modal.classList.add("is-open");
+    if (!modal.dataset.boundBackdrop) {
+      modal.dataset.boundBackdrop = "1";
+      modal.addEventListener("click", function (e) {
+        if (e.target === modal) closePrivacyModal();
+      });
+    }
+    if (root && root.AppRouter && typeof root.AppRouter.pushModal === "function") {
+      root.AppRouter.pushModal("privacyModal", function () {
+        closePrivacyModal(true);
+      });
+    }
+  }
+
+  if (root) {
+    root.openPrivacyModal = openPrivacyModal;
+    root.closePrivacyModal = closePrivacyModal;
+  }
+
+  if (typeof document !== "undefined") {
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        closePrivacyModal();
+      }
+    });
+  }
+
   return {
     PRAYER_METHODS: PRAYER_METHODS,
     PRESET_CITIES: PRESET_CITIES,
     normalizeArabic: normalizeArabic,
     toArabicDigits: toArabicDigits,
+    formatArabicCount: formatArabicCount,
+    formatArabicUnitLabel: formatArabicUnitLabel,
     escapeHtml: escapeHtml,
     detectCalculationMethod: detectCalculationMethod,
     getPrayerSettings: getPrayerSettings,
@@ -542,5 +770,7 @@
     searchPresetCities: searchPresetCities,
     AppDialog: AppDialog,
     ModalQueue: ModalQueue,
+    openPrivacyModal: openPrivacyModal,
+    closePrivacyModal: closePrivacyModal,
   };
 });
