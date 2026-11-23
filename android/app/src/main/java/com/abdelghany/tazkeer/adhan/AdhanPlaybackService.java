@@ -61,9 +61,14 @@ public class AdhanPlaybackService extends Service {
     public static final String EXTRA_VOLUME = "adhan_volume";
 
     private static final String CHANNEL_ID = "adhan_playback_v1";
+    private static final String PREFS_AUDIO = "tazkeer_adhan_audio";
+    private static final String KEY_VOLUME = "adhan_volume";
     private static final int NOTIFICATION_ID = 7301;
     private static final long WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L; // safety ceiling
     private static final long WATCHDOG_TIMEOUT_MS = 6 * 60 * 1000L;
+
+    private static volatile AdhanPlaybackService activeInstance;
+    private volatile boolean isPlayingActive = false;
 
     private MediaPlayer mediaPlayer;
     private PowerManager.WakeLock wakeLock;
@@ -96,6 +101,7 @@ public class AdhanPlaybackService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        activeInstance = this;
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         createNotificationChannel();
     }
@@ -108,15 +114,11 @@ public class AdhanPlaybackService extends Service {
         }
 
         if (intent != null && ACTION_SET_VOLUME.equals(intent.getAction())) {
-            float newVol = clamp(intent.getFloatExtra(EXTRA_VOLUME, 1.0f));
-            if (mediaPlayer != null) {
-                float logVol = calculateLogVolume(newVol);
-                try {
-                    mediaPlayer.setVolume(logVol, logVol);
-                    Log.i(TAG, "Adhan active volume updated to: " + newVol + " (scalar=" + logVol + ")");
-                } catch (Exception e) {
-                    Log.w(TAG, "setVolume failed on active player", e);
-                }
+            float newVol = clamp(intent.getFloatExtra(EXTRA_VOLUME, getSavedVolume(this)));
+            saveVolume(this, newVol);
+            applyLiveVolume(newVol);
+            if (!isPlayingActive) {
+                stopSelf();
             }
             return START_NOT_STICKY;
         }
@@ -130,7 +132,9 @@ public class AdhanPlaybackService extends Service {
         String prayer = safe(intent.getStringExtra(EXTRA_PRAYER));
         String label = safe(intent.getStringExtra(EXTRA_LABEL));
         boolean isFajr = intent.getBooleanExtra(EXTRA_FAJR, false);
-        float volume = clamp(intent.getFloatExtra(EXTRA_VOLUME, 1.0f));
+        float defaultVol = getSavedVolume(this);
+        float volume = clamp(intent.getFloatExtra(EXTRA_VOLUME, defaultVol));
+        saveVolume(this, volume);
 
         // Must call startForeground within ~5 seconds of being started.
         Notification notification = buildNotification(prayer, label, isFajr);
@@ -163,6 +167,10 @@ public class AdhanPlaybackService extends Service {
 
     @Override
     public void onDestroy() {
+        isPlayingActive = false;
+        if (activeInstance == this) {
+            activeInstance = null;
+        }
         releasePlayer();
         releaseWakeLock();
         abandonAudioFocus();
@@ -178,22 +186,61 @@ public class AdhanPlaybackService extends Service {
     /** Stops playback from anywhere in the app (JS bridge, notification action). */
     public static void stop(Context context) {
         try {
+            AdhanPlaybackService current = activeInstance;
+            if (current != null) {
+                current.stopPlayback();
+                return;
+            }
             context.stopService(new Intent(context, AdhanPlaybackService.class));
         } catch (Exception e) {
             Log.e(TAG, "stopService failed", e);
         }
     }
 
-    /** Dynamically updates playback volume while the Adhan is actively playing. */
+    /**
+     * Saves preferred volume to SharedPreferences and updates the active MediaPlayer
+     * directly if playback is currently running — never spawns a background service
+     * when the Adhan is idle.
+     */
     public static void updateVolume(Context context, float volume) {
-        Intent intent = new Intent(context, AdhanPlaybackService.class);
-        intent.setAction(ACTION_SET_VOLUME);
-        intent.putExtra(EXTRA_VOLUME, volume);
-        try {
-            context.startService(intent);
-        } catch (Exception e) {
-            Log.e(TAG, "updateVolume failed", e);
+        float clamped = clamp(volume);
+        saveVolume(context, clamped);
+        AdhanPlaybackService current = activeInstance;
+        if (current != null && current.isPlayingActive) {
+            current.applyLiveVolume(clamped);
         }
+    }
+
+    private void applyLiveVolume(float volume) {
+        MediaPlayer player = this.mediaPlayer;
+        if (player == null) {
+            return;
+        }
+        float logVol = calculateLogVolume(volume);
+        try {
+            player.setVolume(logVol, logVol);
+            Log.i(TAG, "Adhan active volume updated to: " + volume + " (scalar=" + logVol + ")");
+        } catch (Exception e) {
+            Log.w(TAG, "setVolume failed on active player", e);
+        }
+    }
+
+    public static float getSavedVolume(Context context) {
+        if (context == null) return 1.0f;
+        return clamp(
+                context.getApplicationContext()
+                        .getSharedPreferences(PREFS_AUDIO, Context.MODE_PRIVATE)
+                        .getFloat(KEY_VOLUME, 1.0f)
+        );
+    }
+
+    private static void saveVolume(Context context, float volume) {
+        if (context == null) return;
+        context.getApplicationContext()
+                .getSharedPreferences(PREFS_AUDIO, Context.MODE_PRIVATE)
+                .edit()
+                .putFloat(KEY_VOLUME, clamp(volume))
+                .apply();
     }
 
     // ------------------------------------------------------------------------
@@ -283,15 +330,10 @@ public class AdhanPlaybackService extends Service {
             requestAudioFocus();
             mediaPlayer.prepare();
             mediaPlayer.start();
+            isPlayingActive = true;
 
             // Apply logarithmic volume AFTER start() so native AudioTrack applies gain
-            float logVol = calculateLogVolume(volume);
-            try {
-                mediaPlayer.setVolume(logVol, logVol);
-                Log.i(TAG, "Adhan playing with volume: " + volume + " (scalar=" + logVol + ")");
-            } catch (Exception e) {
-                Log.w(TAG, "Failed to apply volume to MediaPlayer", e);
-            }
+            applyLiveVolume(volume);
 
             watchdog.removeCallbacks(watchdogStop);
             watchdog.postDelayed(watchdogStop, WATCHDOG_TIMEOUT_MS);
@@ -302,6 +344,7 @@ public class AdhanPlaybackService extends Service {
     }
 
     private void stopPlayback() {
+        isPlayingActive = false;
         releasePlayer();
         releaseWakeLock();
         abandonAudioFocus();

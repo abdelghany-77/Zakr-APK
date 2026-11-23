@@ -111,3 +111,28 @@ export function hasScheduleChanged(previous, next) {
       entry.body !== candidate.body;
   });
 }
+
+export function addMinutesToLocalDateTime(baseDate, timeOfDay, addMinutes) {
+  const parsed = parseLocalTime(timeOfDay);
+  if (!parsed || !(baseDate instanceof Date) || Number.isNaN(baseDate.getTime())) {
+    return null;
+  }
+  const target = new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth(),
+    baseDate.getDate(),
+    parsed.hours,
+    parsed.minutes,
+    0,
+    0
+  );
+  target.setMinutes(target.getMinutes() + (Number(addMinutes) || 0));
+  const dateKey = localDateKey(target);
+  const nextTimeOfDay = `${String(target.getHours()).padStart(2, "0")}:${String(target.getMinutes()).padStart(2, "0")}`;
+  return {
+    date: target,
+    dateKey,
+    timeOfDay: nextTimeOfDay,
+    epochMs: target.getTime(),
+  };
+}

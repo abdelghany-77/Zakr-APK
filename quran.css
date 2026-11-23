@@ -15,19 +15,19 @@
   --quran-ornament: #8b6914;
   --quran-page-bg: #fffdf7;
   --quran-header-bg: linear-gradient(135deg, #2c5f3f 0%, #1a4a30 100%);
-  --mushaf-parchment: #f4ecd8;
+  --mushaf-parchment: #ffffff;
 }
 
 /* Dark mode overrides */
 .mushaf-dark-mode {
-  --quran-bg: #1a1a2e;
+  --quran-bg: #121514;
   --quran-text: #e8dcc8;
-  --quran-page-bg: #16213e;
+  --quran-page-bg: #161d1b;
   --quran-border: #8b6914;
   --quran-shadow: rgba(0, 0, 0, 0.3);
   --quran-ornament: #d4a847;
   --quran-header-bg: linear-gradient(135deg, #1a3a2a 0%, #0d2818 100%);
-  --mushaf-parchment: #1e1e2e;
+  --mushaf-parchment: #121514;
 }
 
 /* ===== Quran Category Card ===== */
@@ -1083,7 +1083,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 9000;
+  width: 100%;
+  height: 100%;
+  z-index: 10020;
   display: flex;
   flex-direction: column;
   background: var(--mushaf-parchment);
@@ -1093,7 +1095,7 @@
 .mushaf-header {
   background: var(--quran-header-bg);
   color: white;
-  padding: 0.5rem 0.8rem;
+  padding: calc(0.5rem + env(safe-area-inset-top, 0px)) 0.8rem 0.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1289,6 +1291,10 @@
 /* ---- Image Area ---- */
 .mushaf-image-area {
   flex: 1;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  background: var(--mushaf-parchment);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1303,13 +1309,13 @@
 .mushaf-page-img {
   width: 100%;
   height: 100%;
-  object-fit: fill;
-  /* object-position: center top; */
+  object-fit: contain;
   display: block;
+  mix-blend-mode: multiply;
   -webkit-user-select: none;
   user-select: none;
   pointer-events: none;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.25s ease;
 }
 
 .mushaf-page-img.loading {
@@ -1348,7 +1354,8 @@
 }
 
 .mushaf-dark-mode .mushaf-page-img {
-  filter: invert(0.88) hue-rotate(180deg);
+  filter: invert(1) contrast(1.06) brightness(0.9);
+  mix-blend-mode: screen;
 }
 .mushaf-dark-mode .mushaf-image-area::before {
   background: linear-gradient(
@@ -1375,17 +1382,9 @@
   right: 0;
 } /* RTL: right = backward */
 
-/* Tap ripple */
+/* Tap ripple disabled for native feel */
 .mushaf-tap-ripple {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: rgba(26, 138, 92, 0.15);
-  transform: translate(-50%, -50%) scale(0);
-  animation: tapRipple 0.4s ease-out forwards;
-  pointer-events: none;
-  z-index: 6;
+  display: none !important;
 }
 @keyframes tapRipple {
   0% {

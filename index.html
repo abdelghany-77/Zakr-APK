@@ -214,7 +214,7 @@
 
               <div class="prayer-times-loading hidden" id="prayerTimesLoading">
                 <i class="fas fa-spinner fa-spin"></i>
-                <p>جاري تحديث المواقيت...</p>
+                <p>جارٍ تحديث المواقيت...</p>
               </div>
 
               <div class="prayer-times-error hidden" id="prayerTimesError">
@@ -238,7 +238,7 @@
               onclick="openRemindersSheet('ramadan')" aria-label="تفاصيل رمضان">
               <span class="pt-remind-tile is-gold"><i class="fas fa-moon"></i></span>
               <span class="pt-remind-body">
-                <span class="pt-remind-sub" id="remindRamadanLabel">رمضان ١٤٤٨ · متوقع ٨ فبراير</span>
+                <span class="pt-remind-sub" id="remindRamadanLabel">رمضان ١٤٤٨ — متوقع ٨ فبراير</span>
                 <span class="pt-remind-main" id="remindRamadanValue">بعد ٩٠ يوماً</span>
                 <span class="pt-remind-sub" id="remindRamadanDate" hidden></span>
               </span>
@@ -305,7 +305,7 @@
           <div class="pt-topbar">
             <div class="pt-topbar__titles">
               <h1 class="pt-title">الأذكار</h1>
-              <span class="pt-sub">حصن المسلم · ١٣١ ذكرًا · ١٢ أقسام</span>
+              <span class="pt-sub">حصن المسلم — ١٣١ ذكراً — ١٢ قسماً</span>
             </div>
             <div class="pt-topbar__actions">
               <button class="pt-iconbtn" id="azkarSearchBtn" onclick="toggleAzkarSearch()" title="بحث في الأذكار"
@@ -338,8 +338,8 @@
                   <span class="pt-suggest__ico"><i class="fas fa-moon"></i></span>
                 </div>
                 <h2 class="pt-suggest__title">حان وقت أذكار المساء</h2>
-                <p class="pt-suggest__sub">من ٢٦ ذكرًا · نحو ٨ دقائق</p>
-                <button class="pt-suggest__cta" onclick="showCategoryPage('morning')">
+                <p class="pt-suggest__sub">٢٦ ذكراً — نحو ٨ دقائق</p>
+                <button class="pt-suggest__cta" onclick="showCategoryPage('evening')">
                   <i class="fas fa-play"></i>
                   <span>ابدأ الأذكار</span>
                 </button>
@@ -521,7 +521,7 @@
                     <div class="chart-bar-col" data-day="1">
                       <div class="chart-bar-value"></div>
                       <div class="chart-bar-track"><div class="chart-bar-fill" data-day="1"></div></div>
-                      <span>الإثنين</span>
+                      <span>الاثنين</span>
                     </div>
                     <div class="chart-bar-col" data-day="2">
                       <div class="chart-bar-value"></div>
@@ -561,7 +561,7 @@
                     <div class="chart-bar-col" data-day="1">
                       <div class="chart-bar-value"></div>
                       <div class="chart-bar-track"><div class="chart-bar-fill quran-fill" data-day="1"></div></div>
-                      <span>الإثنين</span>
+                      <span>الاثنين</span>
                     </div>
                     <div class="chart-bar-col" data-day="2">
                       <div class="chart-bar-value"></div>
@@ -591,19 +591,25 @@
             <!-- ── Settings & data ── -->
             <div class="pt-section-label">الإعدادات والبيانات</div>
             <div class="pt-settings pt-card pt-card--pad-sm">
-              <button class="pt-settings__row" onclick="exportUserData()" title="نسخ احتياطي كملف JSON">
+              <button class="pt-settings__row" onclick="exportUserData()" title="حفظ نسخة احتياطية لإنجازاتك">
                 <i class="fas fa-cloud-arrow-down pt-settings__ico is-gold"></i>
                 <span class="pt-settings__label">نسخ احتياطي للإنجازات</span>
                 <i class="fas fa-chevron-left pt-settings__chev"></i>
               </button>
               <hr class="pt-hr" />
-              <button class="pt-settings__row" onclick="triggerImportData()" title="استيراد البيانات من ملف JSON">
+              <button class="pt-settings__row" onclick="triggerImportData()" title="استيراد النسخة الاحتياطية">
                 <i class="fas fa-file-import pt-settings__ico is-gold"></i>
                 <span class="pt-settings__label">استيراد البيانات</span>
                 <i class="fas fa-chevron-left pt-settings__chev"></i>
               </button>
               <hr class="pt-hr" />
-              <button class="pt-settings__row" onclick="showInstallModal()" title="تثبيت تطبيق الأندرويد">
+              <a class="pt-settings__row" href="privacy-policy.html" title="سياسة الخصوصية">
+                <i class="fas fa-shield-halved pt-settings__ico is-em"></i>
+                <span class="pt-settings__label">سياسة الخصوصية</span>
+                <i class="fas fa-chevron-left pt-settings__chev"></i>
+              </a>
+              <hr class="pt-hr" id="profileInstallAppDivider" />
+              <button class="pt-settings__row" id="profileInstallAppRow" onclick="showInstallModal()" title="تثبيت تطبيق الأندرويد">
                 <i class="fab fa-android pt-settings__ico is-em"></i>
                 <span class="pt-settings__label">تثبيت تطبيق الأندرويد</span>
                 <i class="fas fa-chevron-left pt-settings__chev"></i>
@@ -624,7 +630,7 @@
     </div>
   </main>
 
-  <!-- Location Permission Modal -->
+  <!-- Location Permission & Manual City Modal -->
   <div id="locationPermissionModal" class="modal location-permission-modal" role="dialog" aria-modal="true" aria-labelledby="locModalTitle">
     <div class="modal-content loc-modal-content">
       <div class="loc-modal-icon-wrap">
@@ -632,16 +638,20 @@
       </div>
       <h3 id="locModalTitle" class="loc-modal-title">تحديد موقعك لمواقيت دقيقة</h3>
       <p class="loc-modal-desc">
-        لضمان حساب مواقيت الصلاة والأذان بدقة متناهية حسب مدينتك ومنطقتك، نرجو السماح للتطبيق بتحديد الموقع.
+        لحساب مواقيت الصلاة والأذان بدقة حسب مدينتك، يمكنك السماح بالموقع التلقائي أو اختيار مدينتك يدوياً أدناه.
       </p>
-      <div class="loc-modal-note">
-        <i class="fas fa-circle-info"></i>
-        <span>تختلف مواعيد الصلاة من مدينة لأخرى بعدة دقائق؛ لذا يضمن لك تفعيل الموقع مواقيت موثوقة ومطابقة لمسجدك.</span>
+      <div class="loc-modal-manual-picker">
+        <div class="loc-city-search-wrap">
+          <i class="fas fa-magnifying-glass"></i>
+          <input type="text" id="locModalCitySearch" placeholder="ابحث عن مدينتك (مثل: القاهرة، مكة، الرياض)..."
+            autocomplete="off" oninput="renderLocationModalCities(this.value)" />
+        </div>
+        <div class="loc-city-list" id="locModalCityList"></div>
       </div>
       <div class="loc-modal-actions">
         <button type="button" class="loc-btn-primary" onclick="handleEnableLocationFromModal()">
           <i class="fas fa-crosshairs"></i>
-          <span>تفعيل الموقع الآن</span>
+          <span>تحديد موقعي تلقائياً</span>
         </button>
         <button type="button" class="loc-btn-secondary" onclick="handleDismissLocationModal()">
           <span>المتابعة بتوقيت القاهرة حالياً</span>
@@ -704,7 +714,7 @@
           <div class="fasting-occasion-card foc-card--green">
             <div class="foc-head">
               <span class="foc-badge foc-badge--green">سنة أسبوعية</span>
-              <h4>صيام يومي الإثنين والخميس</h4>
+              <h4>صيام يومَي الاثنين والخميس</h4>
             </div>
             <p class="foc-hadith">
               قال النبي ﷺ: «تُعْرَضُ الأَعْمَالُ يَوْمَ الاِثْنَيْنِ وَالْخَمِيسِ، فَأُحِبُّ أَنْ يُعْرَضَ عَمَلِي
@@ -770,9 +780,9 @@
           <div class="qibla-mini-compass" id="compass">
             <div class="qibla-mini-dial">
               <span class="qmc-dir qmc-n">🕋</span>
-              <span class="qmc-dir qmc-e">E</span>
-              <span class="qmc-dir qmc-s">S</span>
-              <span class="qmc-dir qmc-w">W</span>
+              <span class="qmc-dir qmc-e">شرق</span>
+              <span class="qmc-dir qmc-s">جنوب</span>
+              <span class="qmc-dir qmc-w">غرب</span>
               <div class="qibla-mini-needle" id="compassNeedle">
                 <div class="qmn-tip"></div>
                 <div class="qmn-tail"></div>
@@ -781,9 +791,9 @@
             </div>
           </div>
           <div class="qibla-modal-info">
-            <div class="qibla-deg-badge" id="qiblaDegrees">136°</div>
+            <div class="qibla-deg-badge" id="qiblaDegrees">١٣٦°</div>
             <p class="qibla-modal-status" id="qiblaStatus">وجّه هاتفك نحو الكعبة المشرفة</p>
-            <button class="qibla-calibrate-action-btn" id="qiblaCalibrateBtn" onclick="requestQiblaPermissions()">
+            <button class="qibla-calibrate-action-btn" id="qiblaCalibrateBtn">
               <i class="fas fa-sync-alt"></i>
               <span>تفعيل / معايرة البوصلة</span>
             </button>
@@ -861,6 +871,58 @@
           </button> -->
         </div>
 
+        <!-- Prayer Calculation & Manual City Settings -->
+        <div class="adhan-section-title" style="margin-top: 1.25rem;">
+          <i class="fas fa-sliders"></i>
+          <span>حساب المواقيت والموقع</span>
+        </div>
+        <div class="prayer-settings-card" id="prayerSettingsCard">
+          <div class="prayer-setting-block">
+            <div class="prayer-setting-head">
+              <span class="prayer-setting-label">الموقع المعتمد</span>
+              <button type="button" class="prayer-auto-loc-btn" id="prayerCityAutoBtn" onclick="AdhanNative.useAutoLocation()">
+                <i class="fas fa-location-crosshairs"></i>
+                <span>تلقائي</span>
+              </button>
+            </div>
+            <div class="prayer-city-current" id="prayerCityCurrentLabel">تحديد تلقائي عبر الموقع الجغرافي</div>
+            <div class="loc-city-search-wrap">
+              <i class="fas fa-magnifying-glass"></i>
+              <input type="text" id="prayerCitySearchInput" placeholder="اختر مدينة يدوياً (مثل: القاهرة، مكة، دبي)..."
+                autocomplete="off" oninput="AdhanNative.renderSettingsCityList(this.value)" />
+            </div>
+            <div class="prayer-city-chips" id="prayerCityResultsList"></div>
+          </div>
+
+          <div class="prayer-setting-block">
+            <label class="prayer-setting-label" for="prayerMethodSelect">طريقة حساب المواقيت</label>
+            <select id="prayerMethodSelect" class="prayer-method-select"
+              onchange="AdhanNative.setCalculationMethod(this.value)"></select>
+          </div>
+
+          <div class="prayer-setting-block">
+            <span class="prayer-setting-label">مذهب حساب صلاة العصر</span>
+            <div class="prayer-school-group">
+              <button type="button" class="prayer-school-btn active" data-school="0" onclick="AdhanNative.setAsrSchool(0)">
+                الشافعي والجمهور
+              </button>
+              <button type="button" class="prayer-school-btn" data-school="1" onclick="AdhanNative.setAsrSchool(1)">
+                الحنفي
+              </button>
+            </div>
+          </div>
+
+          <div class="prayer-setting-block">
+            <div class="prayer-setting-head">
+              <span class="prayer-setting-label">تعديل الدقائق يدوياً (±٣٠ دقيقة)</span>
+              <button type="button" class="prayer-offset-reset-btn" onclick="AdhanNative.resetPrayerOffsets()">
+                إعادة للصفر
+              </button>
+            </div>
+            <div class="prayer-offsets-list" id="prayerOffsetsList"></div>
+          </div>
+        </div>
+
         <div class="adhan-section-title" style="margin-top: 1.25rem;">
           <i class="fas fa-bell"></i>
           <span>إعدادات الأذان والتنبيهات</span>
@@ -868,8 +930,7 @@
 
         <div class="adhan-web-notice" id="adhanWebNotice">
           <i class="fas fa-circle-info"></i>
-          <span>المحرك الأصلي للأذان يعمل في تطبيق أندرويد. افتح التطبيق المثبّت لتفعيل الأذان في الخلفية ووضع
-            Doze.</span>
+          <span>المحرك الأصلي للأذان يعمل في تطبيق أندرويد. افتح التطبيق المثبّت لتفعيل الأذان في الخلفية ووضع توفير الطاقة.</span>
         </div>
 
         <!-- Master switch -->
@@ -913,7 +974,7 @@
           <i class="fas fa-volume-low"></i>
           <input type="range" id="adhanVolume" min="5" max="100" step="5" value="100"
             oninput="AdhanNative.setVolume(this.value)" aria-label="مستوى صوت الأذان" />
-          <span class="adhan-volume-value" id="adhanVolumeValue">100%</span>
+          <span class="adhan-volume-value" id="adhanVolumeValue">١٠٠٪</span>
         </div>
 
         <!-- Permissions diagnostic -->
@@ -954,7 +1015,7 @@
         <!-- Next alarm status -->
         <div class="adhan-next-info" id="adhanNextInfo">
           <i class="fas fa-clock"></i>
-          <span>جاري قراءة جدول الأذان...</span>
+          <span>جارٍ قراءة جدول الأذان...</span>
         </div>
 
         <!-- Actions -->
@@ -978,7 +1039,7 @@
         </div>
 
         <p class="adhan-footnote" id="adhanFootnote">
-          التسجيلات الصوتية مضمّنة داخل التطبيق وتعمل بدون إنترنت.
+          التسجيلات الصوتية مضمّنة داخل التطبيق وتعمل دون إنترنت.
         </p>
       </div>
     </div>
@@ -1011,7 +1072,26 @@
   <!-- Offline Indicator -->
   <div class="offline-banner hidden" id="offlineBanner">
     <i class="fas fa-wifi-slash"></i>
-    <span>لا يوجد اتصال بالإنترنت - التطبيق يعمل بدون اتصال</span>
+    <span>لا يوجد اتصال بالإنترنت — التطبيق يعمل دون اتصال</span>
+  </div>
+
+  <!-- App Update Available Modal -->
+  <div class="app-update-modal-overlay" id="appUpdateModal" role="dialog" aria-modal="true" aria-labelledby="appUpdateModalTitle" aria-hidden="true">
+    <div class="app-update-modal-card">
+      <div class="app-update-modal-icon">
+        <i class="fas fa-arrows-rotate"></i>
+      </div>
+      <h3 class="app-update-modal-title" id="appUpdateModalTitle">يتوفر تحديث جديد</h3>
+      <p class="app-update-modal-desc" id="appUpdateModalDesc">تتوفر نسخة أحدث من تطبيق ذَكِّرْ تتضمن تحسينات وإصلاحات جديدة. حدّث التطبيق الآن لتبقى دائماً على أحدث إصدار.</p>
+      <div class="app-update-modal-version hidden" id="appUpdateModalVersion"></div>
+      <div class="app-update-modal-actions">
+        <button type="button" class="app-update-modal-btn app-update-modal-btn--primary" id="appUpdateApplyBtn">
+          <i class="fas fa-download"></i>
+          <span>تحديث الآن</span>
+        </button>
+        <button type="button" class="app-update-modal-btn app-update-modal-btn--secondary" id="appUpdateDismissBtn">لاحقاً</button>
+      </div>
+    </div>
   </div>
 
   <!-- ===== Bottom Navigation ===== -->
@@ -1026,7 +1106,7 @@
     </button>
     <button class="bottom-nav-item" data-tab="tab-quran" onclick="switchTab('tab-quran')">
       <span class="pt-nav-ico"><i class="fas fa-book-quran"></i></span>
-      <span class="pt-nav-label">القرآن</span>
+      <span class="pt-nav-label">القرآن الكريم</span>
     </button>
     <button class="bottom-nav-item" data-tab="tab-prophets" onclick="switchTab('tab-prophets')">
       <span class="pt-nav-ico"><i class="fas fa-book-open"></i></span>
@@ -1034,7 +1114,7 @@
     </button>
     <button class="bottom-nav-item" data-tab="tab-profile" onclick="switchTab('tab-profile')">
       <span class="pt-nav-ico"><i class="fas fa-user"></i></span>
-      <span class="pt-nav-label">الملف الشخصي</span>
+      <span class="pt-nav-label">ملفي</span>
     </button>
   </nav>
 
@@ -1045,7 +1125,7 @@
         <button class="misbaha-close-btn" onclick="closeMisbaha()">
           <i class="fas fa-times"></i>
         </button>
-        <h2 class="misbaha-title">المسبحة </h2>
+        <h2 class="misbaha-title">المسبحة</h2>
         <button class="misbaha-reset-btn" onclick="resetMisbaha()">
           <i class="fas fa-redo-alt"></i>
         </button>
@@ -1069,9 +1149,9 @@
 
       <div class="misbaha-targets" id="misbahaTargets">
         <span class="misbaha-targets-label">الهدف:</span>
-        <button class="misbaha-target-btn active" data-target="33" onclick="setMisbahaTarget(33)">33</button>
-        <button class="misbaha-target-btn" data-target="50" onclick="setMisbahaTarget(50)">50</button>
-        <button class="misbaha-target-btn" data-target="100" onclick="setMisbahaTarget(100)">100</button>
+        <button class="misbaha-target-btn active" data-target="33" onclick="setMisbahaTarget(33)">٣٣</button>
+        <button class="misbaha-target-btn" data-target="50" onclick="setMisbahaTarget(50)">٥٠</button>
+        <button class="misbaha-target-btn" data-target="100" onclick="setMisbahaTarget(100)">١٠٠</button>
         <button class="misbaha-target-btn" data-target="0" onclick="setMisbahaTarget(0)">∞</button>
       </div>
 
@@ -1084,8 +1164,8 @@
             <circle class="misbaha-ring-fill" id="misbahaRingFill" cx="100" cy="100" r="90" />
           </svg>
           <div class="misbaha-count-inner">
-            <span class="misbaha-count-num" id="misbahaCountNum">0</span>
-            <span class="misbaha-count-target" id="misbahaCountTarget">/ 33</span>
+            <span class="misbaha-count-num" id="misbahaCountNum">٠</span>
+            <span class="misbaha-count-target" id="misbahaCountTarget">/ ٣٣</span>
           </div>
         </button>
       </div>
@@ -1093,11 +1173,11 @@
       <div class="misbaha-stats-grid">
         <div class="misbaha-stat-card">
           <span class="misbaha-stat-label"><i class="fas fa-sync-alt"></i> عدد الدورات</span>
-          <span class="misbaha-stat-val" id="misbahaRoundsVal">0</span>
+          <span class="misbaha-stat-val" id="misbahaRoundsVal">٠</span>
         </div>
         <div class="misbaha-stat-card">
           <span class="misbaha-stat-label"><i class="fas fa-layer-group"></i> الإجمالي الكلي</span>
-          <span class="misbaha-stat-val" id="misbahaTotalValue">0</span>
+          <span class="misbaha-stat-val" id="misbahaTotalValue">٠</span>
         </div>
       </div>
     </div>
@@ -1105,6 +1185,7 @@
 
   <!-- Application Core Modules -->
   <script src="js/core/storage.js"></script>
+  <script src="js/core/app-utils.js"></script>
   <script src="js/core/router.js"></script>
   <script src="js/modules/qibla.js"></script>
   <script src="js/modules/misbaha.js"></script>

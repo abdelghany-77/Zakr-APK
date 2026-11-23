@@ -453,6 +453,220 @@
   padding: 4px 12px !important;
 }
 
+/* ── Prayer Calculation & Manual City Settings ───────────────────────────── */
+#adhanModal .prayer-settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s1);
+  margin-bottom: 10px;
+}
+
+#adhanModal .prayer-setting-block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+#adhanModal .prayer-setting-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#adhanModal .prayer-setting-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+
+#adhanModal .prayer-auto-loc-btn,
+#adhanModal .prayer-offset-reset-btn {
+  min-height: 28px;
+  padding: 3px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--pt-em-line);
+  background: var(--pt-em-bg);
+  color: var(--pt-em);
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+#adhanModal .prayer-offset-reset-btn {
+  border-color: var(--pt-line);
+  background: var(--pt-s2);
+  color: var(--pt-mu);
+}
+
+#adhanModal .prayer-city-current {
+  font-size: 11.5px;
+  color: var(--pt-em);
+  font-weight: 600;
+}
+
+#adhanModal .prayer-city-chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  max-height: 154px;
+  overflow-y: auto;
+  padding-top: 2px;
+}
+
+#adhanModal .prayer-city-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+  color: var(--pt-tx);
+  font-family: var(--font-sans);
+  text-align: start;
+  cursor: pointer;
+}
+
+#adhanModal .prayer-city-chip.is-selected {
+  border-color: var(--pt-em-line);
+  background: var(--pt-em-bg);
+}
+
+#adhanModal .prayer-city-chip-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+
+#adhanModal .prayer-city-chip-country {
+  font-size: 10px;
+  color: var(--pt-mu);
+}
+
+#adhanModal .prayer-city-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 12px 8px;
+  font-size: 11.5px;
+  color: var(--pt-mu);
+}
+
+#adhanModal .prayer-method-select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+  color: var(--pt-tx);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+}
+
+#adhanModal .prayer-school-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+#adhanModal .prayer-school-btn {
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 11px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+  color: var(--pt-mu);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#adhanModal .prayer-school-btn.active {
+  border-color: var(--pt-em-line);
+  background: var(--pt-em-bg);
+  color: var(--pt-em);
+}
+
+#adhanModal .prayer-offsets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+#adhanModal .prayer-offset-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 11px;
+  background: var(--pt-s2);
+  border: 1px solid var(--pt-line);
+}
+
+#adhanModal .prayer-offset-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pt-tx);
+}
+
+#adhanModal .prayer-offset-name i {
+  color: var(--pt-em);
+  font-size: 12px;
+  width: 16px;
+  text-align: center;
+}
+
+#adhanModal .prayer-offset-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#adhanModal .prayer-offset-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s1);
+  color: var(--pt-tx);
+  font-size: 15px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#adhanModal .prayer-offset-val {
+  min-width: 44px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--pt-mu);
+  direction: ltr;
+}
+
+#adhanModal .prayer-offset-val.is-modified {
+  color: var(--pt-em);
+}
+
 /* ── Accordion groupings on small screens ────────────────────────────────── */
 @media (max-width: 380px) {
   #adhanModal .adhan-theme-grid {

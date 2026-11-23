@@ -3223,8 +3223,7 @@ html {
 .nav-btn:focus,
 .action-btn:focus,
 .count-btn:focus {
-  outline: 2px solid #1a8a5c;
-  outline-offset: 2px;
+  outline: none;
 }
 
 /* Touch Feedback */
@@ -6672,13 +6671,15 @@ body.light-mode .qibla-mini-dial {
 /* Direction labels */
 .qmc-dir {
   position: absolute;
-  font-size: 0.6rem;
+  font-family: "Cairo", sans-serif;
+  font-size: 0.62rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.52);
   z-index: 2;
+  white-space: nowrap;
 }
 body.light-mode .qmc-dir {
-  color: rgba(0, 0, 0, 0.3);
+  color: rgba(0, 0, 0, 0.38);
 }
 .qmc-n {
   top: 4px;

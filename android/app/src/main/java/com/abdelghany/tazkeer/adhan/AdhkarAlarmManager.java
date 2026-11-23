@@ -9,8 +9,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
-import com.abdelghany.tazkeer.MainActivity;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -112,11 +110,8 @@ public final class AdhkarAlarmManager {
         int requestCode = requestCodeFor(reminder);
         PendingIntent operation = buildIntent(context, reminder, requestCode);
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                manager.setAlarmClock(
-                        new AlarmManager.AlarmClockInfo(triggerAt, buildShowIntent(context, requestCode)),
-                        operation
-                );
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, operation);
             } else {
                 manager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, operation);
             }
@@ -148,14 +143,6 @@ public final class AdhkarAlarmManager {
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
         return PendingIntent.getBroadcast(context, requestCode, intent, flags);
-    }
-
-    private static PendingIntent buildShowIntent(Context context, int requestCode) {
-        Intent intent = new Intent(context, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
-        return PendingIntent.getActivity(context, requestCode, intent, flags);
     }
 
     private static int requestCodeFor(JSONObject reminder) {

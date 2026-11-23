@@ -215,10 +215,23 @@
     updateMisbahaUI();
   }
 
-  function resetMisbaha() {
+  async function resetMisbaha() {
     if (misbahaCount === 0 && misbahaTotal === 0 && misbahaRounds === 0) return;
 
-    if (confirm("هل تريد تصفير عداد المسبحة والدورات؟")) {
+    var confirmed = false;
+    if (global.AppDialog && typeof global.AppDialog.confirm === "function") {
+      confirmed = await global.AppDialog.confirm({
+        title: "تصفير المسبحة",
+        message: "هل تريد تصفير عداد المسبحة والدورات الحالية؟",
+        confirmText: "تصفير",
+        cancelText: "إلغاء",
+        danger: true
+      });
+    } else {
+      confirmed = true;
+    }
+
+    if (confirmed) {
       misbahaCount = 0;
       misbahaTotal = 0;
       misbahaRounds = 0;

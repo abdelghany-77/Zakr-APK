@@ -56,6 +56,26 @@
     return read.length >= totalChapters;
   }
 
+  function fetchJsonWithTimeout(url, timeoutMs) {
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = null;
+    if (controller) {
+      timer = setTimeout(function () {
+        try { controller.abort(); } catch (e) {}
+      }, timeoutMs || 10000);
+    }
+    return fetch(url, controller ? { signal: controller.signal } : undefined)
+      .then(function (r) {
+        if (!r || !r.ok) {
+          throw new Error("HTTP " + (r ? r.status : 0));
+        }
+        return r.json();
+      })
+      .finally(function () {
+        if (timer) clearTimeout(timer);
+      });
+  }
+
   // ── Bootstrap ──────────────────────────────────────────────
   window.initProphetsTab = function () {
     var container = document.getElementById("prophetsPageContent");
@@ -65,22 +85,22 @@
     var savedFont = window.SafeStorage ? window.SafeStorage.get(LS_FONT) : localStorage.getItem(LS_FONT);
     if (savedFont) readerFontSize = parseInt(savedFont, 10) || 18;
 
-    if (prophetsIndex) {
+    if (Array.isArray(prophetsIndex) && prophetsIndex.length > 0) {
       renderGrid(container);
     } else {
       container.innerHTML =
         '<div class="prophets-loader"><div class="prophets-spinner"></div><span>جارٍ تحميل قائمة الأنبياء...</span></div>';
-      fetch("data/prophets-index.json")
-        .then(function (r) {
-          return r.json();
-        })
+      fetchJsonWithTimeout("data/prophets-index.json", 10000)
         .then(function (data) {
+          if (!Array.isArray(data) || data.length === 0) {
+            throw new Error("Invalid prophets index");
+          }
           prophetsIndex = data;
           renderGrid(container);
         })
         .catch(function () {
           container.innerHTML =
-            '<div class="prophets-error"><i class="fas fa-exclamation-triangle"></i><p>تعذّر تحميل البيانات. تأكّد من الاتصال بالإنترنت.</p><button class="prophets-retry-btn" onclick="initProphetsTab()">إعادة المحاولة</button></div>';
+            '<div class="prophets-error"><i class="fas fa-wifi"></i><p>تعذّر تحميل قائمة الأنبياء حالياً. تأكّد من اتصالك بالإنترنت ثم أعد المحاولة.</p><button class="prophets-retry-btn" onclick="initProphetsTab()">إعادة المحاولة</button></div>';
         });
     }
   };
@@ -90,18 +110,50 @@
   var prophetsFilter = "all";
 
   function arDigit(value) {
+    if (window.TazkeerUtils && typeof window.TazkeerUtils.toArabicDigits === "function") {
+      return window.TazkeerUtils.toArabicDigits(value);
+    }
     if (typeof window.toArabicDigits === "function") {
       return window.toArabicDigits(value);
     }
-    return String(value);
+    return convertToArabicNum(value);
+  }
+
+  function formatProphetCount(count, unitKey) {
+    if (window.TazkeerUtils && typeof window.TazkeerUtils.formatArabicCount === "function") {
+      return window.TazkeerUtils.formatArabicCount(count, unitKey);
+    }
+    return arDigit(count);
+  }
+
+  function formatProphetUnitLabel(count, unitKey) {
+    if (window.TazkeerUtils && typeof window.TazkeerUtils.formatArabicUnitLabel === "function") {
+      return window.TazkeerUtils.formatArabicUnitLabel(count, unitKey);
+    }
+    return "";
   }
 
   function shortName(name) {
-    return String(name).replace(/\s*عليه\s+السلام\s*$/, "").trim();
+    return String(name || "")
+      .replace(/\s*عليه\s+السلام\s*$/, "")
+      .replace(/\s*صلى\s+الله\s+عليه\s+وسلم\s*$/, "")
+      .replace(/\s*ﷺ\s*$/, "")
+      .trim();
+  }
+
+  function formatProphetDisplayName(prophet) {
+    var base = shortName(prophet && prophet.name);
+    var isMuhammad =
+      (prophet && prophet.slug === "muhammad") ||
+      String((prophet && prophet.name) || "").indexOf("ﷺ") !== -1;
+    return base + (isMuhammad ? " <em>ﷺ</em>" : " <em>عليه السلام</em>");
   }
 
   function normalizeText(text) {
-    return String(text)
+    if (window.TazkeerUtils && typeof window.TazkeerUtils.normalizeArabic === "function") {
+      return window.TazkeerUtils.normalizeArabic(text);
+    }
+    return String(text || "")
       .replace(/[\u064B-\u0652\u0670\u0640]/g, "")
       .replace(/[أإآٱ]/g, "ا")
       .replace(/ى/g, "ي")
@@ -176,8 +228,8 @@
       '<div class="pt-topbar__titles">' +
       '<h1 class="pt-title">قصص الأنبياء</h1>' +
       '<span class="pt-sub">' +
-      arDigit(prophetsIndex.length) +
-      " نبيًا · موثقة من القرآن والسنة</span>" +
+      formatProphetCount(prophetsIndex.length, "prophet") +
+      " — موثّقة من القرآن والسنة</span>" +
       "</div>" +
       '<div class="pt-topbar__actions">' +
       '<button class="pt-iconbtn" onclick="window.focusProphetSearch()" title="بحث" aria-label="بحث">' +
@@ -287,8 +339,7 @@
         orderNo +
         "</span>" +
         '<span class="pt-proph-row__name">' +
-        shortName(p.name) +
-        ' <em>عليه السلام</em>' +
+        formatProphetDisplayName(p) +
         "</span>";
 
       // End side of the head line: completion check or «أولو العزم» badge
@@ -309,8 +360,8 @@
         if (p.chapterCount > 0) {
           html +=
             '<span class="pt-proph-row__pill">' +
-            arDigit(p.chapterCount) +
-            " فصول</span>";
+            formatProphetCount(p.chapterCount, "chapter") +
+            "</span>";
         }
         if (p.readingTimeMinutes) {
           html +=
@@ -321,8 +372,8 @@
         if (p.quranMentions) {
           html +=
             '<span class="pt-proph-row__pill"><i class="fas fa-book-open"></i> ' +
-            arDigit(p.quranMentions) +
-            " ذكرًا</span>";
+            formatProphetCount(p.quranMentions, "mention") +
+            "</span>";
         }
       } else {
         html += '<span class="pt-proph-row__pill">قريبًا</span>';
@@ -439,18 +490,18 @@
     container.innerHTML =
       '<div class="prophets-loader"><div class="prophets-spinner"></div><span>جارٍ تحميل القصة...</span></div>';
 
-    fetch("data/prophets/" + slug + ".json")
-      .then(function (r) {
-        return r.json();
-      })
+    fetchJsonWithTimeout("data/prophets/" + slug + ".json", 10000)
       .then(function (data) {
+        if (!data || !Array.isArray(data.chapters) || data.chapters.length === 0) {
+          throw new Error("Invalid prophet story");
+        }
         prophetsCache.set(slug, data);
         currentProphet = data;
         enterReader(container, targetChapterIdx);
       })
       .catch(function () {
         container.innerHTML =
-          '<div class="prophets-error"><i class="fas fa-exclamation-triangle"></i><p>تعذّر تحميل القصة.</p><button class="prophets-retry-btn" onclick="window._openProphet(\'' +
+          '<div class="prophets-error"><i class="fas fa-wifi"></i><p>تعذّر تحميل القصة دون اتصال بالإنترنت. يرجى الاتصال والمحاولة مجدداً.</p><button class="prophets-retry-btn" onclick="window._openProphet(\'' +
           slug +
           '\')">إعادة المحاولة</button><button class="prophets-retry-btn prophets-retry-secondary" onclick="initProphetsTab()">العودة</button></div>';
       });
@@ -663,8 +714,8 @@
     if (ch.readingTimeMinutes)
       html +=
         '<span><i class="fas fa-clock"></i> ' +
-        ch.readingTimeMinutes +
-        " دقيقة قراءة</span>";
+        formatProphetCount(ch.readingTimeMinutes, "minute") +
+        " قراءة</span>";
     html += "</div>";
 
     // Paragraphs with drop cap on first
@@ -730,7 +781,7 @@
     var readingTime = document.getElementById("prReadingTime");
     if (readingTime && ch.readingTimeMinutes) {
       readingTime.innerHTML =
-        '<i class="fas fa-clock"></i> ' + ch.readingTimeMinutes + " دقيقة";
+        '<i class="fas fa-clock"></i> ' + formatProphetCount(ch.readingTimeMinutes, "minute");
     }
 
     // Update nav indicator
@@ -896,9 +947,9 @@
 
     // Stats
     html += '<div class="pr-completion-stats">';
-    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(readCount) + '</span><span class="pr-completion-stat-label">فصل مقروء</span></div>';
-    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(totalTime) + '</span><span class="pr-completion-stat-label">دقيقة قراءة</span></div>';
-    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(p.quranMentions) + '</span><span class="pr-completion-stat-label">ذكر في القرآن</span></div>';
+    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(readCount) + '</span><span class="pr-completion-stat-label">' + formatProphetUnitLabel(readCount, "chapter") + '</span></div>';
+    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(totalTime) + '</span><span class="pr-completion-stat-label">' + formatProphetUnitLabel(totalTime, "minute") + ' قراءة</span></div>';
+    html += '<div class="pr-completion-stat"><span class="pr-completion-stat-num">' + convertToArabicNum(p.quranMentions) + '</span><span class="pr-completion-stat-label">ذِكراً في القرآن</span></div>';
     html += '</div>';
 
     // Dua
@@ -908,8 +959,8 @@
     html += '<div class="pr-completion-actions">';
     if (nextProphet && nextProphet.chapterCount > 0) {
       html += '<button class="pr-completion-btn pr-completion-btn--primary" onclick="window._exitReader(); setTimeout(function(){ window._openProphet(\'' + nextProphet.slug + '\'); }, 300);">';
-      html += '<i class="fas fa-arrow-left"></i>';
       html += '<span>القصة التالية: ' + nextProphet.name + '</span>';
+      html += '<i class="fas fa-arrow-left"></i>';
       html += '</button>';
     }
     html += '<button class="pr-completion-btn pr-completion-btn--secondary" onclick="window._exitReader()">';
@@ -1002,7 +1053,7 @@
 
       if (ch.readingTimeMinutes && !isRead)
         html +=
-          '<span class="pr-drawer-time">' + ch.readingTimeMinutes + " د</span>";
+          '<span class="pr-drawer-time">' + convertToArabicNum(ch.readingTimeMinutes) + " د</span>";
       html += "</button>";
     });
     listEl.innerHTML = html;
@@ -1021,7 +1072,7 @@
 
     var html = '';
     html += '<div class="pr-drawer-progress-bar"><div class="pr-drawer-progress-fill" style="width:' + pct + '%"></div></div>';
-    html += '<div class="pr-drawer-progress-text">' + convertToArabicNum(readChapters.length) + ' من ' + convertToArabicNum(total) + ' فصول مقروءة (' + convertToArabicNum(pct) + '٪)</div>';
+    html += '<div class="pr-drawer-progress-text">' + convertToArabicNum(readChapters.length) + ' من ' + formatProphetCount(total, "chapter") + ' (' + convertToArabicNum(pct) + '٪)</div>';
     progressEl.innerHTML = html;
   }
 

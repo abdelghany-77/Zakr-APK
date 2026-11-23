@@ -222,7 +222,14 @@
       }
     } catch (err) {
       console.error("[SafeStorage] Export error:", err);
-      alert("تعذر تصدير البيانات: " + err.message);
+      if (global.AppDialog && typeof global.AppDialog.alert === "function") {
+        global.AppDialog.alert({
+          title: "تعذر التصدير",
+          message: "تعذر تصدير النسخة الاحتياطية: " + (err && err.message ? err.message : "خطأ غير متوقع")
+        });
+      } else if (typeof global.showNotification === "function") {
+        global.showNotification("تعذر تصدير النسخة الاحتياطية", "error");
+      }
     }
   };
 
@@ -248,7 +255,14 @@
     var reader = new FileReader();
     reader.onerror = function (err) {
       console.error("[SafeStorage] FileReader error:", err);
-      alert("تعذر قراءة الملف المختار. يرجى المحاولة مرة أخرى.");
+      if (global.AppDialog && typeof global.AppDialog.alert === "function") {
+        global.AppDialog.alert({
+          title: "تعذر قراءة الملف",
+          message: "تعذر قراءة الملف المختار. يرجى المحاولة مرة أخرى."
+        });
+      } else if (typeof global.showNotification === "function") {
+        global.showNotification("تعذر قراءة الملف المختار", "error");
+      }
       if (input) input.value = "";
     };
 
@@ -377,10 +391,16 @@
           }
         }
 
+        var countText =
+          global.TazkeerUtils && typeof global.TazkeerUtils.formatArabicCount === "function"
+            ? global.TazkeerUtils.formatArabicCount(count, "item")
+            : count + " عناصر";
+        var successMsg = "تمت استعادة " + countText + " بنجاح! جارٍ التحديث...";
+
         if (typeof global.showNotification === "function") {
-          global.showNotification("تمت استعادة " + count + " عنصر بنجاح! جاري التحديث...");
+          global.showNotification(successMsg);
         } else if (typeof global.showEnhancedNotification === "function") {
-          global.showEnhancedNotification("تمت استعادة " + count + " عنصر بنجاح! جاري التحديث...", "success", 3000);
+          global.showEnhancedNotification(successMsg, "success", 3000);
         }
 
         setTimeout(function () {
@@ -388,7 +408,17 @@
         }, 800);
       } catch (err) {
         console.error("[SafeStorage] Import error:", err);
-        alert("فشل استيراد الملف: " + (err.message || "يرجى التأكد من اختيار ملف JSON صالح لتطبيق ذَكِّرْ."));
+        var errMsg =
+          "فشل استيراد الملف: " +
+          (err && err.message ? err.message : "يرجى التأكد من اختيار ملف نسخة احتياطية صالح لتطبيق ذَكِّرْ.");
+        if (global.AppDialog && typeof global.AppDialog.alert === "function") {
+          global.AppDialog.alert({
+            title: "تعذر الاستيراد",
+            message: errMsg
+          });
+        } else if (typeof global.showNotification === "function") {
+          global.showNotification(errMsg, "error");
+        }
       } finally {
         if (input) input.value = "";
       }

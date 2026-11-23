@@ -19,6 +19,41 @@
   var currentNeedleAngle = null;
   var lastHapticAligned = false;
 
+  function _arNum(val) {
+    if (global.TazkeerUtils && typeof global.TazkeerUtils.toArabicDigits === "function") {
+      return global.TazkeerUtils.toArabicDigits(val);
+    }
+    return String(val).replace(/\d/g, function (d) {
+      return "٠١٢٣٤٥٦٧٨٩"[d];
+    });
+  }
+
+  function _resolveSavedLocation() {
+    if (global.TazkeerUtils && typeof global.TazkeerUtils.getPrayerSettings === "function") {
+      var prayerCfg = global.TazkeerUtils.getPrayerSettings();
+      if (prayerCfg && prayerCfg.manualCity && isFinite(prayerCfg.manualCity.lat) && isFinite(prayerCfg.manualCity.lng)) {
+        return {
+          lat: Number(prayerCfg.manualCity.lat),
+          lng: Number(prayerCfg.manualCity.lng)
+        };
+      }
+    }
+    var saved = null;
+    if (global.SafeStorage && typeof global.SafeStorage.getJSON === "function") {
+      saved = global.SafeStorage.getJSON("prayerLocation");
+    }
+    if (!saved) {
+      try {
+        var raw = localStorage.getItem("prayerLocation");
+        if (raw) saved = JSON.parse(raw);
+      } catch (e) {}
+    }
+    if (saved && isFinite(Number(saved.latitude)) && isFinite(Number(saved.longitude))) {
+      return { lat: parseFloat(saved.latitude), lng: parseFloat(saved.longitude) };
+    }
+    return { lat: 30.0444, lng: 31.2357 }; // Cairo default fallback
+  }
+
   function _closeQiblaInternal() {
     var modal = document.getElementById("qiblaModal");
     if (!modal) return;
@@ -59,22 +94,8 @@
     modal.style.display = "flex";
     document.body.style.overflow = "hidden";
 
-    // Always fetch latest user location coords from storage or Cairo default
-    var saved = null;
-    if (global.SafeStorage && typeof global.SafeStorage.getJSON === "function") {
-      saved = global.SafeStorage.getJSON("prayerLocation");
-    }
-    if (!saved) {
-      try {
-        var raw = localStorage.getItem("prayerLocation");
-        if (raw) saved = JSON.parse(raw);
-      } catch (e) {}
-    }
-    if (saved && saved.latitude && saved.longitude) {
-      userLocation = { lat: parseFloat(saved.latitude), lng: parseFloat(saved.longitude) };
-    } else {
-      userLocation = { lat: 30.0444, lng: 31.2357 }; // Cairo default fallback
-    }
+    // Always resolve latest coordinates (respecting manual city selection)
+    userLocation = _resolveSavedLocation();
 
     displayStaticQibla();
     setupCompass();
@@ -95,13 +116,28 @@
 
   function initializeQiblaCompass() {
     var calibrateBtn = document.getElementById("qiblaCalibrateBtn");
-    if (calibrateBtn) {
+    if (calibrateBtn && !calibrateBtn._qiblaBound) {
+      calibrateBtn._qiblaBound = true;
       calibrateBtn.addEventListener("click", requestQiblaPermissions);
     }
   }
 
   function requestQiblaPermissions() {
-    updateQiblaStatus("جاري تحديد الموقع بدقة ومعايرة البوصلة...");
+    updateQiblaStatus("جارٍ تحديد الموقع بدقة ومعايرة البوصلة...");
+
+    var prayerCfg =
+      global.TazkeerUtils && typeof global.TazkeerUtils.getPrayerSettings === "function"
+        ? global.TazkeerUtils.getPrayerSettings()
+        : null;
+    if (prayerCfg && prayerCfg.manualCity) {
+      userLocation = {
+        lat: Number(prayerCfg.manualCity.lat),
+        lng: Number(prayerCfg.manualCity.lng)
+      };
+      displayStaticQibla();
+      setupCompass();
+      return;
+    }
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -122,11 +158,11 @@
                 if (response === "granted") {
                   setupCompass();
                 } else {
-                  updateQiblaStatus("اتجاه القبلة: " + Math.round(calculateQiblaDirection()) + "° من الشمال");
+                  updateQiblaStatus("اتجاه القبلة: " + _arNum(Math.round(calculateQiblaDirection())) + "° من الشمال");
                 }
               })
               .catch(function () {
-                updateQiblaStatus("اتجاه القبلة: " + Math.round(calculateQiblaDirection()) + "° من الشمال");
+                updateQiblaStatus("اتجاه القبلة: " + _arNum(Math.round(calculateQiblaDirection())) + "° من الشمال");
               });
           } else {
             setupCompass();
@@ -180,7 +216,10 @@
     ) {
       try {
         var plugin = global.Capacitor.Plugins.AdhanScheduler;
-        plugin.startCompass();
+        plugin.startCompass({
+          lat: userLocation ? userLocation.lat : 30.0444,
+          lng: userLocation ? userLocation.lng : 31.2357
+        });
 
         if (!nativeCompassListener) {
           plugin.addListener("compassHeading", function (data) {
@@ -193,7 +232,7 @@
           });
         }
 
-        updateQiblaStatus("البوصلة تعمل بالحساسات الأصلية - حرّك هاتفك بشكل أفقي");
+        updateQiblaStatus("البوصلة تعمل بالحساسات الأصلية — حرّك هاتفك بشكل أفقي");
         return;
       } catch (e) {
         console.warn("[Qibla] Native compass initialization error:", e);
@@ -207,10 +246,10 @@
       } else {
         window.addEventListener("deviceorientation", handleOrientationStandard, true);
       }
-      updateQiblaStatus("البوصلة تعمل - حرّك هاتفك بشكل أفقي");
+      updateQiblaStatus("البوصلة تعمل — حرّك هاتفك بشكل أفقي");
     } else {
       var dir = Math.round(calculateQiblaDirection());
-      updateQiblaStatus("اتجاه القبلة: " + dir + "° من الشمال");
+      updateQiblaStatus("اتجاه القبلة: " + _arNum(dir) + "° من الشمال");
     }
   }
 
@@ -259,7 +298,7 @@
     needle.style.transform = "translate(-50%, -100%) rotate(" + currentNeedleAngle + "deg)";
 
     if (degreesEl) {
-      degreesEl.textContent = Math.round(qiblaDirection) + "°";
+      degreesEl.textContent = _arNum(Math.round(qiblaDirection)) + "°";
     }
 
     // Alignment detection: check if needle points straight UP (within +/- 8 deg)
@@ -285,7 +324,7 @@
         }
       } else {
         lastHapticAligned = false;
-        statusEl.textContent = "وجّه هاتفك نحو الكعبة المشرفة (" + Math.round(qiblaDirection) + "°)";
+        statusEl.textContent = "وجّه هاتفك نحو الكعبة المشرفة (" + _arNum(Math.round(qiblaDirection)) + "°)";
       }
     }
   }
@@ -298,7 +337,7 @@
     var needle = document.getElementById("compassNeedle");
 
     if (degreesEl) {
-      degreesEl.textContent = Math.round(qiblaDirection) + "°";
+      degreesEl.textContent = _arNum(Math.round(qiblaDirection)) + "°";
     }
 
     if (needle) {

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import vm from "node:vm";
 import test from "node:test";
 import {
+  addMinutesToLocalDateTime,
   buildDailySchedule,
   hasScheduleChanged,
   localDateKey,
@@ -16,6 +20,18 @@ import {
   createBackupPayload,
   validateBackupPayload,
 } from "../js/core/storage-schema.mjs";
+
+function loadTazkeerUtils() {
+  const code = fs.readFileSync(
+    path.resolve("js/core/app-utils.js"),
+    "utf8"
+  );
+  const sandbox = { window: {}, globalThis: {} };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  vm.runInNewContext(code, sandbox);
+  return sandbox.TazkeerUtils;
+}
 
 test("parses only valid local times", () => {
   assert.deepEqual(parseLocalTime("05:07"), { hours: 5, minutes: 7 });
@@ -103,4 +119,52 @@ test("detects schedule replacement and preserves unchanged schedules", () => {
   assert.equal(hasScheduleChanged(schedule, schedule.map((entry) => ({ ...entry }))), false);
   assert.equal(hasScheduleChanged(schedule, [{ ...schedule[0], time: schedule[0].time + 60000 }]), true);
   assert.equal(hasScheduleChanged(schedule, []), true);
+});
+
+test("rolls over post-23:00 local schedules cleanly into the next day", () => {
+  const base = new Date(2026, 10, 10, 0, 0, 0);
+  const rolled = addMinutesToLocalDateTime(base, "23:30", 90);
+  assert.ok(rolled);
+  assert.equal(rolled.dateKey, "2026-11-11");
+  assert.equal(rolled.timeOfDay, "01:00");
+  assert.equal(rolled.date.getHours(), 1);
+  assert.equal(rolled.date.getMinutes(), 0);
+});
+
+test("TazkeerUtils normalizes Arabic search queries consistently", () => {
+  const utils = loadTazkeerUtils();
+  assert.equal(utils.normalizeArabic("أَذْكَارُ الصَّبَاحِ"), "اذكار الصباح");
+  assert.equal(utils.normalizeArabic("آل عِمران"), "ال عمران");
+  assert.equal(utils.normalizeArabic("مُحَمَّد"), "محمد");
+  assert.equal(utils.normalizeArabic("القاهرة"), utils.normalizeArabic("القاهره"));
+});
+
+test("TazkeerUtils formats classical Arabic countable grammar accurately", () => {
+  const utils = loadTazkeerUtils();
+  assert.equal(utils.formatArabicCount(0, "elapsedDay"), "٠ يوم مضى");
+  assert.equal(utils.formatArabicCount(29, "remainingDay"), "٢٩ يوماً متبقياً");
+  assert.equal(utils.formatArabicCount(7, "consecutiveDay"), "٧ أيام متتالية");
+  assert.equal(utils.formatArabicCount(604, "page"), "٦٠٤ صفحات");
+  assert.equal(utils.formatArabicCount(114, "surah"), "١١٤ سورة");
+  assert.equal(utils.formatArabicCount(25, "prophet"), "٢٥ نبياً");
+  assert.equal(utils.formatArabicCount(7, "ayah"), "٧ آيات");
+});
+
+test("TazkeerUtils unifies prayer calculation method, offsets, and city search", () => {
+  const utils = loadTazkeerUtils();
+  assert.equal(utils.detectCalculationMethod(30.0444, 31.2357), 5); // Egypt
+  assert.equal(utils.detectCalculationMethod(21.4225, 39.8262), 4); // Umm al-Qura
+  const adjusted = utils.applyMinuteOffsets(
+    { Fajr: "04:30 (EET)", Maghrib: "18:55" },
+    { Fajr: -5, Maghrib: 10 }
+  );
+  assert.equal(adjusted.Fajr, "04:25");
+  assert.equal(adjusted.Maghrib, "19:05");
+  const qs = utils.buildAlAdhanQueryParams(30.04, 31.23, { method: 5, school: 1 });
+  assert.equal(qs.method, 5);
+  assert.equal(qs.school, 1);
+  assert.match(qs.queryString, /method=5/);
+  assert.match(qs.queryString, /school=1/);
+  const matches = utils.searchPresetCities("مكه");
+  assert.ok(matches.some((c) => c.id === "makkah"));
 });

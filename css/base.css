@@ -2,8 +2,95 @@
    Tazkeer v2 — Base layout & the application shell
    ============================================================================ */
 
+*,
+*::before,
+*::after {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+  -webkit-touch-callout: none;
+}
+
 html {
   background-color: transparent !important;
+  overscroll-behavior-y: none;
+}
+
+body {
+  overscroll-behavior-y: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+button,
+a,
+[role="button"],
+.misbaha-container,
+.misbaha-center,
+.misbaha-tap-btn,
+.slide-counter-btn,
+.slide-nav-arrow,
+.azkar-slide,
+.bottom-nav-item,
+.category-card,
+.pt-settings__row,
+.pt-surah,
+.pt-proph-row,
+.pt-remind-row {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+  touch-action: manipulation;
+}
+
+button:focus,
+button:focus-visible,
+a:focus,
+a:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible,
+.misbaha-tap-btn:focus,
+.misbaha-tap-btn:focus-visible,
+.misbaha-tap-btn:active,
+.misbaha-tap-btn:hover,
+.slide-counter-btn:focus,
+.slide-counter-btn:focus-visible,
+.slide-counter-btn:active,
+.azkar-slide:focus,
+.bottom-nav-item:focus,
+.category-card:focus {
+  outline: none !important;
+}
+
+.misbaha-tap-btn,
+.misbaha-tap-btn:focus,
+.misbaha-tap-btn:focus-visible,
+.misbaha-tap-btn:active,
+.misbaha-tap-btn:hover {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border-radius: 50% !important;
+}
+
+.tap-anywhere-ripple,
+.mushaf-tap-ripple {
+  display: none !important;
+}
+
+img,
+svg,
+a,
+button {
+  -webkit-user-drag: none;
 }
 
 body::before {
@@ -31,6 +118,17 @@ body {
   color: var(--pt-tx);
   background-color: var(--pt-bg);
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 body.dark-mode,
@@ -196,6 +294,15 @@ main,
 
 /* ── Bottom navigation ───────────────────────────────────────────────────── */
 .bottom-nav {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 0.88fr)
+    minmax(0, 0.82fr)
+    minmax(0, 1.24fr)
+    minmax(0, 1.24fr)
+    minmax(0, 0.82fr);
+  align-items: center;
+  column-gap: 2px;
   height: calc(var(--pt-nav-h) + env(safe-area-inset-bottom, 0px)) !important;
   min-height: calc(var(--pt-nav-h) + env(safe-area-inset-bottom, 0px)) !important;
   padding: 6px 6px max(6px, env(safe-area-inset-bottom, 0px)) !important;
@@ -204,6 +311,12 @@ main,
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28) !important;
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
+}
+
+/* Always honor immersive reader hide state (Mushaf & Prophets reader) */
+.bottom-nav.hidden,
+.bottom-nav[style*="display: none"] {
+  display: none !important;
 }
 
 body.light-mode .bottom-nav {
@@ -218,11 +331,12 @@ body.light-mode .bottom-nav {
 }
 
 .bottom-nav-item {
-  flex: 1;
-  gap: 4px !important;
-  padding: 4px 0 !important;
+  min-width: 0;
+  width: 100%;
+  gap: 3px !important;
+  padding: 4px 2px !important;
   color: var(--pt-mu) !important;
-  font-size: 10.5px !important;
+  font-size: clamp(9.5px, 2.75vw, 11.5px) !important;
   font-weight: 600 !important;
   border-radius: 16px;
 }
@@ -237,28 +351,44 @@ body.light-mode .bottom-nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 30px;
-  border-radius: 15px;
+  width: 48px;
+  max-width: 100%;
+  height: 28px;
+  border-radius: 14px;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .pt-nav-ico i {
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1;
 }
 
 .bottom-nav-item span.pt-nav-label {
-  line-height: 1.1;
-  font-size: 11px;
+  display: block;
+  width: 100%;
+  text-align: center;
+  line-height: 1.15;
+  font-size: clamp(9.5px, 2.75vw, 11.5px);
   font-weight: 600;
   white-space: nowrap;
+  letter-spacing: 0;
 }
 
-@media (max-width: 365px) {
+@media (max-width: 375px) {
+  .bottom-nav {
+    column-gap: 1px;
+    padding-inline: 3px !important;
+  }
+  .pt-nav-ico {
+    width: 42px;
+    height: 26px;
+  }
+  .pt-nav-ico i {
+    font-size: 17px;
+  }
   .bottom-nav-item span.pt-nav-label,
   .bottom-nav-item {
-    font-size: 10.5px !important;
+    font-size: clamp(9px, 2.6vw, 10.5px) !important;
   }
 }
 
@@ -284,4 +414,341 @@ body.light-mode .bottom-nav {
 .quick-access,
 .quick-home {
   bottom: calc(var(--pt-nav-h) + 16px) !important;
+}
+
+/* ── Native In-App Confirmation / Alert Dialog (AppDialog) ───────────────── */
+.app-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 11, 14, 0.72);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.app-dialog-overlay.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.app-dialog-card {
+  width: 100%;
+  max-width: 340px;
+  padding: 22px 20px 18px;
+  border-radius: 22px;
+  background: var(--pt-s1);
+  border: 1px solid var(--pt-line-2);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transform: scale(0.94);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.app-dialog-overlay.active .app-dialog-card {
+  transform: scale(1);
+}
+
+.app-dialog-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  background: var(--pt-em-bg);
+  color: var(--pt-em);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.app-dialog-icon--danger {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+}
+
+body.light-mode .app-dialog-icon--danger {
+  color: #dc2626;
+}
+
+.app-dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+
+.app-dialog-message {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--pt-mu);
+}
+
+.app-dialog-actions {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.app-dialog-btn {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 13px;
+  border: 1px solid var(--pt-line);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.app-dialog-btn:active {
+  transform: scale(0.97);
+}
+
+.app-dialog-btn--cancel {
+  background: var(--pt-s2);
+  color: var(--pt-mu);
+}
+
+.app-dialog-btn--confirm {
+  background: var(--pt-em);
+  border-color: transparent;
+  color: #05231c;
+}
+
+body.light-mode .app-dialog-btn--confirm {
+  color: #ffffff;
+}
+
+.app-dialog-btn--danger {
+  background: #dc2626;
+  border-color: transparent;
+  color: #ffffff;
+}
+
+/* ── In-App Update Available Modal ───────────────────────────────────────── */
+.app-update-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 11, 14, 0.74);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+
+.app-update-modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.app-update-modal-card {
+  width: 100%;
+  max-width: 344px;
+  padding: 24px 20px 20px;
+  border-radius: 22px;
+  background: var(--pt-s1);
+  border: 1px solid var(--pt-em-line);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.48);
+  text-align: center;
+  direction: rtl;
+  transform: scale(0.95) translateY(8px);
+  transition: transform 0.22s ease;
+}
+
+.app-update-modal-overlay.active .app-update-modal-card {
+  transform: scale(1) translateY(0);
+}
+
+.app-update-modal-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  border-radius: 18px;
+  background: var(--pt-em-bg);
+  border: 1px solid var(--pt-em-line);
+  color: var(--pt-em);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 23px;
+}
+
+.app-update-modal-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+
+.app-update-modal-desc {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--pt-mu);
+}
+
+.app-update-modal-version {
+  display: inline-block;
+  margin-bottom: 16px;
+  padding: 4px 12px;
+  border-radius: 10px;
+  background: var(--pt-s2);
+  border: 1px solid var(--pt-line);
+  color: var(--pt-em);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.app-update-modal-version.hidden {
+  display: none !important;
+}
+
+.app-update-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-update-modal-btn {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.app-update-modal-btn:active {
+  transform: scale(0.98);
+}
+
+.app-update-modal-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.app-update-modal-btn--primary {
+  border: none;
+  background: var(--pt-em);
+  color: #05231c;
+}
+
+body.light-mode .app-update-modal-btn--primary {
+  color: #ffffff;
+}
+
+.app-update-modal-btn--secondary {
+  border: 1px solid var(--pt-line);
+  background: transparent;
+  color: var(--pt-mu);
+}
+
+/* ── Location Modal Manual City Picker ───────────────────────────────────── */
+.loc-modal-manual-picker {
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--pt-line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: start;
+}
+
+.loc-city-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--pt-s2);
+  border: 1px solid var(--pt-line);
+}
+
+.loc-city-search-wrap i {
+  color: var(--pt-mu);
+  font-size: 13px;
+}
+
+.loc-city-search-wrap input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--pt-tx);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+}
+
+.loc-city-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  max-height: 156px;
+  overflow-y: auto;
+  padding-bottom: 2px;
+}
+
+.loc-city-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s1);
+  color: var(--pt-tx);
+  font-family: var(--font-sans);
+  text-align: start;
+  cursor: pointer;
+}
+
+.loc-city-option:active {
+  background: var(--pt-em-bg);
+  border-color: var(--pt-em-line);
+}
+
+.loc-city-option__name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+
+.loc-city-option__country {
+  font-size: 10.5px;
+  color: var(--pt-mu);
 }

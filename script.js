@@ -6,36 +6,61 @@ let totalCount = 0;
 let currentZikrText = "";
 let currentZikrIndex = null;
 
-// Enhanced global variables for UX improvements
-let favorites = JSON.parse(localStorage.getItem("zekrFavorites")) || [];
-let userPreferences = JSON.parse(localStorage.getItem("userPreferences")) || {
+// Enhanced global variables for UX improvements (SafeStorage-protected boot reads)
+function _safeReadJSON(key, fallback) {
+  if (window.SafeStorage && typeof window.SafeStorage.getJSON === "function") {
+    return window.SafeStorage.getJSON(key, fallback);
+  }
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function _safeReadStr(key, fallback) {
+  if (window.SafeStorage && typeof window.SafeStorage.get === "function") {
+    return window.SafeStorage.get(key, fallback);
+  }
+  try {
+    const raw = localStorage.getItem(key);
+    return raw !== null ? raw : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+let favorites = _safeReadJSON("zekrFavorites", []) || [];
+let userPreferences = _safeReadJSON("userPreferences", null) || {
   fontSize: "medium",
   autoPlay: false,
   showFadl: true,
   soundEnabled: true,
   lastCategory: "all",
 };
-let dailyProgress = JSON.parse(localStorage.getItem("dailyProgress")) || {
+let dailyProgress = _safeReadJSON("dailyProgress", null) || {
   date: new Date().toDateString(),
   completedZekr: [],
-  streak: parseInt(localStorage.getItem("dailyStreak")) || 0,
-  totalCompletions: parseInt(localStorage.getItem("totalCompletions")) || 0,
+  streak: parseInt(_safeReadStr("dailyStreak", "0"), 10) || 0,
+  totalCompletions: parseInt(_safeReadStr("totalCompletions", "0"), 10) || 0,
 };
 
 // Check and update daily progress
 function checkDailyProgress() {
   const today = new Date().toDateString();
   if (dailyProgress.date !== today) {
-    // New day - reset daily progress but maintain streak
+    // New day - advance streak only if yesterday had completions, otherwise reset streak
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (
       dailyProgress.date === yesterday.toDateString() &&
+      Array.isArray(dailyProgress.completedZekr) &&
       dailyProgress.completedZekr.length > 0
     ) {
-      dailyProgress.streak++;
-    } else if (dailyProgress.completedZekr.length === 0) {
+      dailyProgress.streak = (Number(dailyProgress.streak) || 0) + 1;
+    } else {
       dailyProgress.streak = 0;
     }
 
@@ -48,7 +73,11 @@ function checkDailyProgress() {
       adhkarData[cat].adhkar.forEach((z) => {
         z.currentCount = 0;
       });
-      localStorage.removeItem("swiperPos_" + cat);
+      if (window.SafeStorage) {
+        window.SafeStorage.remove("swiperPos_" + cat);
+      } else {
+        localStorage.removeItem("swiperPos_" + cat);
+      }
     });
     saveProgress();
   }
@@ -56,12 +85,18 @@ function checkDailyProgress() {
 }
 
 function saveDailyProgress() {
-  localStorage.setItem("dailyProgress", JSON.stringify(dailyProgress));
-  localStorage.setItem("dailyStreak", dailyProgress.streak.toString());
-  localStorage.setItem(
-    "totalCompletions",
-    dailyProgress.totalCompletions.toString(),
-  );
+  if (window.SafeStorage) {
+    window.SafeStorage.setJSON("dailyProgress", dailyProgress);
+    window.SafeStorage.set("dailyStreak", String(dailyProgress.streak || 0));
+    window.SafeStorage.set("totalCompletions", String(dailyProgress.totalCompletions || 0));
+  } else {
+    localStorage.setItem("dailyProgress", JSON.stringify(dailyProgress));
+    localStorage.setItem("dailyStreak", dailyProgress.streak.toString());
+    localStorage.setItem(
+      "totalCompletions",
+      dailyProgress.totalCompletions.toString(),
+    );
+  }
 }
 
 function getWeeklyCompletions() {
@@ -497,10 +532,21 @@ function checkAndShowInstallInstructions() {
     }
   }
 
-  // Show instructions after a short delay for better UX
-  setTimeout(() => {
-    showManualInstallInstructions();
-  }, 1000);
+  // Queue install instructions so they never overlap first-run settings or location modal
+  if (window.TazkeerModalQueue) {
+    window.TazkeerModalQueue.enqueue({
+      id: "install-instructions",
+      delayMs: 1200,
+      shouldShow: () => !isStandaloneMode(),
+      show: () => {
+        showManualInstallInstructions();
+      },
+    });
+  } else {
+    setTimeout(() => {
+      showManualInstallInstructions();
+    }, 1200);
+  }
 }
 
 function showManualInstallInstructions() {
@@ -632,6 +678,10 @@ function dismissInstallModal(understood) {
   else {
     localStorage.setItem("installInstructionsRemindLater", Date.now());
   }
+
+  if (window.TazkeerModalQueue) {
+    window.TazkeerModalQueue.notifyClosed("install-instructions");
+  }
 }
 
 // Setup event listeners
@@ -705,11 +755,11 @@ function renderAzkarSuggestion() {
 
   const mode = getHeroCardMode(new Date());
   const content = {
-    morning: ["is-em", "fa-sun", "حان وقت أذكار الصباح", "من ٢٩ ذكرًا · نحو ٨ دقائق", "showCategoryPage('morning')", 30],
+    morning: ["is-em", "fa-sun", "حان وقت أذكار الصباح", "٢٩ ذكراً — نحو ٨ دقائق", "showCategoryPage('morning')", 30],
     midday: ["is-em", "fa-fingerprint", "حان وقت التسبيح", "سبّح واذكر الله بالمسبحة الإلكترونية", "openMisbaha()", 50],
-    evening: ["", "fa-cloud-moon", "حان وقت أذكار المساء", "من ٢٦ ذكرًا · نحو ٨ دقائق", "showCategoryPage('evening')", 70],
+    evening: ["", "fa-cloud-moon", "حان وقت أذكار المساء", "٢٦ ذكراً — نحو ٨ دقائق", "showCategoryPage('evening')", 70],
     maghrib: ["is-em", "fa-fingerprint", "حان وقت ذكر الله", "وقت مناسب للتسبيح بالمسبحة الإلكترونية", "openMisbaha()", 80],
-    night: ["", "fa-moon", "حان وقت أذكار النوم", "أذكار النوم وسورة الملك · نحو ٥ دقائق", "showCategoryPage('sleep')", 90],
+    night: ["", "fa-moon", "حان وقت أذكار النوم", "أذكار النوم وسورة الملك — نحو ٥ دقائق", "showCategoryPage('sleep')", 90],
     friday: ["is-gold", "fa-book-quran", "جمعة مباركة", "سورة الكهف والصلاة على النبي ﷺ", "openSurahAlKahf()", 65],
   }[mode];
   const [variant, icon, title, sub, action, progress] = content;
@@ -748,14 +798,20 @@ function toggleAzkarSearch() {
 }
 
 /**
- * Filter the Azkar category grid by name.
+ * Filter the Azkar category grid by normalized Arabic text.
  */
 function filterAzkarCategories(query) {
-  const q = (query || "").trim();
+  const norm =
+    window.TazkeerUtils && typeof window.TazkeerUtils.normalizeArabic === "function"
+      ? window.TazkeerUtils.normalizeArabic
+      : (s) => String(s || "").trim().toLowerCase();
+  const q = norm(query);
   const cards = document.querySelectorAll("#categoriesContainer .category-card");
   cards.forEach((card) => {
     const title = card.querySelector(".category-title");
-    const match = !q || (title && title.textContent.includes(q));
+    const desc = card.querySelector(".category-description");
+    const hay = norm(`${title ? title.textContent : ""} ${desc ? desc.textContent : ""}`);
+    const match = !q || hay.includes(q);
     card.style.display = match ? "" : "none";
   });
 
@@ -1345,31 +1401,9 @@ function createAdhkarSlide(zikr, index, category, track) {
       return;
     }
     decrementSlideCounter(category, index);
-    createTapRipple(e, slide);
   });
 
   track.appendChild(slide);
-}
-
-// Visual feedback ripple for Tap Anywhere Mode
-function createTapRipple(e, container) {
-  if (!container) return;
-  const ripple = document.createElement("span");
-  ripple.className = "tap-anywhere-ripple";
-  const rect = container.getBoundingClientRect();
-  const size = Math.max(rect.width, rect.height) * 0.45;
-  const clientX = e.clientX || rect.left + rect.width / 2;
-  const clientY = e.clientY || rect.top + rect.height / 2;
-  const x = clientX - rect.left - size / 2;
-  const y = clientY - rect.top - size / 2;
-  ripple.style.width = `${size}px`;
-  ripple.style.height = `${size}px`;
-  ripple.style.left = `${x}px`;
-  ripple.style.top = `${y}px`;
-  container.appendChild(ripple);
-  setTimeout(() => {
-    if (ripple.parentNode) ripple.parentNode.removeChild(ripple);
-  }, 600);
 }
 
 // Increment zikr count directly on card
@@ -1383,7 +1417,6 @@ function incrementZikrCount(category, index) {
     const cards = document.querySelectorAll(".adhkar-card");
     if (cards[index]) {
       const card = cards[index];
-      // Add pulse animation
       card.style.transform = "scale(0.98)";
       setTimeout(() => {
         card.style.transform = "scale(1)";
@@ -1414,7 +1447,7 @@ function incrementZikrCount(category, index) {
 
     if (allCompleted) {
       setTimeout(() => {
-        showNotification("تم إكمال الاذكار! بارك الله فيك");
+        showNotification("تم إكمال الأذكار! بارك الله فيك");
         // Reset counters after completion so they're fresh next time
         resetCategoryCounters(category);
       }, 300);
@@ -1423,24 +1456,27 @@ function incrementZikrCount(category, index) {
 }
 
 // Reset all adhkar in current category
-function resetAllAdhkar() {
+async function resetAllAdhkar() {
   if (!currentCategory) return;
 
-  // Show confirmation dialog
-  if (confirm("هل أنت متأكد من إعادة تعيين جميع الأذكار في هذا القسم؟")) {
-    // Reset all adhkar counts in the current category
+  const confirmed = window.AppDialog
+    ? await window.AppDialog.confirm({
+        title: "إعادة تعيين الأذكار",
+        message: "هل أنت متأكد من إعادة تعيين جميع الأذكار في هذا القسم؟",
+        confirmText: "إعادة تعيين",
+        cancelText: "إلغاء",
+        danger: true,
+      })
+    : true;
+
+  if (confirmed) {
     adhkarData[currentCategory].adhkar.forEach((zikr) => {
       zikr.currentCount = 0;
     });
 
-    // Save progress
     saveProgress();
-
-    // Update all cards in the current view
     updateAllCardsProgress(currentCategory);
-
-    // Show notification
-    showNotification("تم إعادة تعيين جميع الأذكار");
+    showNotification("تمت إعادة تعيين جميع الأذكار");
   }
 }
 
@@ -1841,13 +1877,6 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     if (currentCategory && _currentSwiperIndex !== null) {
       decrementSlideCounter(currentCategory, _currentSwiperIndex);
-      const track = document.getElementById("azkarSwiperTrack");
-      if (track) {
-        const slides = track.querySelectorAll(".azkar-slide");
-        if (slides[_currentSwiperIndex]) {
-          createTapRipple({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 }, slides[_currentSwiperIndex]);
-        }
-      }
     }
   }
 });
@@ -2007,6 +2036,139 @@ const isCapacitorNative =
   typeof window.Capacitor.isNativePlatform === "function" &&
   window.Capacitor.isNativePlatform();
 
+const TAZKEER_APP_VERSION = "2.2.0";
+let _activeUpdateWorker = null;
+let _updateModalShownThisSession = false;
+
+function compareSemver(a, b) {
+  const pa = String(a || "0.0.0").split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = String(b || "0.0.0").split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+    if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+  }
+  return 0;
+}
+
+function closeAppUpdateModal(syncRouter) {
+  const modal = document.getElementById("appUpdateModal");
+  if (modal) {
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
+  }
+  if (syncRouter !== false && window.AppRouter && window.AppRouter.isModalOpen("appUpdateModal")) {
+    window.AppRouter.closeModal("appUpdateModal");
+  }
+  if (window.TazkeerModalQueue) {
+    window.TazkeerModalQueue.complete("appUpdateModal");
+  }
+}
+
+function showAppUpdateModal(options) {
+  const opts = options || {};
+  const modal = document.getElementById("appUpdateModal");
+  const applyBtn = document.getElementById("appUpdateApplyBtn");
+  const dismissBtn = document.getElementById("appUpdateDismissBtn");
+  const descEl = document.getElementById("appUpdateModalDesc");
+  const versionEl = document.getElementById("appUpdateModalVersion");
+  if (!modal || !applyBtn) return;
+
+  if (opts.waitingWorker) {
+    _activeUpdateWorker = opts.waitingWorker;
+  }
+  if (_updateModalShownThisSession && !opts.force) return;
+  _updateModalShownThisSession = true;
+
+  const openModalNow = () => {
+    if (descEl) {
+      descEl.textContent =
+        opts.notes ||
+        "تتوفر نسخة أحدث من تطبيق ذَكِّرْ تتضمن تحسينات وإصلاحات جديدة. حدّث التطبيق الآن لتبقى دائماً على أحدث إصدار.";
+    }
+    if (versionEl) {
+      if (opts.version) {
+        const arVer =
+          typeof toArabicDigits === "function"
+            ? toArabicDigits(opts.version).replace(/\./g, "٫")
+            : opts.version;
+        versionEl.textContent = `الإصدار الجديد: ${arVer}`;
+        versionEl.classList.remove("hidden");
+      } else {
+        versionEl.classList.add("hidden");
+      }
+    }
+
+    applyBtn.disabled = false;
+    applyBtn.innerHTML = '<i class="fas fa-download"></i><span>تحديث الآن</span>';
+    applyBtn.onclick = () => {
+      if (_activeUpdateWorker) {
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>جارٍ التحديث...</span>';
+        _activeUpdateWorker.postMessage({ type: "SKIP_WAITING" });
+        setTimeout(() => {
+          window.location.reload();
+        }, 2500);
+      } else if (opts.storeUrl) {
+        window.location.href = opts.storeUrl;
+        closeAppUpdateModal();
+      } else {
+        window.location.reload();
+      }
+    };
+
+    if (dismissBtn) {
+      dismissBtn.onclick = () => closeAppUpdateModal();
+    }
+
+    modal.onclick = (e) => {
+      if (e.target === modal) closeAppUpdateModal();
+    };
+
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+
+    if (window.AppRouter && !window.AppRouter.isModalOpen("appUpdateModal")) {
+      window.AppRouter.pushModal("appUpdateModal", () => closeAppUpdateModal(false));
+    }
+  };
+
+  if (window.TazkeerModalQueue && typeof window.TazkeerModalQueue.enqueue === "function") {
+    window.TazkeerModalQueue.enqueue("appUpdateModal", openModalNow);
+  } else {
+    openModalNow();
+  }
+}
+
+function showSwUpdateBanner(waitingWorker) {
+  if (!waitingWorker) return;
+  showAppUpdateModal({ waitingWorker });
+}
+
+async function checkRemoteAppVersionUpdate() {
+  if (!navigator.onLine) return;
+  const manifestUrl = window.TAZKEER_UPDATE_MANIFEST_URL || "./version.json";
+  try {
+    const res = await fetch(manifestUrl, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.version && compareSemver(data.version, TAZKEER_APP_VERSION) > 0) {
+      showAppUpdateModal({
+        version: data.version,
+        notes: data.notes,
+        storeUrl:
+          data.storeUrl ||
+          "https://play.google.com/store/apps/details?id=com.abdelghany.tazkeer",
+      });
+    }
+  } catch (_) {
+    /* non-fatal offline or CORS */
+  }
+}
+
+window.showAppUpdateModal = showAppUpdateModal;
+window.closeAppUpdateModal = closeAppUpdateModal;
+window.showSwUpdateBanner = showSwUpdateBanner;
+
 if ("serviceWorker" in navigator) {
   if (isCapacitorNative) {
     // Upgrading from a build that registered a service worker? Remove it so
@@ -2020,12 +2182,46 @@ if ("serviceWorker" in navigator) {
       .catch(() => {
         /* non-fatal */
       });
+    window.addEventListener("load", () => {
+      setTimeout(checkRemoteAppVersionUpdate, 4500);
+    });
   } else {
+    let swRefreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (swRefreshing) return;
+      swRefreshing = true;
+      window.location.reload();
+    });
+
     window.addEventListener("load", () => {
       navigator.serviceWorker
         .register("./sw.js")
         .then((registration) => {
-          // Service worker registered successfully
+          if (registration.waiting) {
+            showAppUpdateModal({ waitingWorker: registration.waiting });
+          }
+          registration.addEventListener("updatefound", () => {
+            const installing = registration.installing;
+            if (!installing) return;
+            installing.addEventListener("statechange", () => {
+              if (
+                installing.state === "installed" &&
+                navigator.serviceWorker.controller
+              ) {
+                showAppUpdateModal({
+                  waitingWorker: registration.waiting || installing,
+                });
+              }
+            });
+          });
+
+          const checkUpdate = () => {
+            registration.update().catch(() => {});
+          };
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) checkUpdate();
+          });
+          setInterval(checkUpdate, 30 * 60 * 1000);
         })
         .catch((registrationError) => {
           console.error(
@@ -2261,17 +2457,35 @@ let deferredInstallPrompt = null;
 
 function isStandaloneMode() {
   const isCapacitor = Boolean(
-    (typeof window !== "undefined" && window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) ||
-    (typeof document !== "undefined" && document.body && document.body.classList.contains("is-native-app"))
+    (typeof window !== "undefined" &&
+      window.Capacitor &&
+      typeof window.Capacitor.isNativePlatform === "function" &&
+      window.Capacitor.isNativePlatform()) ||
+      (typeof document !== "undefined" &&
+        document.body &&
+        document.body.classList.contains("is-native-app"))
   );
-  return (
-    isCapacitor ||
-    (typeof window !== "undefined" && (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      window.navigator.standalone === true
-    )) ||
-    (typeof document !== "undefined" && document.referrer && document.referrer.includes("android-app://"))
+  const isPwaDisplay =
+    typeof window !== "undefined" &&
+    ((typeof window.matchMedia === "function" &&
+      (window.matchMedia("(display-mode: standalone)").matches ||
+        window.matchMedia("(display-mode: fullscreen)").matches ||
+        window.matchMedia("(display-mode: minimal-ui)").matches)) ||
+      window.navigator.standalone === true);
+  const isTrustedWebActivity = Boolean(
+    typeof document !== "undefined" &&
+      document.referrer &&
+      document.referrer.includes("android-app://")
   );
+  let wasInstalledFlag = false;
+  try {
+    wasInstalledFlag =
+      (window.SafeStorage
+        ? window.SafeStorage.get("tazkeer_app_installed")
+        : localStorage.getItem("tazkeer_app_installed")) === "1";
+  } catch (_) {}
+
+  return isCapacitor || isPwaDisplay || isTrustedWebActivity || wasInstalledFlag;
 }
 
 function isIOSDevice() {
@@ -2282,10 +2496,23 @@ function isIOSDevice() {
 }
 
 function updateInstallButtonVisibility() {
+  const installed = isStandaloneMode();
   const installBtn = document.getElementById("installBtn");
+  const profileInstallRow = document.getElementById("profileInstallAppRow");
+  const profileInstallDivider = document.getElementById("profileInstallAppDivider");
+
+  if (profileInstallRow) {
+    profileInstallRow.classList.toggle("hidden", installed);
+    profileInstallRow.style.display = installed ? "none" : "";
+  }
+  if (profileInstallDivider) {
+    profileInstallDivider.classList.toggle("hidden", installed);
+    profileInstallDivider.style.display = installed ? "none" : "";
+  }
+
   if (!installBtn) return;
 
-  if (isStandaloneMode()) {
+  if (installed) {
     installBtn.classList.add("hidden");
     return;
   }
@@ -2322,6 +2549,13 @@ async function showInstallModal() {
     const choiceResult = await deferredInstallPrompt.userChoice;
 
     if (choiceResult.outcome === "accepted") {
+      try {
+        if (window.SafeStorage) {
+          window.SafeStorage.set("tazkeer_app_installed", "1");
+        } else {
+          localStorage.setItem("tazkeer_app_installed", "1");
+        }
+      } catch (_) {}
       showNotification("تم بدء تثبيت التطبيق");
     }
 
@@ -2341,7 +2575,15 @@ window.addEventListener("beforeinstallprompt", (event) => {
 
 window.addEventListener("appinstalled", () => {
   deferredInstallPrompt = null;
-  localStorage.setItem("hasSeenInstallPrompt", "true");
+  try {
+    if (window.SafeStorage) {
+      window.SafeStorage.set("hasSeenInstallPrompt", "true");
+      window.SafeStorage.set("tazkeer_app_installed", "1");
+    } else {
+      localStorage.setItem("hasSeenInstallPrompt", "true");
+      localStorage.setItem("tazkeer_app_installed", "1");
+    }
+  } catch (_) {}
   showNotification("تم تثبيت التطبيق بنجاح");
   updateInstallButtonVisibility();
 });
@@ -2591,7 +2833,7 @@ function getNotificationColor(type) {
 }
 
 // Enhanced Loading States
-function showLoadingState(element, text = "جاري التحميل...") {
+function showLoadingState(element, text = "جارٍ التحميل...") {
   if (typeof element === "string") {
     element = document.querySelector(element);
   }
@@ -2841,29 +3083,71 @@ function detectCalculationMethod(lat, lng) {
   return 3;
 }
 
+// Shared calculation helper delegating to TazkeerUtils
+function _getPrayerCalcParams(lat, lng) {
+  if (window.TazkeerUtils && typeof window.TazkeerUtils.buildAlAdhanQueryParams === "function") {
+    return window.TazkeerUtils.buildAlAdhanQueryParams(lat, lng);
+  }
+  const method = detectCalculationMethod(lat, lng);
+  return {
+    method,
+    school: 0,
+    queryString: `latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&method=${method}&school=0`,
+  };
+}
+
+function _applyUserOffsets(timings) {
+  if (!timings || typeof timings !== "object") return timings;
+  if (window.TazkeerUtils && typeof window.TazkeerUtils.applyMinuteOffsets === "function") {
+    return window.TazkeerUtils.applyMinuteOffsets(timings);
+  }
+  return timings;
+}
+
+function _getActiveLocationConfig() {
+  if (window.TazkeerUtils && typeof window.TazkeerUtils.getPrayerSettings === "function") {
+    const cfg = window.TazkeerUtils.getPrayerSettings();
+    if (cfg && cfg.manualCity && Number.isFinite(cfg.manualCity.lat) && Number.isFinite(cfg.manualCity.lng)) {
+      return {
+        latitude: Number(cfg.manualCity.lat),
+        longitude: Number(cfg.manualCity.lng),
+        city: cfg.manualCity.nameAr || "مدينة مختارة",
+        isManual: true,
+      };
+    }
+  }
+  const saved = _safeReadJSON("prayerLocation", null);
+  if (saved && Number.isFinite(Number(saved.latitude)) && Number.isFinite(Number(saved.longitude))) {
+    return {
+      latitude: Number(saved.latitude),
+      longitude: Number(saved.longitude),
+      city: saved.city || "القاهرة",
+      isManual: false,
+    };
+  }
+  return { latitude: 30.0444, longitude: 31.2357, city: "القاهرة", isManual: false };
+}
+
+let activePrayerCity = "القاهرة";
+
 // Clean time string (removes timezone text like "04:49 (EET)" -> "04:49")
 function cleanTimeString(timeStr) {
   if (!timeStr) return "";
   return String(timeStr).split(" ")[0].trim();
 }
 
-// Storage key for 30-day monthly calendar
+// Storage key for 30-day monthly calendar (includes method & school!)
 function getMonthlyCalendarKey(year, month, lat, lng) {
-  return `monthly_prayers_${year}_${month}_${Number(lat).toFixed(2)}_${Number(lng).toFixed(2)}`;
+  const calc = _getPrayerCalcParams(lat, lng);
+  return `monthly_prayers_${year}_${month}_${Number(lat).toFixed(2)}_${Number(lng).toFixed(2)}_m${calc.method}_s${calc.school}`;
 }
 
 // Read stored monthly calendar from storage
 function getStoredMonthlyCalendar(year, month, lat, lng) {
   const key = getMonthlyCalendarKey(year, month, lat, lng);
-  const raw = localStorage.getItem(key);
-  if (!raw) return null;
-  try {
-    const data = JSON.parse(raw);
-    if (data && data.days && Object.keys(data.days).length > 0) {
-      return data;
-    }
-  } catch (e) {
-    console.warn("[PrayerTimes] Error parsing stored monthly calendar:", e);
+  const data = _safeReadJSON(key, null);
+  if (data && data.days && Object.keys(data.days).length > 0) {
+    return data;
   }
   return null;
 }
@@ -2875,15 +3159,15 @@ function getStoredPrayerTimesForDate(date, lat, lng) {
   const day = String(date.getDate());
   const monthData = getStoredMonthlyCalendar(year, month, lat, lng);
   if (monthData && monthData.days && monthData.days[day]) {
-    return monthData.days[day];
+    return _applyUserOffsets(monthData.days[day]);
   }
   return null;
 }
 
-// Fetch full 30-day monthly calendar from AlAdhan API and cache locally
+// Fetch full 30-day monthly calendar from AlAdhan API and cache locally + sync to AdhanNative
 async function fetchAndStoreMonthCalendar(lat, lng, year, month, cityName) {
-  const method = detectCalculationMethod(lat, lng);
-  const url = `https://api.aladhan.com/v1/calendar?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&method=${method}&month=${month}&year=${year}`;
+  const calc = _getPrayerCalcParams(lat, lng);
+  const url = `https://api.aladhan.com/v1/calendar?${calc.queryString}&month=${month}&year=${year}`;
 
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error("AlAdhan Calendar API HTTP " + response.status);
@@ -2891,6 +3175,13 @@ async function fetchAndStoreMonthCalendar(lat, lng, year, month, cityName) {
   const json = await response.json();
   if (!json || !Array.isArray(json.data) || json.data.length === 0) {
     throw new Error("Invalid calendar payload received from AlAdhan");
+  }
+
+  // Mirror raw monthly calendar into AdhanNative offline cache
+  if (window.AdhanNative && typeof window.AdhanNative.syncOfflineCalendar === "function") {
+    try {
+      window.AdhanNative.syncOfflineCalendar(lat, lng, year, month, json.data, calc.method, calc.school);
+    } catch (_) {}
   }
 
   const daysObj = {};
@@ -2917,15 +3208,18 @@ async function fetchAndStoreMonthCalendar(lat, lng, year, month, cityName) {
     lat: Number(lat),
     lng: Number(lng),
     cityName: cityName || "",
-    method,
+    method: calc.method,
+    school: calc.school,
     savedAt: Date.now(),
     days: daysObj,
   };
 
   const key = getMonthlyCalendarKey(year, month, lat, lng);
-  localStorage.setItem(key, JSON.stringify(cachePayload));
-  console.log(`[PrayerTimes] Stored 30-day monthly calendar for ${year}-${month} (${Object.keys(daysObj).length} days)`);
-
+  if (window.SafeStorage) {
+    window.SafeStorage.setJSON(key, cachePayload);
+  } else {
+    localStorage.setItem(key, JSON.stringify(cachePayload));
+  }
   return cachePayload;
 }
 
@@ -2936,13 +3230,11 @@ function checkAndPreloadNextMonthCalendar(lat, lng, today, cityName) {
   const day = today.getDate();
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  // If in the last 5 days of the month, fetch next month's calendar quietly
   if (daysInMonth - day <= 5) {
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const storedNext = getStoredMonthlyCalendar(nextYear, nextMonth, lat, lng);
     if (!storedNext) {
-      console.log(`[PrayerTimes] Preloading next month calendar for ${nextYear}-${nextMonth}`);
       fetchAndStoreMonthCalendar(lat, lng, nextYear, nextMonth, cityName).catch((err) => {
         console.warn("[PrayerTimes] Next month prefetch warning:", err && err.message);
       });
@@ -2950,10 +3242,43 @@ function checkAndPreloadNextMonthCalendar(lat, lng, today, cityName) {
   }
 }
 
-// ── Location permission polite modal handlers ──
+// ── Location permission & manual city picker modal handlers ──
+function renderLocationModalCities(query) {
+  const listEl = document.getElementById("locModalCityList");
+  if (!listEl || !window.TazkeerUtils) return;
+  const matches = window.TazkeerUtils.searchPresetCities(query).slice(0, 10);
+  if (!matches.length) {
+    listEl.innerHTML = '<div class="prayer-city-empty">لا توجد مدينة مطابقة</div>';
+    return;
+  }
+  listEl.innerHTML = matches
+    .map(
+      (c) => `
+      <button type="button" class="loc-city-option" onclick="selectManualCityFromModal('${c.id}')">
+        <span class="loc-city-option__name">${c.nameAr}</span>
+        <span class="loc-city-option__country">${c.countryAr}</span>
+      </button>`,
+    )
+    .join("");
+}
+
+function selectManualCityFromModal(cityId) {
+  if (!window.TazkeerUtils) return;
+  const city = window.TazkeerUtils.PRESET_CITIES.find((c) => c.id === cityId);
+  if (!city) return;
+  window.TazkeerUtils.savePrayerSettings({ manualCity: city });
+  closeLocationPermissionModal();
+  applyPrayerSettingsAndRefresh();
+  if (window.AdhanNative && typeof window.AdhanNative.refresh === "function") {
+    window.AdhanNative.refresh();
+  }
+  showNotification(`تم اختيار مدينة ${city.nameAr}`);
+}
+
 function showLocationPermissionModal() {
   const modal = document.getElementById("locationPermissionModal");
   if (!modal) return;
+  renderLocationModalCities("");
   modal.classList.add("is-open");
   if (window.AppRouter) {
     window.AppRouter.pushModal("locationPermissionModal", closeLocationPermissionModal);
@@ -2967,49 +3292,53 @@ function closeLocationPermissionModal() {
   if (window.AppRouter && window.AppRouter.isModalOpen("locationPermissionModal")) {
     window.AppRouter.closeModal("locationPermissionModal");
   }
+  if (window.TazkeerModalQueue) {
+    window.TazkeerModalQueue.notifyClosed("first-launch-location");
+  }
 }
 
 function handleEnableLocationFromModal() {
+  if (window.TazkeerUtils) {
+    window.TazkeerUtils.savePrayerSettings({ manualCity: null });
+  }
   closeLocationPermissionModal();
   requestLocation(false);
 }
 
 function handleDismissLocationModal() {
   closeLocationPermissionModal();
-  const savedLocation = localStorage.getItem("prayerLocation");
+  const savedLocation = _safeReadStr("prayerLocation", null);
   if (!savedLocation) {
-    localStorage.setItem(
-      "prayerLocation",
-      JSON.stringify({ latitude: 30.0444, longitude: 31.2357, city: "القاهرة" }),
-    );
+    const fallback = { latitude: 30.0444, longitude: 31.2357, city: "القاهرة" };
+    if (window.SafeStorage) window.SafeStorage.setJSON("prayerLocation", fallback);
+    else localStorage.setItem("prayerLocation", JSON.stringify(fallback));
   }
 }
 
+function applyPrayerSettingsAndRefresh() {
+  const loc = _getActiveLocationConfig();
+  activePrayerCity = loc.city;
+  return fetchPrayerTimes(loc.latitude, loc.longitude, loc.city);
+}
+
+window.renderLocationModalCities = renderLocationModalCities;
+window.selectManualCityFromModal = selectManualCityFromModal;
 window.showLocationPermissionModal = showLocationPermissionModal;
 window.closeLocationPermissionModal = closeLocationPermissionModal;
 window.handleEnableLocationFromModal = handleEnableLocationFromModal;
 window.handleDismissLocationModal = handleDismissLocationModal;
+window.applyPrayerSettingsAndRefresh = applyPrayerSettingsAndRefresh;
 
-// Initialize Prayer Times - Instant load with monthly cache and automatic location prompt
+// Initialize Prayer Times - Instant load with monthly cache and non-overlapping location prompt
 async function initializePrayerTimes() {
   const section = document.getElementById("prayerTimesSection");
   if (!section) return;
 
-  const savedLocation = localStorage.getItem("prayerLocation");
-  let lat = 30.0444;
-  let lng = 31.2357;
-  let city = "القاهرة";
-
-  if (savedLocation) {
-    try {
-      const loc = JSON.parse(savedLocation);
-      lat = Number(loc.latitude) || lat;
-      lng = Number(loc.longitude) || lng;
-      city = loc.city || city;
-    } catch (e) {
-      console.warn("Saved location parse error", e);
-    }
-  }
+  const loc = _getActiveLocationConfig();
+  const lat = loc.latitude;
+  const lng = loc.longitude;
+  const city = loc.city;
+  activePrayerCity = city;
 
   // 1. Instant Render: check stored monthly calendar for today to display immediately
   const today = new Date();
@@ -3025,47 +3354,48 @@ async function initializePrayerTimes() {
   // 2. Fetch/update monthly calendar in background
   fetchPrayerTimes(lat, lng, city);
 
-  // 3. First launch prompt: if user never set location, ask politely on first open
-  const promptedOnce = localStorage.getItem("locationPromptedOnce");
-  if (!savedLocation && !promptedOnce) {
-    localStorage.setItem("locationPromptedOnce", "true");
-    setTimeout(() => {
-      requestLocation(false);
-    }, 900);
+  // 3. First launch prompt via sequential ModalQueue (never collides with settings/install)
+  const savedLocation = _safeReadStr("prayerLocation", null);
+  const promptedOnce = _safeReadStr("locationPromptedOnce", null);
+  if (!savedLocation && !loc.isManual && !promptedOnce) {
+    if (window.SafeStorage) window.SafeStorage.set("locationPromptedOnce", "true");
+    else localStorage.setItem("locationPromptedOnce", "true");
+
+    if (window.TazkeerModalQueue) {
+      window.TazkeerModalQueue.enqueue({
+        id: "first-launch-location",
+        delayMs: 900,
+        shouldShow: () => !_safeReadStr("prayerLocation", null) && !_getActiveLocationConfig().isManual,
+        show: () => {
+          showLocationPermissionModal();
+        },
+      });
+    } else {
+      setTimeout(() => showLocationPermissionModal(), 900);
+    }
   }
 
-  // Setup event listeners
+  // Setup event listeners ONCE (prevent listener leak across tab switches)
   const locationBtn = document.getElementById("locationBtn");
   const retryBtn = document.getElementById("retryPrayerTimes");
 
-  if (locationBtn) {
-    locationBtn.addEventListener("click", () => requestLocation(false));
+  if (locationBtn && !locationBtn._tazkeerBound) {
+    locationBtn._tazkeerBound = true;
+    locationBtn.addEventListener("click", () => showLocationPermissionModal());
   }
 
-  if (retryBtn) {
-    retryBtn.addEventListener("click", () => fetchPrayerTimes(lat, lng, city));
+  if (retryBtn && !retryBtn._tazkeerBound) {
+    retryBtn._tazkeerBound = true;
+    retryBtn.addEventListener("click", () => {
+      const current = _getActiveLocationConfig();
+      fetchPrayerTimes(current.latitude, current.longitude, current.city);
+    });
   }
 }
 
 function refreshPrayerTimesForCurrentLocation(reason) {
-  const savedLocation = localStorage.getItem("prayerLocation");
-  let location = {
-    latitude: 30.0444,
-    longitude: 31.2357,
-    city: "القاهرة",
-  };
-  if (savedLocation) {
-    try {
-      const parsed = JSON.parse(savedLocation);
-      location = {
-        latitude: Number(parsed.latitude) || location.latitude,
-        longitude: Number(parsed.longitude) || location.longitude,
-        city: parsed.city || location.city,
-      };
-    } catch (error) {
-      console.warn("Saved location parse error during daily refresh:", error);
-    }
-  }
+  const location = _getActiveLocationConfig();
+  activePrayerCity = location.city;
   console.log("[PrayerTimes] Refreshing schedule:", reason || "manual");
   return fetchPrayerTimes(location.latitude, location.longitude, location.city);
 }
@@ -3074,7 +3404,6 @@ function refreshPrayerTimesForCurrentLocation(reason) {
 async function requestLocation(silent) {
   const loading = document.getElementById("prayerTimesLoading");
   const error = document.getElementById("prayerTimesError");
-  const grid = document.getElementById("prayerTimesGrid");
 
   if (!navigator.geolocation) {
     if (!silent) showLocationPermissionModal();
@@ -3095,40 +3424,33 @@ async function requestLocation(silent) {
     const { latitude, longitude } = position.coords;
     const cityName = await getCityName(latitude, longitude);
 
-    localStorage.setItem(
-      "prayerLocation",
-      JSON.stringify({
-        latitude,
-        longitude,
-        city: cityName,
-      }),
-    );
+    const payload = { latitude, longitude, city: cityName };
+    if (window.SafeStorage) window.SafeStorage.setJSON("prayerLocation", payload);
+    else localStorage.setItem("prayerLocation", JSON.stringify(payload));
+    if (window.TazkeerUtils) {
+      window.TazkeerUtils.savePrayerSettings({ manualCity: null });
+    }
 
+    activePrayerCity = cityName;
     closeLocationPermissionModal();
     await fetchPrayerTimes(latitude, longitude, cityName);
   } catch (err) {
     console.warn("[PrayerTimes] Geolocation denied or error:", err);
     if (loading) loading.style.display = "none";
 
-    // If user denied or error, politely explain why location is required for accuracy
     if (!silent) {
       showLocationPermissionModal();
     }
 
-    // Default to Cairo gracefully in background
-    const savedLocation = localStorage.getItem("prayerLocation");
+    const savedLocation = _safeReadStr("prayerLocation", null);
     if (!savedLocation) {
       const cairoLat = 30.0444;
       const cairoLng = 31.2357;
       const cairoName = "القاهرة";
-      localStorage.setItem(
-        "prayerLocation",
-        JSON.stringify({
-          latitude: cairoLat,
-          longitude: cairoLng,
-          city: cairoName,
-        }),
-      );
+      const fallback = { latitude: cairoLat, longitude: cairoLng, city: cairoName };
+      if (window.SafeStorage) window.SafeStorage.setJSON("prayerLocation", fallback);
+      else localStorage.setItem("prayerLocation", JSON.stringify(fallback));
+      activePrayerCity = cairoName;
       await fetchPrayerTimes(cairoLat, cairoLng, cairoName);
     }
   }
@@ -3153,6 +3475,9 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
   const loading = document.getElementById("prayerTimesLoading");
   const error = document.getElementById("prayerTimesError");
 
+  const resolvedCity = cityName || activePrayerCity || _getActiveLocationConfig().city || "القاهرة";
+  activePrayerCity = resolvedCity;
+
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
@@ -3163,10 +3488,10 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
   let todayTimings = monthData && monthData.days && monthData.days[currentDay];
 
   if (todayTimings) {
-    prayerTimesData = todayTimings;
-    displayPrayerTimes(cityName);
+    prayerTimesData = _applyUserOffsets(todayTimings);
+    displayPrayerTimes(resolvedCity);
     startCountdown();
-    reconcilePrayerSchedules(cityName);
+    reconcilePrayerSchedules(resolvedCity);
     if (loading) loading.style.display = "none";
     if (error) error.classList.add("hidden");
   }
@@ -3175,38 +3500,37 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
   try {
     const isStale = !monthData || (Date.now() - Number(monthData.savedAt || 0) > 7 * 24 * 60 * 60 * 1000);
     if (!monthData || !todayTimings || isStale) {
-      monthData = await fetchAndStoreMonthCalendar(latitude, longitude, currentYear, currentMonth, cityName);
+      monthData = await fetchAndStoreMonthCalendar(latitude, longitude, currentYear, currentMonth, resolvedCity);
       if (monthData && monthData.days && monthData.days[currentDay]) {
-        prayerTimesData = monthData.days[currentDay];
-        displayPrayerTimes(cityName);
+        prayerTimesData = _applyUserOffsets(monthData.days[currentDay]);
+        displayPrayerTimes(resolvedCity);
         startCountdown();
-        reconcilePrayerSchedules(cityName);
+        reconcilePrayerSchedules(resolvedCity);
         if (loading) loading.style.display = "none";
         if (error) error.classList.add("hidden");
       }
     }
 
     // 3. Auto-renewal: If near end of month, fetch next month's 30-day calendar
-    checkAndPreloadNextMonthCalendar(latitude, longitude, today, cityName);
+    checkAndPreloadNextMonthCalendar(latitude, longitude, today, resolvedCity);
 
   } catch (err) {
     console.warn("[PrayerTimes] Monthly calendar fetch error, attempting single day fallback:", err);
 
     if (!todayTimings) {
-      // Fallback: try single day API call
       try {
         const timestamp = Math.floor(today.getTime() / 1000);
-        const method = detectCalculationMethod(latitude, longitude);
+        const calc = _getPrayerCalcParams(latitude, longitude);
         const fallbackRes = await fetch(
-          `https://api.aladhan.com/v1/timings/${timestamp}?latitude=${latitude}&longitude=${longitude}&method=${method}`,
+          `https://api.aladhan.com/v1/timings/${timestamp}?${calc.queryString}`,
         );
         if (fallbackRes.ok) {
           const fallbackData = await fallbackRes.json();
           if (fallbackData && fallbackData.data && fallbackData.data.timings) {
-            prayerTimesData = fallbackData.data.timings;
-            displayPrayerTimes(cityName);
+            prayerTimesData = _applyUserOffsets(fallbackData.data.timings);
+            displayPrayerTimes(resolvedCity);
             startCountdown();
-            reconcilePrayerSchedules(cityName);
+            reconcilePrayerSchedules(resolvedCity);
             if (loading) loading.style.display = "none";
             if (error) error.classList.add("hidden");
             return;
@@ -3222,25 +3546,32 @@ async function fetchPrayerTimes(latitude, longitude, cityName) {
 }
 
 function reconcilePrayerSchedules(cityName) {
-    if (window.AdhanNative && window.AdhanNative.onPrayerTimesUpdated) {
-      try {
-        window.AdhanNative.onPrayerTimesUpdated(prayerTimesData, cityName);
-      } catch (error) {
-        console.warn("Adhan sync hook error:", error);
-      }
-    }
-    if (typeof window.syncAzkarNativeSchedule === "function") {
-      window.syncAzkarNativeSchedule();
+  if (window.AdhanNative && window.AdhanNative.onPrayerTimesUpdated) {
+    try {
+      window.AdhanNative.onPrayerTimesUpdated(prayerTimesData, cityName);
+    } catch (error) {
+      console.warn("Adhan sync hook error:", error);
     }
   }
+  if (typeof window.syncAzkarNativeSchedule === "function") {
+    window.syncAzkarNativeSchedule();
+  }
+}
 
 // Display prayer times cards
 function displayPrayerTimes(cityName) {
   const grid = document.getElementById("prayerTimesGrid");
   const locationEl = document.getElementById("cityName");
 
+  const resolvedCity = cityName || activePrayerCity || _getActiveLocationConfig().city || "القاهرة";
+  activePrayerCity = resolvedCity;
+  try {
+    if (window.SafeStorage) window.SafeStorage.set("cachedPrayerCity", resolvedCity);
+    else localStorage.setItem("cachedPrayerCity", resolvedCity);
+  } catch (_) {}
+
   if (locationEl) {
-    locationEl.textContent = cityName;
+    locationEl.textContent = resolvedCity;
   }
 
   if (!grid || !prayerTimesData) return;
@@ -3418,7 +3749,7 @@ function updateCountdown() {
 
   if (diffMs <= 0) {
     if (typeof displayPrayerTimes === "function") {
-      const cityName = localStorage.getItem("cachedPrayerCity") || "";
+      const cityName = activePrayerCity || _safeReadStr("cachedPrayerCity", "") || _getActiveLocationConfig().city;
       displayPrayerTimes(cityName);
     }
     return;
@@ -3683,9 +4014,13 @@ function updateStatsDashboard() {
   if (streakWrap) {
     if (streak > 0) {
       streakWrap.classList.remove("is-zero");
+      const streakUnit =
+        window.TazkeerUtils && typeof window.TazkeerUtils.formatArabicUnitLabel === "function"
+          ? window.TazkeerUtils.formatArabicUnitLabel(streak, "consecutiveDay")
+          : "أيام متتالية";
       streakWrap.innerHTML =
         '<b id="streakCount">' + toArabicNumerals(streak) +
-        '</b><span id="streakSuffix"> يومًا متتاليًا</span>';
+        '</b><span id="streakSuffix"> ' + streakUnit + "</span>";
     } else {
       streakWrap.classList.add("is-zero");
       streakWrap.innerHTML = "ابدأ سلسلتك اليوم";
@@ -3694,8 +4029,12 @@ function updateStatsDashboard() {
   if (streakBadgeEl) streakBadgeEl.hidden = streak === 0;
   if (streakSubEl) {
     if (streak > 0) {
+      const bestUnit =
+        window.TazkeerUtils && typeof window.TazkeerUtils.formatArabicUnitLabel === "function"
+          ? window.TazkeerUtils.formatArabicUnitLabel(bestStreak, "day")
+          : "أيام";
       streakSubEl.innerHTML =
-        "أطول سلسلة لك: <b>" + toArabicNumerals(bestStreak) + "</b><span> يومًا</span>";
+        "أطول سلسلة لك: <b>" + toArabicNumerals(bestStreak) + "</b><span> " + bestUnit + "</span>";
     } else {
       streakSubEl.textContent = "أنجز ذكراً واحداً لتبدأ";
     }
@@ -3814,12 +4153,17 @@ function updateAzkarTodayRing() {
     pctEl.textContent = toArabicNumerals(pct) + "٪";
   }
   if (subEl) {
+    const zikrUnit =
+      window.TazkeerUtils && typeof window.TazkeerUtils.formatArabicUnitLabel === "function"
+        ? window.TazkeerUtils.formatArabicUnitLabel(progress.total, "zikr")
+        : "ذكراً";
     subEl.textContent =
       progress.done > 0
         ? toArabicNumerals(progress.done) +
           " من " +
           toArabicNumerals(progress.total) +
-          " ذكرًا"
+          " " +
+          zikrUnit
         : "لم تبدأ بعد";
     subEl.classList.toggle("is-zero", progress.done === 0);
   }
@@ -4582,21 +4926,25 @@ function updateRemindersStrip(now) {
   const hijriYear = ramadan.inRamadan ? getHijriDate(date).year : getHijriDate(ramadan.target || date).year;
   if (ramadanLabelEl) {
     if (ramadan.inRamadan) {
-      ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} · الشهر الحالي`;
+      ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} — الشهر الحالي`;
     } else if (ramadan.target) {
       const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
       const targetDay = toArabicDigits(ramadan.target.getDate());
       const targetMonth = arabicMonths[ramadan.target.getMonth()];
-      ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} · متوقع ${targetDay} ${targetMonth}`;
+      ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} — متوقع ${targetDay} ${targetMonth}`;
     } else {
-      ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} · متوقع`;
+      ramadanLabelEl.textContent = `رمضان ${toArabicDigits(hijriYear)} — متوقع`;
     }
   }
   if (ramadanValueEl) {
+    const fmtDays = (n) =>
+      window.TazkeerUtils && window.TazkeerUtils.formatArabicCount
+        ? window.TazkeerUtils.formatArabicCount(n, "day")
+        : formatDaysAfter(n);
     if (ramadan.inRamadan) {
-      ramadanValueEl.innerHTML = `متبقي ${toArabicDigits(ramadan.daysLeft)} يوماً`;
+      ramadanValueEl.textContent = `متبقٍّ ${fmtDays(ramadan.daysLeft)}`;
     } else if (ramadan.target) {
-      ramadanValueEl.innerHTML = `بعد ${toArabicDigits(ramadan.daysLeft)} يوماً`;
+      ramadanValueEl.textContent = `بعد ${formatDaysAfter(ramadan.daysLeft)}`;
     } else {
       ramadanValueEl.textContent = "—";
     }
@@ -4647,7 +4995,7 @@ function updateRemindersStrip(now) {
     fasting.kind = "upcoming";
   }
 
-  const arabicWeekdays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+  const arabicWeekdays = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
   const fajrRaw = (prayerTimesData && prayerTimesData.Fajr) || "04:47";
   const formattedFajr = formatToArabic12Hour(fajrRaw) || "٤:٤٧ ص";
   const maghribRaw = (prayerTimesData && prayerTimesData.Maghrib) || "17:02";
@@ -4862,7 +5210,7 @@ function checkFastingOccasions(date) {
   // ── 3. الأيام البيض (13-14-15 من كل شهر هجري) ──
   if (hijri.day >= 13 && hijri.day <= 15) {
     events.push({
-      name: `الأيام البيض (${hijri.day} ${hijri.monthName})`,
+      name: `الأيام البيض (${toArabicDigits(hijri.day)} ${hijri.monthName})`,
       detail: `صيام ثلاثة أيام من كل شهر كصيام الدهر كله`,
       badge: "سنة شهرية",
       priority: 3,
@@ -4873,7 +5221,7 @@ function checkFastingOccasions(date) {
   if (hijri.month === 10 && hijri.day >= 2 && hijri.day <= 7) {
     events.push({
       name: "أيام شوال الستة",
-      detail: `${hijri.day} شوال — من صام رمضان ثم أتبعه ستًّا من شوال كان كصيام الدهر`,
+      detail: `${toArabicDigits(hijri.day)} شوال — من صام رمضان ثم أتبعه ستًّا من شوال كان كصيام الدهر`,
       badge: "سنة سنوية",
       priority: 2,
     });
@@ -4883,7 +5231,7 @@ function checkFastingOccasions(date) {
   if (hijri.month === 12 && hijri.day >= 1 && hijri.day <= 8) {
     events.push({
       name: "تسع ذي الحجة",
-      detail: `${hijri.day} ذو الحجة — ما من أيام العمل الصالح فيها أحبّ إلى الله من هذه الأيام`,
+      detail: `${toArabicDigits(hijri.day)} ذو الحجة — ما من أيام العمل الصالح فيها أحبّ إلى الله من هذه الأيام`,
       badge: "مستحب",
       priority: 2,
     });
@@ -4893,7 +5241,7 @@ function checkFastingOccasions(date) {
   if (hijri.month === 8 && hijri.day >= 1 && hijri.day <= 15) {
     events.push({
       name: `صيام شعبان`,
-      detail: `${hijri.day} شعبان — شهرٌ تُرفع فيه الأعمال إلى الله وكان النبي ﷺ يُكثر من صيامه`,
+      detail: `${toArabicDigits(hijri.day)} شعبان — شهرٌ تُرفع فيه الأعمال إلى الله وكان النبي ﷺ يُكثر من صيامه`,
       badge: "مستحب",
       priority: 4,
     });
@@ -4903,17 +5251,17 @@ function checkFastingOccasions(date) {
   if (hijri.month === 1 && hijri.day !== 9 && hijri.day !== 10) {
     events.push({
       name: "صيام المحرم",
-      detail: `${hijri.day} محرم — أفضل الصيام بعد رمضان شهر الله المحرم`,
+      detail: `${toArabicDigits(hijri.day)} محرم — أفضل الصيام بعد رمضان شهر الله المحرم`,
       badge: "مستحب",
       priority: 5,
     });
   }
 
-  // ── 8. الإثنين والخميس من كل أسبوع ──
+  // ── 8. الاثنين والخميس من كل أسبوع ──
   if (dayOfWeek === 1) {
     // Monday
     events.push({
-      name: "صيام الإثنين",
+      name: "صيام الاثنين",
       detail: "يوم تُعرض فيه الأعمال على الله وأحب أن يُعرض عملي وأنا صائم",
       badge: "سنة أسبوعية",
       priority: 6,
@@ -4943,7 +5291,7 @@ function renderInteractiveCalendar(now) {
 
   const dayNamesArabic = [
     "الأحد",
-    "الإثنين",
+    "الاثنين",
     "الثلاثاء",
     "الأربعاء",
     "الخميس",
@@ -4978,8 +5326,8 @@ function renderInteractiveCalendar(now) {
              title="${isToday ? "اليوم - " : ""}${isFasting ? topOccasion.name + " - " + topOccasion.detail : dayName}">
           ${isToday ? '<span class="cal-today-top-bar"></span>' : ""}
           <span class="cal-day-name">${dayName}</span>
-          <span class="cal-day-hijri-num">${hijri.day}</span>
-          <span class="cal-day-greg-num">${gregDay}</span>
+          <span class="cal-day-hijri-num">${toArabicDigits(hijri.day)}</span>
+          <span class="cal-day-greg-num">${toArabicDigits(gregDay)}</span>
           ${isFasting ? '<span class="cal-fasting-tag">صيام</span>' : ""}
         </div>
       `;
@@ -4998,7 +5346,7 @@ function selectCalendarDay(dateStr, isToday, isFasting) {
 
   const dayNames = [
     "الأحد",
-    "الإثنين",
+    "الاثنين",
     "الثلاثاء",
     "الأربعاء",
     "الخميس",
@@ -5007,14 +5355,14 @@ function selectCalendarDay(dateStr, isToday, isFasting) {
   ];
   const dayName = dayNames[date.getDay()];
   const hijri = getHijriDate(date);
-  const gregFormatted = `${date.getDate()} / ${date.getMonth() + 1} / ${date.getFullYear()}`;
+  const gregFormatted = `${toArabicDigits(date.getDate())} / ${toArabicDigits(date.getMonth() + 1)} / ${toArabicDigits(date.getFullYear())}`;
   const occasions = checkFastingOccasions(date);
 
   let html = `
     <div class="cal-panel-top">
       <div class="cal-panel-header">
         <span class="cal-panel-day">${dayName} ${isToday ? "— اليوم" : ""}</span>
-        <span class="cal-panel-date">${hijri.day} ${hijri.monthName} ${hijri.year} هـ &bull; ${gregFormatted} م</span>
+        <span class="cal-panel-date">${toArabicDigits(hijri.day)} ${hijri.monthName} ${toArabicDigits(hijri.year)} هـ — ${gregFormatted} م</span>
       </div>
     </div>
   `;
@@ -5083,7 +5431,7 @@ function buildRemindersSheetHtml(tab, atDate) {
 
   const dayNames = [
     "الأحد",
-    "الإثنين",
+    "الاثنين",
     "الثلاثاء",
     "الأربعاء",
     "الخميس",
@@ -5142,8 +5490,8 @@ function buildRemindersSheetHtml(tab, atDate) {
           <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
           <span class="pt-rsheet__chip">سنة</span>
         </div>
-        <p class="pt-rsheet__date">الإثنين والخميس والأيام البيض</p>
-        <p class="pt-rsheet__hint">نوّع صيامك واغتنم الأجر — يُستحب صيام الإثنين والخميس و١٣ و١٤ و١٥ من كل شهر هجري.</p>
+        <p class="pt-rsheet__date">الاثنين والخميس والأيام البيض</p>
+        <p class="pt-rsheet__hint">نوّع صيامك واغتنم الأجر — يُستحب صيام الاثنين والخميس و١٣ و١٤ و١٥ من كل شهر هجري.</p>
       </div>`;
   }
 
@@ -5178,7 +5526,7 @@ function buildRemindersSheetHtml(tab, atDate) {
     <div class="pt-rsheet__section">
       <h3 class="pt-rsheet__section-title"><i class="fas fa-list-check"></i> سنن الصيام</h3>
       <div class="pt-rsheet__rules">
-        <span class="pt-chip">الإثنين والخميس</span>
+        <span class="pt-chip">الاثنين والخميس</span>
         <span class="pt-chip">الأيام البيض ١٣–١٥</span>
         <span class="pt-chip">ستة من شوال</span>
         <span class="pt-chip">عاشوراء وتاسوعاء</span>
@@ -5541,13 +5889,23 @@ async function buildAzkarNativeSchedule() {
   }
 
   const reminders = [
-    { key: "morning", prayer: "Fajr", section: "tab-azkar" },
+    { key: "morning", prayer: "Fajr", section: "morning" },
     { key: "midday", prayer: "Dhuhr", section: "tab-home" },
-    { key: "evening", prayer: "Asr", section: "tab-azkar" },
-    { key: "night", prayer: "Isha", section: "tab-azkar" },
+    { key: "evening", prayer: "Asr", section: "evening" },
+    { key: "night", prayer: "Isha", section: "sleep" },
   ];
   const schedule = [];
-  const addOneHour = (date, timeValue) => {
+  const formatDateKey = (d) =>
+    [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, "0"),
+      String(d.getDate()).padStart(2, "0"),
+    ].join("-");
+
+  const addMinutesRollover = (date, timeValue, addMins) => {
+    if (window.TazkeerUtils && typeof window.TazkeerUtils.addMinutesToLocalDateTime === "function") {
+      return window.TazkeerUtils.addMinutesToLocalDateTime(date, cleanTimeString(timeValue), addMins);
+    }
     const match = String(timeValue || "").match(/(\d{1,2}):(\d{2})/);
     if (!match) return null;
     const at = new Date(
@@ -5559,41 +5917,63 @@ async function buildAzkarNativeSchedule() {
       0,
       0,
     );
-    at.setMinutes(at.getMinutes() + 60);
-    return at;
+    at.setMinutes(at.getMinutes() + (Number(addMins) || 0));
+    return {
+      date: at,
+      dateKey: formatDateKey(at),
+      timeOfDay: `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`,
+      epochMs: at.getTime(),
+    };
   };
-  const formatLocalTime = (date) =>
-    `${String(date.getHours()).padStart(2, "0")}:${String(
-      date.getMinutes(),
-    ).padStart(2, "0")}`;
 
   days.forEach((day) => {
     const date = day.date instanceof Date ? day.date : new Date(day.date);
-    const timings = day.timings || {};
+    const timings = _applyUserOffsets(day.timings || {});
     if (Number.isNaN(date.getTime())) return;
-    const dateKey = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, "0"),
-      String(date.getDate()).padStart(2, "0")
-    ].join("-");
+    const baseDateKey = formatDateKey(date);
 
     reminders.forEach((reminder) => {
-      const at = addOneHour(date, timings[reminder.prayer]);
-      if (!at) return;
-      if (at.getTime() <= Date.now() + 5000) return;
+      const shifted = addMinutesRollover(date, timings[reminder.prayer], 60);
+      if (!shifted) return;
+      if (shifted.epochMs <= Date.now() + 5000) return;
       const text = getAzkarReminderText(reminder.key);
       if (!text) return;
       schedule.push({
-        id: azkarStableId(dateKey, reminder.key),
-        date: dateKey,
-        time: at.getTime(),
-        timeOfDay: formatLocalTime(at),
+        id: azkarStableId(shifted.dateKey, reminder.key),
+        date: shifted.dateKey,
+        time: shifted.epochMs,
+        timeOfDay: shifted.timeOfDay,
         key: reminder.key,
         title: text.title,
         body: text.body,
-        section: reminder.section
+        section: reminder.section,
       });
     });
+
+    // Friday Surah Al-Kahf reminder at 10:00 AM
+    if (date.getDay() === 5) {
+      const kahfAt = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        10,
+        0,
+        0,
+        0,
+      );
+      if (kahfAt.getTime() > Date.now() + 5000) {
+        schedule.push({
+          id: azkarStableId(baseDateKey, "kahf"),
+          date: baseDateKey,
+          time: kahfAt.getTime(),
+          timeOfDay: "10:00",
+          key: "kahf",
+          title: "جمعة مباركة — سورة الكهف",
+          body: "لا تنسَ قراءة سورة الكهف والإكثار من الصلاة على النبي ﷺ اليوم",
+          section: "kahf",
+        });
+      }
+    }
 
     if (typeof checkFastingOccasions === "function") {
       const events = checkFastingOccasions(date);
@@ -5611,23 +5991,14 @@ async function buildAzkarNativeSchedule() {
           const event = events[0];
           const eventLabel =
             (event && (event.name || event.badge)) || "نافلة";
-          const fastingDateKey = [
-            date.getFullYear(),
-            String(date.getMonth() + 1).padStart(2, "0"),
-            String(date.getDate()).padStart(2, "0"),
-          ].join("-");
           schedule.push({
-            id: azkarStableId(fastingDateKey, "fasting"),
-            date: [
-              reminderDate.getFullYear(),
-              String(reminderDate.getMonth() + 1).padStart(2, "0"),
-              String(reminderDate.getDate()).padStart(2, "0"),
-            ].join("-"),
+            id: azkarStableId(baseDateKey, "fasting"),
+            date: formatDateKey(reminderDate),
             time: reminderDate.getTime(),
             timeOfDay: "20:00",
             key: "fasting",
             title: "تذكير بالصيام",
-            body: `غدًا موعد الصيام: ${eventLabel}`,
+            body: `غداً موعد الصيام: ${eventLabel}`,
             section: "tab-home",
           });
         }
@@ -5713,11 +6084,8 @@ function playAzkarChime() {
 /**
  * Send a system notification (browser Notification API or Capacitor).
  */
-function sendAzkarSystemNotification(titleText, bodyText) {
-  // Play audible chime immediately
-  playAzkarChime();
-
-  // Try native Android AdhanScheduler plugin first (high-priority channel with native sound)
+function sendAzkarSystemNotification(titleText, bodyText, section) {
+  // Try native Android AdhanScheduler plugin first (channel already plays notification sound)
   if (
     window.Capacitor &&
     window.Capacitor.isNativePlatform &&
@@ -5729,13 +6097,17 @@ function sendAzkarSystemNotification(titleText, bodyText) {
     try {
       window.Capacitor.Plugins.AdhanScheduler.sendAzkarNotification({
         title: titleText,
-        body: bodyText
+        body: bodyText,
+        section: section || "tab-azkar"
       });
       return;
     } catch (e) {
       console.warn("[Azkar] Native sendAzkarNotification error:", e);
     }
   }
+
+  // Play gentle Web Audio chime only when using non-native fallback
+  playAzkarChime();
 
   // Fallback: Capacitor LocalNotifications
   if (
@@ -5809,15 +6181,31 @@ function testAzkarReminder() {
 function checkFirstLaunchSettings() {
   try {
     const KEY = "tazkeer_first_launch_v2";
-    const done = localStorage.getItem(KEY);
+    const done = _safeReadStr(KEY, null);
     if (!done) {
-      localStorage.setItem(KEY, "true");
+      if (window.SafeStorage) window.SafeStorage.set(KEY, "true");
+      else localStorage.setItem(KEY, "true");
       sessionStorage.setItem("tazkeer_is_first_launch", "true");
-      setTimeout(function () {
-        if (typeof openAdhanModal === "function") {
-          openAdhanModal();
-        }
-      }, 700);
+
+      if (window.TazkeerModalQueue) {
+        window.TazkeerModalQueue.enqueue({
+          id: "first-launch-settings",
+          delayMs: 700,
+          show: () => {
+            if (typeof openAdhanModal === "function") {
+              openAdhanModal();
+            } else {
+              return false;
+            }
+          },
+        });
+      } else {
+        setTimeout(function () {
+          if (typeof openAdhanModal === "function") {
+            openAdhanModal();
+          }
+        }, 700);
+      }
     }
   } catch (e) {}
 }
@@ -6253,50 +6641,10 @@ function convertNodeTextToArabic(node) {
   }
 }
 
-// Ensure the conversion runs after everything else initializes
+// Run a single initial pass for static numeric text without heavy global MutationObserver overhead
 setTimeout(() => {
   convertNodeTextToArabic(document.body);
-
-  // Watch for dynamic changes globally
-  const numObserver = new MutationObserver((mutations) => {
-    // Collect all unique nodes to change to prevent recursive mutation loops
-    const textNodesToUpdate = new Set();
-
-    mutations.forEach((mutation) => {
-      if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((added) => {
-          convertNodeTextToArabic(added);
-        });
-      } else if (mutation.type === "characterData") {
-        const val = mutation.target.nodeValue;
-        if (/\d/.test(val)) {
-          const parent = mutation.target.parentElement;
-          if (
-            parent &&
-            parent.tagName !== "STYLE" &&
-            parent.tagName !== "SCRIPT"
-          ) {
-            textNodesToUpdate.add(mutation.target);
-          }
-        }
-      }
-    });
-
-    // Apply the updates safely
-    textNodesToUpdate.forEach((node) => {
-      const newVal = toArabicNumerals(node.nodeValue);
-      if (node.nodeValue !== newVal) {
-        node.nodeValue = newVal;
-      }
-    });
-  });
-
-  numObserver.observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-  });
-}, 100);
+}, 120);
 
 /* ================================================================
    MISBAHA (Digital Prayer Beads) — Extracted to js/modules/misbaha.js

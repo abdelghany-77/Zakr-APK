@@ -70,10 +70,10 @@
     alafasy: {
       id: "alafasy",
       name: "الشيخ مشاري العفاسي",
-      desc: "أذان بصوت الشيخ مشاري العفاسي",
+      desc: "أذان بصوت الشيخ مشاري راشد العفاسي",
       sound: "adhan_alafasy",
       fajrSound: "adhan_fajr",
-      downloadUrl: "https://archive.org/download/adhan.recordings.from.doha.qatar/Adhan_Doha_Qatar_02_Dhuhr_Adhan.mp3",
+      downloadUrl: "https://archive.org/download/AdhanMisharyRashidAlafasy/Adhan%20-%20Mishary%20Rashid%20Alafasy.mp3",
       icon: "fa-microphone"
     },
     makkah: {
@@ -333,14 +333,39 @@
     });
     if (!prayerName && alarm.label) prayerName = alarm.label;
 
-    return dayLabel + " · " + timeLabel + (prayerName ? " · " + prayerName : "");
+    return dayLabel + " — " + timeLabel + (prayerName ? " — " + prayerName : "");
   }
 
   // ---------------------------------------------------------------------------
   // AlAdhan calendar (7-day rolling window + offline cache)
   // ---------------------------------------------------------------------------
 
+  function getPrayerCalcConfig() {
+    if (global.TazkeerUtils && typeof global.TazkeerUtils.getPrayerSettings === "function") {
+      return global.TazkeerUtils.getPrayerSettings();
+    }
+    return {
+      method: "auto",
+      school: 0,
+      offsets: { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 },
+      manualCity: null
+    };
+  }
+
   function getLocation() {
+    var calcCfg = getPrayerCalcConfig();
+    if (
+      calcCfg &&
+      calcCfg.manualCity &&
+      isFinite(calcCfg.manualCity.lat) &&
+      isFinite(calcCfg.manualCity.lng)
+    ) {
+      return {
+        lat: Number(calcCfg.manualCity.lat),
+        lng: Number(calcCfg.manualCity.lng),
+        city: calcCfg.manualCity.nameAr || "مدينة مختارة"
+      };
+    }
     var saved = readJSON("prayerLocation", null);
     if (saved && isFinite(saved.latitude) && isFinite(saved.longitude)) {
       return {
@@ -352,18 +377,42 @@
     return { lat: 30.0444, lng: 31.2357, city: "القاهرة" };
   }
 
-  function calendarCacheKey(lat, lng, year, month) {
+  function resolveCalcParams(lat, lng) {
+    if (global.TazkeerUtils && typeof global.TazkeerUtils.buildAlAdhanQueryParams === "function") {
+      return global.TazkeerUtils.buildAlAdhanQueryParams(lat, lng, getPrayerCalcConfig());
+    }
+    return {
+      method: 5,
+      school: 0,
+      queryString:
+        "latitude=" + encodeURIComponent(lat) + "&longitude=" + encodeURIComponent(lng) + "&method=5&school=0"
+    };
+  }
+
+  function calendarCacheKey(lat, lng, year, month, method, school) {
+    var m = method !== undefined ? method : resolveCalcParams(lat, lng).method;
+    var s = school !== undefined ? school : resolveCalcParams(lat, lng).school;
     return (
       CALENDAR_PREFIX +
       "." +
       lat.toFixed(2) +
       "." +
       lng.toFixed(2) +
+      ".m" +
+      m +
+      ".s" +
+      s +
       "." +
       year +
       "-" +
       month
     );
+  }
+
+  function syncOfflineCalendar(lat, lng, year, month, days, method, school) {
+    if (!Array.isArray(days) || !days.length) return false;
+    var key = calendarCacheKey(Number(lat), Number(lng), Number(year), Number(month), method, school);
+    return writeJSON(key, { savedAt: Date.now(), days: days });
   }
 
   function fetchWithTimeout(url, timeoutMs) {
@@ -395,7 +444,8 @@
   }
 
   async function fetchMonthDays(lat, lng, year, month) {
-    var key = calendarCacheKey(lat, lng, year, month);
+    var calc = resolveCalcParams(lat, lng);
+    var key = calendarCacheKey(lat, lng, year, month, calc.method, calc.school);
     var cached = readJSON(key, null);
     if (
       cached &&
@@ -407,11 +457,9 @@
     }
 
     var url =
-      "https://api.aladhan.com/v1/calendar?latitude=" +
-      encodeURIComponent(lat) +
-      "&longitude=" +
-      encodeURIComponent(lng) +
-      "&method=5&month=" +
+      "https://api.aladhan.com/v1/calendar?" +
+      calc.queryString +
+      "&month=" +
       month +
       "&year=" +
       year;
@@ -503,8 +551,18 @@
     return collected;
   }
 
+  function resolveFajrSound(muezzin) {
+    // Use dedicated Fajr recording if downloaded; otherwise fall back to the selected muezzin's sound.
+    if (isMuezzinReady("fajr")) {
+      return "adhan_fajr";
+    }
+    return (muezzin && muezzin.sound) || "adhan_abdulbasit";
+  }
+
   function buildAlarms(days, settings) {
     var muezzin = MUEZZINS[settings.muezzin] || MUEZZINS.abdulbasit;
+    var calcCfg = getPrayerCalcConfig();
+    var offsets = (calcCfg && calcCfg.offsets) || {};
     var now = Date.now();
     var alarms = [];
 
@@ -512,7 +570,17 @@
       PRAYERS.forEach(function (prayer, prayerIndex) {
         if (!settings.prayers[prayer.key]) return;
 
-        var parsed = parseTimeValue(day.timings[prayer.key]);
+        var rawTime = day.timings[prayer.key];
+        var offsetMin = Number(offsets[prayer.key]) || 0;
+        if (
+          offsetMin !== 0 &&
+          global.TazkeerUtils &&
+          typeof global.TazkeerUtils.applyMinuteOffset === "function"
+        ) {
+          rawTime = global.TazkeerUtils.applyMinuteOffset(rawTime, offsetMin);
+        }
+
+        var parsed = parseTimeValue(rawTime);
         if (!parsed) return;
 
         var when = new Date(
@@ -535,7 +603,7 @@
           timeOfDay: parsed.text,
           prayer: prayer.key,
           label: "حان الآن وقت صلاة " + prayer.name,
-          sound: isFajr ? muezzin.fajrSound : muezzin.sound,
+          sound: isFajr ? resolveFajrSound(muezzin) : muezzin.sound,
           fajr: isFajr,
           volume: settings.volume
         });
@@ -879,28 +947,27 @@
     if (!item || item.isBuiltIn || !item.downloadUrl) return;
     if (downloadingMuezzins[key]) return;
 
+    var plugin = getPlugin();
+    if (!isNativePlatform() || !plugin || typeof plugin.downloadMuezzin !== "function") {
+      notify("تنزيل أصوات المؤذنين للاستخدام دون اتصال متاح داخل تطبيق أندرويد فقط.", "info");
+      return;
+    }
+
     downloadingMuezzins[key] = true;
     renderMuezzinList();
-    notify("جاري تحميل أذان " + item.name + "...", "info");
+    notify("جارٍ تحميل أذان " + item.name + "...", "info");
 
-    var plugin = getPlugin();
     var success = false;
-
-    if (plugin && typeof plugin.downloadMuezzin === "function") {
-      try {
-        var res = await plugin.downloadMuezzin({
-          sound: item.sound,
-          url: item.downloadUrl
-        });
-        if (res && res.success) {
-          success = true;
-        }
-      } catch (err) {
-        console.error("[Adhan] download error", err);
+    try {
+      var res = await plugin.downloadMuezzin({
+        sound: item.sound,
+        url: item.downloadUrl
+      });
+      if (res && res.success) {
+        success = true;
       }
-    } else {
-      await new Promise(function (resolve) { setTimeout(resolve, 1200); });
-      success = true;
+    } catch (err) {
+      console.error("[Adhan] download error", err);
     }
 
     delete downloadingMuezzins[key];
@@ -935,7 +1002,7 @@
       if (item.isBuiltIn) {
         actionHtml = '<span class="adhan-badge-builtin"><i class="fas fa-bolt"></i> أساسي</span>';
       } else if (isDownloading) {
-        actionHtml = '<span class="adhan-muezzin-downloading"><i class="fas fa-spinner fa-spin"></i> جاري التحميل</span>';
+        actionHtml = '<span class="adhan-muezzin-downloading"><i class="fas fa-spinner fa-spin"></i> جارٍ التحميل</span>';
       } else if (isReady) {
         actionHtml = '<span class="adhan-badge-downloaded"><i class="fas fa-check"></i> جاهز</span>';
       } else {
@@ -1011,7 +1078,7 @@
     if (volume) volume.value = String(Math.round(settings.volume * 100));
     var volumeValue = document.getElementById("adhanVolumeValue");
     if (volumeValue)
-      volumeValue.textContent = arNum(Math.round(settings.volume * 100)) + "%";
+      volumeValue.textContent = arNum(Math.round(settings.volume * 100)) + "٪";
 
     var statusPill = document.getElementById("adhanStatusPill");
     var summary = document.getElementById("adhanSummary");
@@ -1025,7 +1092,7 @@
     } else if (!settings.enabled) {
       statusText = "متوقف";
     } else if (state.scheduledCount > 0) {
-      statusText = "مفعّل · " + arNum(state.scheduledCount) + " موعد";
+      statusText = "مفعّل — " + arNum(state.scheduledCount) + " مواعيد";
     } else {
       statusText = "مفعّل";
     }
@@ -1061,7 +1128,7 @@
         "</span>";
     } else {
       summaryHtml =
-        '<i class="fas fa-hourglass-half"></i><span>جاري تجهيز جدول الأذان للأيام القادمة...</span>';
+        '<i class="fas fa-hourglass-half"></i><span>جارٍ تجهيز جدول الأذان للأيام القادمة...</span>';
     }
 
     if (summary) summary.innerHTML = summaryHtml;
@@ -1095,15 +1162,171 @@
     var footnote = document.getElementById("adhanFootnote");
     if (footnote) {
       footnote.textContent = native
-        ? "التسجيلات الصوتية مضمّنة داخل التطبيق وتعمل بدون إنترنت."
+        ? "التسجيلات الصوتية مضمّنة داخل التطبيق وتعمل دون إنترنت."
         : "لتشغيل الأذان في الخلفية ثبّت نسخة أندرويد من التطبيق.";
     }
+  }
+
+  function renderPrayerSettingsUI() {
+    if (!global.TazkeerUtils) return;
+    var cfg = getPrayerCalcConfig();
+
+    // 1. Calculation method selector
+    var methodSelect = document.getElementById("prayerMethodSelect");
+    if (methodSelect) {
+      if (!methodSelect.options.length) {
+        methodSelect.innerHTML = global.TazkeerUtils.PRAYER_METHODS.map(function (m) {
+          return '<option value="' + m.id + '">' + m.nameAr + "</option>";
+        }).join("");
+      }
+      methodSelect.value = String(cfg.method);
+    }
+
+    // 2. Asr School segmented buttons
+    document.querySelectorAll(".prayer-school-btn").forEach(function (btn) {
+      var val = Number(btn.getAttribute("data-school"));
+      btn.classList.toggle("active", val === (cfg.school === 1 ? 1 : 0));
+    });
+
+    // 3. Location mode & selected city label
+    var cityStatus = document.getElementById("prayerCityCurrentLabel");
+    var autoBtn = document.getElementById("prayerCityAutoBtn");
+    if (cityStatus) {
+      if (cfg.manualCity) {
+        cityStatus.textContent =
+          "مدينة يدوية: " +
+          cfg.manualCity.nameAr +
+          (cfg.manualCity.countryAr ? "، " + cfg.manualCity.countryAr : "");
+      } else {
+        cityStatus.textContent = "تحديد تلقائي عبر الموقع الجغرافي (GPS)";
+      }
+    }
+    if (autoBtn) {
+      autoBtn.classList.toggle("active", !cfg.manualCity);
+    }
+
+    renderSettingsCityList(
+      (document.getElementById("prayerCitySearchInput") || {}).value || ""
+    );
+
+    // 4. Per-prayer minute offsets
+    var offsetsWrap = document.getElementById("prayerOffsetsList");
+    if (offsetsWrap) {
+      var html = PRAYERS.map(function (p) {
+        var val = Number((cfg.offsets && cfg.offsets[p.key]) || 0);
+        var sign = val > 0 ? "+" : val < 0 ? "−" : "";
+        var displayVal = sign + arNum(Math.abs(val)) + " د";
+        return (
+          '<div class="prayer-offset-row">' +
+          '<span class="prayer-offset-name"><i class="fas ' + p.icon + '"></i> ' + p.name + "</span>" +
+          '<div class="prayer-offset-stepper">' +
+          '<button type="button" class="prayer-offset-btn" onclick="AdhanNative.adjustPrayerOffset(\'' + p.key + '\', -1)" aria-label="إنقاص دقيقة">−</button>' +
+          '<span class="prayer-offset-val' + (val !== 0 ? " is-modified" : "") + '">' + displayVal + "</span>" +
+          '<button type="button" class="prayer-offset-btn" onclick="AdhanNative.adjustPrayerOffset(\'' + p.key + '\', 1)" aria-label="زيادة دقيقة">+</button>' +
+          "</div>" +
+          "</div>"
+        );
+      }).join("");
+      offsetsWrap.innerHTML = html;
+    }
+  }
+
+  function renderSettingsCityList(query) {
+    var listEl = document.getElementById("prayerCityResultsList");
+    if (!listEl || !global.TazkeerUtils) return;
+    var cfg = getPrayerCalcConfig();
+    var selectedId = cfg.manualCity ? cfg.manualCity.id : null;
+    var matches = global.TazkeerUtils.searchPresetCities(query).slice(0, 12);
+    if (!matches.length) {
+      listEl.innerHTML = '<div class="prayer-city-empty">لا توجد مدينة مطابقة لبحثك</div>';
+      return;
+    }
+    listEl.innerHTML = matches
+      .map(function (c) {
+        var active = selectedId === c.id ? " is-selected" : "";
+        return (
+          '<button type="button" class="prayer-city-chip' +
+          active +
+          '" onclick="AdhanNative.selectManualCity(\'' +
+          c.id +
+          "')\">" +
+          '<span class="prayer-city-chip-name">' +
+          c.nameAr +
+          "</span>" +
+          '<span class="prayer-city-chip-country">' +
+          c.countryAr +
+          "</span>" +
+          "</button>"
+        );
+      })
+      .join("");
+  }
+
+  function applyPrayerCalcChange(patch, toastMsg) {
+    if (!global.TazkeerUtils) return;
+    global.TazkeerUtils.savePrayerSettings(patch);
+    renderPrayerSettingsUI();
+    if (typeof global.applyPrayerSettingsAndRefresh === "function") {
+      global.applyPrayerSettingsAndRefresh();
+    }
+    scheduleResync(400);
+    if (toastMsg) notify(toastMsg, "success");
+  }
+
+  function setCalculationMethod(methodVal) {
+    var parsed = methodVal === "auto" ? "auto" : Number(methodVal);
+    applyPrayerCalcChange({ method: parsed }, "تم تحديث طريقة حساب المواقيت");
+  }
+
+  function setAsrSchool(schoolVal) {
+    var s = Number(schoolVal) === 1 ? 1 : 0;
+    applyPrayerCalcChange(
+      { school: s },
+      s === 1 ? "تم اختيار المذهب الحنفي لصلاة العصر" : "تم اختيار المذهب الشافعي والجمهور لصلاة العصر"
+    );
+  }
+
+  function adjustPrayerOffset(prayerKey, delta) {
+    var cfg = getPrayerCalcConfig();
+    var current = Number((cfg.offsets && cfg.offsets[prayerKey]) || 0);
+    var next = Math.max(-30, Math.min(30, current + Number(delta || 0)));
+    if (next === current) return;
+    var offsetsPatch = {};
+    offsetsPatch[prayerKey] = next;
+    applyPrayerCalcChange({ offsets: offsetsPatch });
+  }
+
+  function resetPrayerOffsets() {
+    applyPrayerCalcChange(
+      { offsets: { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 } },
+      "تمت إعادة تعيين فروق الدقائق إلى الصفر"
+    );
+  }
+
+  function selectManualCity(cityId) {
+    if (!global.TazkeerUtils) return;
+    var city = global.TazkeerUtils.PRESET_CITIES.find(function (c) {
+      return c.id === cityId;
+    });
+    if (!city) return;
+    applyPrayerCalcChange(
+      { manualCity: city },
+      "تم ضبط الموقع على مدينة " + city.nameAr
+    );
+  }
+
+  function useAutoLocation() {
+    applyPrayerCalcChange(
+      { manualCity: null },
+      "تم التبديل إلى التحديد التلقائي للموقع"
+    );
   }
 
   function render() {
     renderMuezzinList();
     renderPrayerGrid();
     renderStatus();
+    renderPrayerSettingsUI();
     updatePermissionUI();
   }
 
@@ -1130,7 +1353,7 @@
 
     var plugin = getPlugin();
     if (!plugin) {
-      notify("جاري تهيئة محرك الأذان... أعد فتح التطبيق.", "info");
+      notify("جارٍ تهيئة محرك الأذان... أعد فتح التطبيق.", "info");
       return;
     }
 
@@ -1195,7 +1418,7 @@
     updateSettings({ volume: normalized });
     var volumeValue = document.getElementById("adhanVolumeValue");
     if (volumeValue)
-      volumeValue.textContent = Math.round(normalized * 100) + "%";
+      volumeValue.textContent = arNum(Math.round(normalized * 100)) + "٪";
 
     var plugin = getPlugin();
     if (plugin && typeof plugin.setVolume === "function") {
@@ -1232,7 +1455,7 @@
 
       if (result && result.scheduled) {
         notify(
-          "سيُشغَّل الأذان بعد " + delay + " ثانية. يمكنك إغلاق التطبيق الآن.",
+          "سيُشغَّل الأذان بعد " + arNum(delay) + " ثوانٍ. يمكنك إغلاق التطبيق الآن.",
           "success"
         );
       } else {
@@ -1251,14 +1474,16 @@
       return;
     }
     var settings = getSettings();
+    var muezzin = MUEZZINS[settings.muezzin] || MUEZZINS.abdulbasit;
+    var soundRes = resolveFajrSound(muezzin);
     try {
       await plugin.testAdhan({
         delaySeconds: 10,
-        soundRes: "adhan_fajr",
+        soundRes: soundRes,
         prayer: "الفجر",
         volume: settings.volume
       });
-      notify("سيُشغَّل أذان الفجر التجريبي بعد 10 ثوانٍ.", "success");
+      notify("سيُشغَّل أذان الفجر التجريبي بعد ١٠ ثوانٍ.", "success");
     } catch (error) {
       notify("تعذر تشغيل تجربة أذان الفجر.", "error");
     }
@@ -1304,6 +1529,9 @@
       (!global.AppRouter || !global.AppRouter.isModalOpen())
     ) {
       document.body.style.overflow = "";
+    }
+    if (global.TazkeerModalQueue) {
+      global.TazkeerModalQueue.notifyClosed("first-launch-settings");
     }
   }
 
@@ -1359,17 +1587,49 @@
   }
 
   // ---------------------------------------------------------------------------
-  // App shell: zoom lockdown, safe areas, status bar, resume hooks
+  // App shell: zoom lockdown, safe areas, status bar, deep links, resume hooks
   // ---------------------------------------------------------------------------
 
+  function isInsideMushafReader(target) {
+    return Boolean(
+      target &&
+        typeof target.closest === "function" &&
+        target.closest(".mushaf-container, .mushaf-image-area, #mushafReader")
+    );
+  }
+
+  function isRapidTapTarget(target) {
+    if (!target) return false;
+    var tag = target.tagName;
+    if (
+      tag === "BUTTON" ||
+      tag === "A" ||
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      tag === "LABEL"
+    ) {
+      return true;
+    }
+    if (typeof target.closest === "function") {
+      return Boolean(
+        target.closest(
+          ".misbaha-tap-btn, #misbahaOverlay, .slide-counter-btn, .azkar-slide, .azkar-slide-body, .mushaf-container, .mushaf-image-area"
+        )
+      );
+    }
+    return false;
+  }
+
   function setupAppLockdown() {
-    // Viewport meta already sets user-scalable=no; these guards cover WebView
-    // builds that ignore it and iOS Safari.
+    // Allow pinch-to-zoom inside the Mushaf reader while locking chrome UI.
     ["gesturestart", "gesturechange", "gestureend"].forEach(function (event) {
       document.addEventListener(
         event,
         function (e) {
-          e.preventDefault();
+          if (!isInsideMushafReader(e.target)) {
+            e.preventDefault();
+          }
         },
         { passive: false }
       );
@@ -1378,28 +1638,21 @@
     document.addEventListener(
       "touchmove",
       function (e) {
-        if (e.touches && e.touches.length > 1) {
+        if (e.touches && e.touches.length > 1 && !isInsideMushafReader(e.target)) {
           e.preventDefault();
         }
       },
       { passive: false }
     );
 
-    // Prevent double-tap to zoom
+    // Prevent double-tap to zoom on non-interactive chrome without blocking rapid Misbaha/Azkar taps.
     var lastTouchEnd = 0;
     document.addEventListener(
       "touchend",
       function (e) {
         var now = Date.now();
         if (now - lastTouchEnd <= 300) {
-          var tag = e.target && e.target.tagName;
-          if (
-            tag !== "BUTTON" &&
-            tag !== "A" &&
-            tag !== "INPUT" &&
-            tag !== "TEXTAREA" &&
-            tag !== "SELECT"
-          ) {
+          if (!isRapidTapTarget(e.target)) {
             e.preventDefault();
           }
         }
@@ -1419,12 +1672,41 @@
 
     var darkMode = document.body.classList.contains("dark-mode");
     try {
-      statusBar.setStyle({ style: darkMode ? "LIGHT" : "DARK" });
+      // Capacitor StatusBar: Style.Dark = light icons on dark background; Style.Light = dark icons on light background.
+      statusBar.setStyle({ style: darkMode ? "DARK" : "LIGHT" });
       statusBar.setBackgroundColor({
         color: darkMode ? "#0b1418" : "#f4f7f5"
       });
     } catch (error) {
       /* non-fatal */
+    }
+  }
+
+  function handleDeepLinkUrl(url) {
+    if (!url || typeof url !== "string") return;
+    var match = url.match(/tazkeer:\/\/open\/([^?#]+)/i);
+    if (!match || !match[1]) return;
+    var target = decodeURIComponent(match[1]).trim();
+    if (/^tab-(home|azkar|quran|prophets|profile)$/.test(target)) {
+      if (typeof global.switchTab === "function") {
+        global.switchTab(target);
+      }
+      return;
+    }
+    if (target === "kahf" || target === "surah-kahf") {
+      if (typeof global.switchTab === "function") global.switchTab("tab-quran");
+      if (typeof global.openSurahInMushaf === "function") {
+        setTimeout(function () {
+          global.openSurahInMushaf(18);
+        }, 180);
+      }
+      return;
+    }
+    if (typeof global.showCategoryPage === "function") {
+      if (typeof global.switchTab === "function") global.switchTab("tab-azkar");
+      setTimeout(function () {
+        global.showCategoryPage(target);
+      }, 150);
     }
   }
 
@@ -1455,16 +1737,6 @@
     }
 
     try {
-      var observer = new MutationObserver(updateStatusBar);
-      observer.observe(document.body, {
-        attributes: true,
-        attributeFilter: ["class"]
-      });
-    } catch (error) {
-      /* MutationObserver unavailable */
-    }
-
-    try {
       var appPlugin =
         global.Capacitor &&
         global.Capacitor.Plugins &&
@@ -1474,11 +1746,20 @@
           if (appState && appState.isActive) onResume();
         });
         appPlugin.addListener("appUrlOpen", function (event) {
-          var match = event && event.url && event.url.match(/tazkeer:\/\/open\/([^?]+)/);
-          if (match && /^tab-(home|azkar|quran|prophets|profile)$/.test(match[1])) {
-            if (typeof global.switchTab === "function") global.switchTab(match[1]);
-          }
+          if (event && event.url) handleDeepLinkUrl(event.url);
         });
+      }
+      if (appPlugin && typeof appPlugin.getLaunchUrl === "function") {
+        appPlugin
+          .getLaunchUrl()
+          .then(function (launch) {
+            if (launch && launch.url) {
+              setTimeout(function () {
+                handleDeepLinkUrl(launch.url);
+              }, 260);
+            }
+          })
+          .catch(function () {});
       }
     } catch (error) {
       /* non-fatal */
@@ -1577,6 +1858,8 @@
     platformName: platformName,
     getSettings: getSettings,
     updateSettings: updateSettings,
+    updateStatusBar: updateStatusBar,
+    syncOfflineCalendar: syncOfflineCalendar,
     refresh: render,
     refreshPermissions: refreshPermissions,
     refreshNextAlarm: refreshNextAlarm,
@@ -1590,6 +1873,13 @@
     downloadMuezzin: downloadMuezzin,
     togglePrayer: togglePrayer,
     setVolume: setVolume,
+    setCalculationMethod: setCalculationMethod,
+    setAsrSchool: setAsrSchool,
+    adjustPrayerOffset: adjustPrayerOffset,
+    resetPrayerOffsets: resetPrayerOffsets,
+    selectManualCity: selectManualCity,
+    useAutoLocation: useAutoLocation,
+    renderSettingsCityList: renderSettingsCityList,
     testNow: testAdhanNow,
     testFajr: testFajrAdhan,
     stopPlayback: stopPlayback,

@@ -47,6 +47,12 @@ function loadStorage({ initial = {}, failKey = null } = {}) {
       createElement: () => ({ click() {}, remove() {} }),
       body: { appendChild() {}, removeChild() {} },
     },
+    AppDialog: {
+      alert: (opts) => {
+        alerts.push(typeof opts === "string" ? opts : (opts && opts.message) || "");
+        return Promise.resolve(true);
+      },
+    },
     alert: (message) => alerts.push(message),
     console,
     setTimeout,
