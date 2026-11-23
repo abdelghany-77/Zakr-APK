@@ -6251,6 +6251,113 @@ function testAzkarReminder() {
 }
 
 /**
+ * ===== First-Use Permissions Onboarding =====
+ * Shows all required permissions on first launch so the user can grant them in one step.
+ */
+function showPermissionsOnboarding() {
+  const modal = document.getElementById("permissionsOnboardingModal");
+  if (!modal) return;
+
+  // Hide non-native items when running in browser (not Capacitor)
+  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+  const exactItem = document.getElementById("permOnboardExact");
+  const batteryItem = document.getElementById("permOnboardBattery");
+  if (!isNative) {
+    if (exactItem) exactItem.style.display = "none";
+    if (batteryItem) batteryItem.style.display = "none";
+  }
+
+  modal.classList.add("is-open");
+  if (window.AppRouter) {
+    window.AppRouter.pushModal("permissionsOnboardingModal", closePermissionsOnboarding);
+  }
+}
+
+function closePermissionsOnboarding() {
+  const modal = document.getElementById("permissionsOnboardingModal");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  if (window.AppRouter && window.AppRouter.isModalOpen("permissionsOnboardingModal")) {
+    window.AppRouter.closeModal("permissionsOnboardingModal");
+  }
+  if (window.TazkeerModalQueue) {
+    window.TazkeerModalQueue.notifyClosed("permissions-onboarding");
+  }
+}
+
+function _markPermBtn(btn, label) {
+  if (!btn) return;
+  btn.classList.add("granted");
+  btn.innerHTML = '<i class="fas fa-check"></i> ' + (label || "تم");
+}
+
+function permOnboardGrantLocation(btn) {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      () => _markPermBtn(btn, "تم"),
+      () => _markPermBtn(btn, "مرفوض"),
+      { timeout: 10000 }
+    );
+  }
+}
+
+function permOnboardGrantNotif(btn) {
+  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+  if (isNative && window.AdhanNative && typeof window.AdhanNative.fixPermission === "function") {
+    window.AdhanNative.fixPermission("notifications");
+    _markPermBtn(btn);
+  } else if ("Notification" in window) {
+    Notification.requestPermission().then((perm) => {
+      _markPermBtn(btn, perm === "granted" ? "تم" : "مرفوض");
+    });
+  } else {
+    _markPermBtn(btn, "غير مدعوم");
+  }
+}
+
+function permOnboardGrantExact(btn) {
+  if (window.AdhanNative && typeof window.AdhanNative.fixPermission === "function") {
+    window.AdhanNative.fixPermission("exact");
+    _markPermBtn(btn);
+  }
+}
+
+function permOnboardGrantBattery(btn) {
+  if (window.AdhanNative && typeof window.AdhanNative.fixPermission === "function") {
+    window.AdhanNative.fixPermission("battery");
+    _markPermBtn(btn);
+  }
+}
+
+function permOnboardGrantAll() {
+  const locBtn = document.querySelector("#permOnboardLocation .perms-onboard-item__btn");
+  const notifBtn = document.querySelector("#permOnboardNotif .perms-onboard-item__btn");
+  const exactBtn = document.querySelector("#permOnboardExact .perms-onboard-item__btn");
+  const batteryBtn = document.querySelector("#permOnboardBattery .perms-onboard-item__btn");
+
+  permOnboardGrantLocation(locBtn);
+  permOnboardGrantNotif(notifBtn);
+
+  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+  if (isNative) {
+    permOnboardGrantExact(exactBtn);
+    permOnboardGrantBattery(batteryBtn);
+  }
+
+  // Auto-close after a short delay to let the OS prompts appear
+  setTimeout(() => closePermissionsOnboarding(), 1500);
+}
+
+// Expose globally
+window.showPermissionsOnboarding = showPermissionsOnboarding;
+window.closePermissionsOnboarding = closePermissionsOnboarding;
+window.permOnboardGrantLocation = permOnboardGrantLocation;
+window.permOnboardGrantNotif = permOnboardGrantNotif;
+window.permOnboardGrantExact = permOnboardGrantExact;
+window.permOnboardGrantBattery = permOnboardGrantBattery;
+window.permOnboardGrantAll = permOnboardGrantAll;
+
+/**
  * Check first launch and open settings modal automatically
  */
 function checkFirstLaunchSettings() {
@@ -6262,6 +6369,20 @@ function checkFirstLaunchSettings() {
       else localStorage.setItem(KEY, "true");
       sessionStorage.setItem("tazkeer_is_first_launch", "true");
 
+      // ---- Show permissions onboarding FIRST ----
+      if (window.TazkeerModalQueue) {
+        window.TazkeerModalQueue.enqueue({
+          id: "permissions-onboarding",
+          delayMs: 400,
+          show: () => {
+            showPermissionsOnboarding();
+          },
+        });
+      } else {
+        setTimeout(() => showPermissionsOnboarding(), 400);
+      }
+
+      // ---- Then show adhan settings as before ----
       if (window.TazkeerModalQueue) {
         window.TazkeerModalQueue.enqueue({
           id: "first-launch-settings",
@@ -6279,7 +6400,7 @@ function checkFirstLaunchSettings() {
           if (typeof openAdhanModal === "function") {
             openAdhanModal();
           }
-        }, 700);
+        }, 1500);
       }
     }
   } catch (e) {}

@@ -87,6 +87,9 @@ async function checkOfflineQuranStatus() {
 
 /**
  * Start or resume bulk offline download of 604 pages.
+ * - Retries each failed page up to 3 times with exponential back-off.
+ * - If pages still fail after all retries, automatically re-runs until
+ *   everything is downloaded (network-resilient).
  */
 async function startOfflineQuranDownload() {
   if (quranOfflineState.status === "downloading") return;
@@ -105,55 +108,90 @@ async function startOfflineQuranDownload() {
     showNotification("بدأ تنزيل المصحف للقراءة دون اتصال...");
   }
 
+  const MAX_RETRIES = 3;
+  const CONCURRENCY = 4;          // slightly lower to reduce network pressure
+  const MAX_AUTO_ROUNDS = 10;     // safety cap to avoid infinite loops
+
   try {
     const cache = await caches.open(QURAN_CACHE_NAME_JS);
-    const CONCURRENCY = 6;
-    let pagesToFetch = [];
 
-    for (let page = 1; page <= TOTAL_QURAN_PAGES; page++) {
-      const url = getPageImageUrl(page);
-      const match = await cache.match(url);
-      if (!match) {
-        pagesToFetch.push(page);
-      } else {
-        imageCache.set(url, true);
-      }
-    }
-
-    quranOfflineState.downloadedPages = TOTAL_QURAN_PAGES - pagesToFetch.length;
-    updateOfflineCardUI();
-
-    if (pagesToFetch.length === 0) {
-      quranOfflineState.status = "completed";
-      updateOfflineCardUI();
-      if (typeof showNotification === "function") {
-        showNotification("المصحف محمل بالكامل ومتوفر بدون إنترنت! 🎉");
-      }
-      return;
-    }
-
-    for (let i = 0; i < pagesToFetch.length; i += CONCURRENCY) {
+    for (let round = 0; round < MAX_AUTO_ROUNDS; round++) {
       if (quranOfflineState.status !== "downloading") break;
 
-      const batch = pagesToFetch.slice(i, i + CONCURRENCY);
-      await Promise.all(
-        batch.map(async (pageNumber) => {
-          if (quranOfflineState.status !== "downloading") return;
+      // Determine which pages still need downloading
+      let pagesToFetch = [];
+      for (let page = 1; page <= TOTAL_QURAN_PAGES; page++) {
+        const url = getPageImageUrl(page);
+        const match = await cache.match(url);
+        if (!match) {
+          pagesToFetch.push(page);
+        } else {
+          imageCache.set(url, true);
+        }
+      }
 
-          const url = getPageImageUrl(pageNumber);
-          try {
-            const resp = await fetch(url, { mode: "cors" });
-            if (resp.ok) {
-              await cache.put(url, resp.clone());
-              imageCache.set(url, true);
-              quranOfflineState.downloadedPages++;
-              updateOfflineCardUI();
+      quranOfflineState.downloadedPages = TOTAL_QURAN_PAGES - pagesToFetch.length;
+      updateOfflineCardUI();
+
+      if (pagesToFetch.length === 0) {
+        quranOfflineState.status = "completed";
+        updateOfflineCardUI();
+        if (typeof showNotification === "function") {
+          showNotification("المصحف محمل بالكامل ومتوفر بدون إنترنت! 🎉");
+        }
+        return;
+      }
+
+      if (round > 0) {
+        // Wait a bit before retrying a new round (network recovery)
+        await new Promise(r => setTimeout(r, 2000));
+        if (quranOfflineState.status !== "downloading") break;
+      }
+
+      let failedThisRound = 0;
+
+      for (let i = 0; i < pagesToFetch.length; i += CONCURRENCY) {
+        if (quranOfflineState.status !== "downloading") break;
+
+        const batch = pagesToFetch.slice(i, i + CONCURRENCY);
+        await Promise.all(
+          batch.map(async (pageNumber) => {
+            if (quranOfflineState.status !== "downloading") return;
+
+            const url = getPageImageUrl(pageNumber);
+            let success = false;
+
+            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+              if (quranOfflineState.status !== "downloading") return;
+              try {
+                const resp = await fetch(url, { mode: "cors" });
+                if (resp.ok) {
+                  await cache.put(url, resp.clone());
+                  imageCache.set(url, true);
+                  quranOfflineState.downloadedPages++;
+                  updateOfflineCardUI();
+                  success = true;
+                  break;
+                }
+              } catch (_) {
+                // network error — wait before retry
+              }
+              // Exponential back-off: 1s, 2s, 4s
+              if (attempt < MAX_RETRIES - 1) {
+                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+              }
             }
-          } catch (err) {
-            console.warn(`Failed to fetch page ${pageNumber}:`, err);
-          }
-        })
-      );
+
+            if (!success) failedThisRound++;
+          })
+        );
+      }
+
+      // If nothing failed this round, we're done
+      if (failedThisRound === 0) break;
+
+      // Otherwise loop back to re-scan and retry remaining pages
+      console.log(`[Quran Download] Round ${round + 1} finished — ${failedThisRound} pages still pending, retrying...`);
     }
 
     if (quranOfflineState.downloadedPages >= TOTAL_QURAN_PAGES) {
@@ -162,11 +200,27 @@ async function startOfflineQuranDownload() {
         showNotification("تم اكتمال تنزيل المصحف كاملاً بدون إنترنت! 🎉");
       }
     } else if (quranOfflineState.status === "downloading") {
+      // Still incomplete after all rounds — keep status downloading and
+      // auto-resume after a longer pause
+      console.warn("[Quran Download] Not all pages downloaded — scheduling auto-resume in 10s");
       quranOfflineState.status = "paused";
+      updateOfflineCardUI();
+      setTimeout(() => {
+        if (quranOfflineState.status === "paused" && quranOfflineState.downloadedPages < TOTAL_QURAN_PAGES) {
+          startOfflineQuranDownload();
+        }
+      }, 10000);
+      return;
     }
   } catch (err) {
     console.error("Bulk download error:", err);
     quranOfflineState.status = "paused";
+    // Auto-resume after error
+    setTimeout(() => {
+      if (quranOfflineState.status === "paused" && quranOfflineState.downloadedPages < TOTAL_QURAN_PAGES) {
+        startOfflineQuranDownload();
+      }
+    }, 10000);
   } finally {
     updateOfflineCardUI();
   }

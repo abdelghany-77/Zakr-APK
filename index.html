@@ -624,6 +624,82 @@
     </div>
   </main>
 
+  <!-- ========== First-Use Permissions Onboarding Modal ========== -->
+  <div id="permissionsOnboardingModal" class="modal perms-onboard-modal" role="dialog" aria-modal="true" aria-labelledby="permsOnboardTitle">
+    <div class="modal-content perms-onboard-content">
+      <!-- Header Icon -->
+      <div class="perms-onboard-icon-wrap">
+        <i class="fas fa-shield-alt"></i>
+      </div>
+      <h3 id="permsOnboardTitle" class="perms-onboard-title">مرحباً بك في ذَكِّرْ</h3>
+      <p class="perms-onboard-desc">
+        لأفضل تجربة، يحتاج التطبيق إلى الصلاحيات التالية.<br>
+        يمكنك تفعيلها الآن لضمان عمل الأذان والإشعارات بشكل صحيح.
+      </p>
+
+      <!-- Permissions List -->
+      <div class="perms-onboard-list">
+        <!-- 1. Location -->
+        <div class="perms-onboard-item" id="permOnboardLocation">
+          <div class="perms-onboard-item__icon"><i class="fas fa-location-dot"></i></div>
+          <div class="perms-onboard-item__info">
+            <span class="perms-onboard-item__title">الموقع الجغرافي</span>
+            <span class="perms-onboard-item__desc">لحساب مواقيت الصلاة والأذان حسب مدينتك</span>
+          </div>
+          <button type="button" class="perms-onboard-item__btn" onclick="permOnboardGrantLocation(this)">
+            <i class="fas fa-check-circle"></i> تفعيل
+          </button>
+        </div>
+
+        <!-- 2. Notifications -->
+        <div class="perms-onboard-item" id="permOnboardNotif">
+          <div class="perms-onboard-item__icon"><i class="fas fa-bell"></i></div>
+          <div class="perms-onboard-item__info">
+            <span class="perms-onboard-item__title">الإشعارات</span>
+            <span class="perms-onboard-item__desc">لتنبيهك بمواعيد الأذان والأذكار</span>
+          </div>
+          <button type="button" class="perms-onboard-item__btn" onclick="permOnboardGrantNotif(this)">
+            <i class="fas fa-check-circle"></i> تفعيل
+          </button>
+        </div>
+
+        <!-- 3. Exact Alarms (Android only) -->
+        <div class="perms-onboard-item" id="permOnboardExact">
+          <div class="perms-onboard-item__icon"><i class="fas fa-clock"></i></div>
+          <div class="perms-onboard-item__info">
+            <span class="perms-onboard-item__title">المنبهات الدقيقة</span>
+            <span class="perms-onboard-item__desc">لضبط الأذان في الوقت المحدد بالثانية</span>
+          </div>
+          <button type="button" class="perms-onboard-item__btn" onclick="permOnboardGrantExact(this)">
+            <i class="fas fa-check-circle"></i> تفعيل
+          </button>
+        </div>
+
+        <!-- 4. Battery Optimization (Android only) -->
+        <div class="perms-onboard-item" id="permOnboardBattery">
+          <div class="perms-onboard-item__icon"><i class="fas fa-battery-full"></i></div>
+          <div class="perms-onboard-item__info">
+            <span class="perms-onboard-item__title">استثناء توفير البطارية</span>
+            <span class="perms-onboard-item__desc">يمنع النظام من إيقاف الأذان في الخلفية</span>
+          </div>
+          <button type="button" class="perms-onboard-item__btn" onclick="permOnboardGrantBattery(this)">
+            <i class="fas fa-check-circle"></i> تفعيل
+          </button>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="perms-onboard-actions">
+        <button type="button" class="perms-onboard-btn-primary" onclick="permOnboardGrantAll()">
+          <i class="fas fa-check-double"></i> تفعيل جميع الصلاحيات
+        </button>
+        <button type="button" class="perms-onboard-btn-skip" onclick="closePermissionsOnboarding()">
+          تخطي الآن
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Location Permission & Manual City Modal -->
   <div id="locationPermissionModal" class="modal location-permission-modal" role="dialog" aria-modal="true" aria-labelledby="locModalTitle">
     <div class="modal-content loc-modal-content">
