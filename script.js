@@ -2036,8 +2036,8 @@ const isCapacitorNative =
   typeof window.Capacitor.isNativePlatform === "function" &&
   window.Capacitor.isNativePlatform();
 
-const TAZKEER_APP_VERSION = "2.2.0";
-const TAZKEER_APP_VERSION_CODE = 4;
+const TAZKEER_APP_VERSION = "2.3.0";
+const TAZKEER_APP_VERSION_CODE = 5;
 const TAZKEER_REMOTE_VERSION_URL = "https://abdelghany-77.github.io/tazkeer/version.json";
 const TAZKEER_FALLBACK_APK_URL = "https://github.com/Abdelghany-77/tazkeer/releases/latest";
 const TAZKEER_PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.abdelghany.tazkeer";
