@@ -13,16 +13,14 @@
   box-sizing: border-box;
 }
 
-/* ===== Hide native scrollbar globally (mobile-app feel) ===== */
+/* ===== Hide main page scrollbar (mobile-app feel) ===== */
 html,
-body,
-*:not(.keep-scrollbar) {
+body {
   scrollbar-width: none;        /* Firefox */
   -ms-overflow-style: none;     /* IE / Edge */
 }
 html::-webkit-scrollbar,
-body::-webkit-scrollbar,
-*:not(.keep-scrollbar)::-webkit-scrollbar {
+body::-webkit-scrollbar {
   display: none;                /* Chrome / Safari / Android WebView */
   width: 0;
   height: 0;
