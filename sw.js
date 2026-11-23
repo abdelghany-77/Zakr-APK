@@ -1,9 +1,9 @@
-const CACHE_NAME = "tazkeer-v12.6.0";
+const CACHE_NAME = "tazkeer-v12.7.0";
 const QURAN_CACHE_NAME = "tazkeer-quran-pages-v1";
 const PROPHETS_CACHE_NAME = "tazkeer-prophets-v1";
 const API_CACHE_NAME = "tazkeer-api-v1";
 
-// 1. Critical local app shell assets (cached atomically)
+// 1. Critical local app shell assets (cached atomically — 100% offline fonts & icons)
 const CORE_LOCAL_ASSETS = [
   "./",
   "./index.html",
@@ -12,6 +12,7 @@ const CORE_LOCAL_ASSETS = [
   "./quran.css",
   "./adhan-native.css",
   "./manifest.json",
+  "./css/fonts-local.css",
   "./css/tokens.css",
   "./css/base.css",
   "./css/components.css",
@@ -21,6 +22,33 @@ const CORE_LOCAL_ASSETS = [
   "./css/pages/prophets.css",
   "./css/pages/profile.css",
   "./css/pages/settings-modal.css",
+  "./assets/fontawesome/css/all.min.css",
+  "./assets/fontawesome/webfonts/fa-solid-900.woff2",
+  "./assets/fontawesome/webfonts/fa-regular-400.woff2",
+  "./assets/fontawesome/webfonts/fa-brands-400.woff2",
+  "./assets/fontawesome/webfonts/fa-v4compatibility.woff2",
+  "./assets/fonts/gf-01.woff2",
+  "./assets/fonts/gf-02.woff2",
+  "./assets/fonts/gf-03.woff2",
+  "./assets/fonts/gf-04.woff2",
+  "./assets/fonts/gf-05.woff2",
+  "./assets/fonts/gf-06.woff2",
+  "./assets/fonts/gf-07.woff2",
+  "./assets/fonts/gf-08.woff2",
+  "./assets/fonts/gf-09.woff2",
+  "./assets/fonts/gf-10.woff2",
+  "./assets/fonts/gf-11.woff2",
+  "./assets/fonts/gf-12.woff2",
+  "./assets/fonts/gf-13.woff2",
+  "./assets/fonts/gf-14.woff2",
+  "./assets/fonts/gf-15.woff2",
+  "./assets/fonts/gf-16.woff2",
+  "./assets/fonts/gf-17.woff2",
+  "./assets/fonts/gf-18.woff2",
+  "./assets/fonts/gf-19.woff2",
+  "./assets/fonts/gf-20.woff2",
+  "./assets/fonts/gf-21.woff2",
+  "./assets/fonts/gf-22.woff2",
   "./js/core/app-utils.js",
   "./js/core/storage.js",
   "./js/core/router.js",
@@ -42,13 +70,8 @@ const CORE_LOCAL_ASSETS = [
   "./images/icon-512.png"
 ];
 
-// 2. External CDN assets (cached fault-tolerantly so CDN slowdowns never block install)
-const EXTERNAL_CDN_ASSETS = [
-  "https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=Aref+Ruqaa:wght@400;700&family=Cairo:wght@300;400;600;700&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap",
-  "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-  "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/webfonts/fa-solid-900.woff2",
-  "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/webfonts/fa-regular-400.woff2"
-];
+// 2. External CDN assets (empty — all fonts and icons are bundled locally)
+const EXTERNAL_CDN_ASSETS = [];
 
 // Install event - cache resources with zero-failure resilience
 self.addEventListener("install", function (event) {

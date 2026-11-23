@@ -31,7 +31,7 @@ const FILES = [
   "version.json",
 ];
 
-const DIRECTORIES = ["js", "data", "images", "css"];
+const DIRECTORIES = ["js", "data", "images", "css", "assets"];
 
 const clean = process.argv.includes("--clean");
 
