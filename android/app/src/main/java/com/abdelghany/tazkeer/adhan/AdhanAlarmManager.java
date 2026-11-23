@@ -10,6 +10,7 @@ import android.os.Build;
 import android.util.Log;
 
 import com.abdelghany.tazkeer.MainActivity;
+import com.abdelghany.tazkeer.widget.TazkeerPrayerWidget;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -117,6 +118,7 @@ public final class AdhanAlarmManager {
         }
 
         writeStored(context, persisted);
+        TazkeerPrayerWidget.updateAllWidgets(context);
         Log.i(TAG, "Scheduled " + scheduled + "/" + alarms.length() + " adhan alarms");
         return scheduled;
     }
@@ -191,6 +193,7 @@ public final class AdhanAlarmManager {
         }
 
         writeStored(context, future);
+        TazkeerPrayerWidget.updateAllWidgets(context);
         Log.i(TAG, "Rescheduled " + scheduled + " adhan alarms after system event");
         return scheduled;
     }

@@ -6573,6 +6573,42 @@ function closeFastingGuideModal() {
 }
 
 /**
+ * Privacy Policy In-App Modal Controller
+ */
+function _closePrivacyPolicyModalInternal() {
+  const modal = document.getElementById("privacyPolicyModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+  if (
+    document.body.style.overflow === "hidden" &&
+    (!window.AppRouter || !window.AppRouter.isModalOpen())
+  ) {
+    document.body.style.overflow = "";
+  }
+}
+
+function openPrivacyPolicyModal() {
+  const modal = document.getElementById("privacyPolicyModal");
+  if (!modal) return;
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
+  const body = modal.querySelector(".privacy-modal-body");
+  if (body) body.scrollTop = 0;
+  if (window.AppRouter && !window.AppRouter.isModalOpen("privacyPolicy")) {
+    window.AppRouter.pushModal("privacyPolicy", _closePrivacyPolicyModalInternal);
+  }
+}
+
+function closePrivacyPolicyModal() {
+  if (window.AppRouter && window.AppRouter.isModalOpen("privacyPolicy")) {
+    window.AppRouter.closeModal("privacyPolicy");
+  } else {
+    _closePrivacyPolicyModalInternal();
+  }
+}
+
+/**
  * Scroll smoothly to Qibla compass
  */
 function scrollToQibla() {

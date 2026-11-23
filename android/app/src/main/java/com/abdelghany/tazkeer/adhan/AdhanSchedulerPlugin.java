@@ -45,6 +45,7 @@ import androidx.core.content.ContextCompat;
 
 import com.abdelghany.tazkeer.MainActivity;
 import com.abdelghany.tazkeer.R;
+import com.abdelghany.tazkeer.widget.TazkeerPrayerWidget;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -173,6 +174,23 @@ public class AdhanSchedulerPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("updated", true);
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void updateWidgetData(PluginCall call) {
+        String city = call.getString("city", "");
+        String dhikr = call.getString("dhikr", "");
+        JSArray prayers = call.getArray("prayers");
+        try {
+            JSONArray nativePrayers = prayers != null ? new JSONArray(prayers.toString()) : null;
+            TazkeerPrayerWidget.saveWidgetData(getContext(), city, nativePrayers, dhikr);
+            JSObject result = new JSObject();
+            result.put("updated", true);
+            call.resolve(result);
+        } catch (JSONException e) {
+            Log.w(TAG, "Invalid widget prayer payload", e);
+            call.reject("Invalid widget prayer payload");
+        }
     }
 
     @PluginMethod
@@ -459,22 +477,17 @@ public class AdhanSchedulerPlugin extends Plugin {
             return;
         }
 
+        // Open the standard system Battery Optimization settings page (no restricted
+        // REQUEST_IGNORE_BATTERY_OPTIMIZATIONS manifest permission required on Google Play).
         try {
-            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-            intent.setData(Uri.parse("package:" + context.getPackageName()));
+            Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
         } catch (ActivityNotFoundException e) {
-            // Some OEMs (MIUI/EMUI) hide the direct dialog.
-            try {
-                Intent fallback = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(fallback);
-            } catch (ActivityNotFoundException ignored) {
-                openAppDetails();
-            }
+            openAppDetails();
         } catch (Exception e) {
-            Log.e(TAG, "Could not request battery exemption", e);
+            Log.e(TAG, "Could not open battery optimization settings", e);
+            openAppDetails();
         }
 
         JSObject result = buildStatus();

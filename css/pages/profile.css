@@ -460,9 +460,10 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 44px;
+  min-height: 46px;
   padding: 6px 0;
   margin: 0;
+  box-sizing: border-box;
   border: none;
   background: transparent;
   color: var(--pt-tx);
@@ -470,6 +471,7 @@
   font-size: 13px;
   font-weight: 600;
   text-align: start;
+  text-decoration: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }

@@ -603,11 +603,11 @@
                 <i class="fas fa-chevron-left pt-settings__chev"></i>
               </button>
               <hr class="pt-hr" />
-              <a class="pt-settings__row" href="privacy-policy.html" title="سياسة الخصوصية">
-                <i class="fas fa-shield-halved pt-settings__ico is-em"></i>
+              <button type="button" class="pt-settings__row" onclick="openPrivacyPolicyModal()" title="سياسة الخصوصية">
+                <i class="fas fa-user-shield pt-settings__ico is-em"></i>
                 <span class="pt-settings__label">سياسة الخصوصية</span>
                 <i class="fas fa-chevron-left pt-settings__chev"></i>
-              </a>
+              </button>
               <hr class="pt-hr" id="profileInstallAppDivider" />
               <button class="pt-settings__row" id="profileInstallAppRow" onclick="showInstallModal()" title="تثبيت تطبيق الأندرويد">
                 <i class="fab fa-android pt-settings__ico is-em"></i>
@@ -759,6 +759,47 @@
     </div>
   </div>
 
+  <!-- Privacy Policy Modal (in-app native sheet) -->
+  <div id="privacyPolicyModal" class="modal privacy-policy-modal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle" onclick="if (event.target === this) closePrivacyPolicyModal()">
+    <div class="modal-content privacy-modal-content">
+      <div class="adhan-modal-header">
+        <div class="adhan-modal-title" id="privacyModalTitle">
+          <i class="fas fa-user-shield"></i>
+          <span>سياسة الخصوصية</span>
+        </div>
+        <button type="button" class="adhan-close-btn" onclick="closePrivacyPolicyModal()" aria-label="إغلاق">&times;</button>
+      </div>
+      <div class="privacy-modal-body">
+        <div class="privacy-intro-card">
+          <p>يحترم تطبيق <strong>ذَكِّرْ</strong> خصوصيتك بالكامل. يعمل التطبيق محلياً على جهازك دون الحاجة لإنشاء حساب أو جمع أي بيانات شخصية.</p>
+        </div>
+
+        <div class="privacy-section">
+          <h4><i class="fas fa-database"></i> البيانات المستخدمة</h4>
+          <ul>
+            <li><strong>الموقع الجغرافي (اختياري):</strong> يُستخدم فقط لحساب مواقيت الصلاة بدقة واتجاه القبلة، ويمكنك اختيار مدينتك يدوياً دون منح إذن الموقع.</li>
+            <li><strong>التخزين المحلي:</strong> يُحفظ تقدمك في الأذكار والختمة والمسبحة والإعدادات على جهازك فقط.</li>
+            <li><strong>حساسات البوصلة:</strong> تُستخدم فقط أثناء فتح شاشة القبلة وتتوقف تلقائياً عند مغادرتها.</li>
+          </ul>
+        </div>
+
+        <div class="privacy-section">
+          <h4><i class="fas fa-mobile-alt"></i> صلاحيات أندرويد</h4>
+          <ul>
+            <li><strong>الإشعارات والمنبهات الدقيقة:</strong> لرفع الأذان وتذكيرك بالأذكار في أوقاتها المحددة.</li>
+            <li><strong>تشغيل الصوت في المقدمة:</strong> لضمان سماع الأذان بوضوح حتى عند إغلاق الشاشة.</li>
+            <li><strong>استثناء توفير البطارية (اختياري):</strong> لمنع تأخير تنبيهات الأذان.</li>
+          </ul>
+        </div>
+
+        <div class="privacy-section">
+          <h4><i class="fas fa-lock"></i> الخدمات الخارجية وحذف البيانات</h4>
+          <p>يتصل التطبيق عبر اتصال مشفّر (HTTPS) فقط لجلب مواقيت الصلاة أو تحميل صفحات المصحف وأصوات المؤذنين التي تختارها. لا يحتوي التطبيق على إعلانات أو أدوات تتبّع، ويمكنك مسح جميع بياناتك محلياً في أي وقت.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Floating Notification -->
   <div class="notification" id="notification">
     <i class="fas fa-check-circle"></i>
@@ -806,7 +847,7 @@
   <!-- ============================================================
        Adhan & App Settings (styled as a bottom sheet by v2 CSS)
        ============================================================ -->
-  <div id="adhanModal" class="modal adhan-modal" role="dialog" aria-modal="true" aria-labelledby="adhanModalTitle">
+  <div id="adhanModal" class="modal adhan-modal" role="dialog" aria-modal="true" aria-labelledby="adhanModalTitle" onclick="if (event.target === this) closeAdhanModal()">
     <div class="modal-content adhan-modal-content">
       <div class="adhan-modal-header">
         <div class="adhan-modal-title" id="adhanModalTitle">
@@ -816,231 +857,262 @@
         <button type="button" class="adhan-close-btn" onclick="closeAdhanModal()" aria-label="إغلاق">&times;</button>
       </div>
 
-      <div class="adhan-modal-body">
-        <!-- First Launch Welcome Banner -->
-        <!-- <div class="adhan-first-launch-banner" id="adhanFirstLaunchBanner"
-          style="display:none; background: linear-gradient(135deg, rgba(212,168,71,0.18), rgba(16,185,129,0.15)); border: 1px solid rgba(212,168,71,0.45); border-radius: 12px; padding: 0.9rem 1.1rem; margin-bottom: 1.2rem; text-align: center;">
-          <div style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.35rem;">✨ مرحباً بك في تطبيق ذَكِّرْ ✨</div>
-          <p style="font-size: 0.85rem; margin: 0; line-height: 1.6;">تم تفعيل الأذان وتذكيرات الأذكار تلقائياً لتكون
-            جاهزة لك مباشرة. يمكنك تخصيص اختياراتك أو تغيير المؤذن ومظهر التطبيق أدناه.</p>
-        </div> -->
-
-        <!-- Theme Mode Section -->
-        <div class="adhan-section-title">
-          <i class="fas fa-palette"></i>
-          <span>مظهر التطبيق</span>
-        </div>
-        <div class="adhan-theme-grid">
-          <button type="button" class="adhan-theme-card" id="themeDarkBtn" onclick="setAppTheme('dark')">
-            <div class="theme-card-icon"><i class="fas fa-moon"></i></div>
-            <div class="theme-card-details">
-              <strong>الوضع الداكن</strong>
-              <span>مريح للعين ويوفّر البطارية</span>
-            </div>
-            <div class="theme-card-check"><i class="fas fa-check-circle"></i></div>
-          </button>
-          <button type="button" class="adhan-theme-card" id="themeLightBtn" onclick="setAppTheme('light')">
-            <div class="theme-card-icon"><i class="fas fa-sun"></i></div>
-            <div class="theme-card-details">
-              <strong>الوضع الفاتح</strong>
-              <span>وضوح في الإضاءة القوية</span>
-            </div>
-            <div class="theme-card-check"><i class="fas fa-check-circle"></i></div>
-          </button>
-        </div>
-
-        <!-- Azkar Reminders Toggle -->
-        <div class="adhan-section-title" style="margin-top: 1.25rem;">
-          <i class="fas fa-clock"></i>
-          <span>تذكير الأذكار</span>
-        </div>
-        <div class="adhan-master">
-          <div>
-            <h4>إشعارات تذكير الأذكار</h4>
-            <p>تنبيهك عند حلول وقت أذكار الصباح والمساء والنوم وسورة الكهف يوم الجمعة</p>
-          </div>
-          <label class="adhan-switch">
-            <input type="checkbox" id="azkarReminderToggle" onchange="setAzkarReminderEnabled(this.checked)" checked />
-            <span class="adhan-slider"></span>
-          </label>
-        </div>
-        <div style="margin-top: 0.6rem; display: flex; justify-content: flex-end;">
-          <!-- <button type="button" class="adhan-action-btn is-ghost" onclick="testAzkarReminder()">
-            <i class="fas fa-volume-high"></i>
-            <span>تجربة صوت تنبيه الأذكار</span>
-          </button> -->
-        </div>
-
-        <!-- Prayer Calculation & Manual City Settings -->
-        <div class="adhan-section-title" style="margin-top: 1.25rem;">
+      <!-- Compact Category Tabs -->
+      <div class="settings-tabs" role="tablist" aria-label="أقسام الإعدادات">
+        <button type="button" class="settings-tab-btn is-active" data-settings-tab="general" role="tab" aria-selected="true" onclick="switchSettingsTab('general')">
           <i class="fas fa-sliders"></i>
-          <span>حساب المواقيت والموقع</span>
-        </div>
-        <div class="prayer-settings-card" id="prayerSettingsCard">
-          <div class="prayer-setting-block">
-            <div class="prayer-setting-head">
-              <span class="prayer-setting-label">الموقع المعتمد</span>
-              <button type="button" class="prayer-auto-loc-btn" id="prayerCityAutoBtn" onclick="AdhanNative.useAutoLocation()">
-                <i class="fas fa-location-crosshairs"></i>
-                <span>تلقائي</span>
-              </button>
-            </div>
-            <div class="prayer-city-current" id="prayerCityCurrentLabel">تحديد تلقائي عبر الموقع الجغرافي</div>
-            <div class="loc-city-search-wrap">
-              <i class="fas fa-magnifying-glass"></i>
-              <input type="text" id="prayerCitySearchInput" placeholder="اختر مدينة يدوياً (مثل: القاهرة، مكة، دبي)..."
-                autocomplete="off" oninput="AdhanNative.renderSettingsCityList(this.value)" />
-            </div>
-            <div class="prayer-city-chips" id="prayerCityResultsList"></div>
-          </div>
-
-          <div class="prayer-setting-block">
-            <label class="prayer-setting-label" for="prayerMethodSelect">طريقة حساب المواقيت</label>
-            <select id="prayerMethodSelect" class="prayer-method-select"
-              onchange="AdhanNative.setCalculationMethod(this.value)"></select>
-          </div>
-
-          <div class="prayer-setting-block">
-            <span class="prayer-setting-label">مذهب حساب صلاة العصر</span>
-            <div class="prayer-school-group">
-              <button type="button" class="prayer-school-btn active" data-school="0" onclick="AdhanNative.setAsrSchool(0)">
-                الشافعي والجمهور
-              </button>
-              <button type="button" class="prayer-school-btn" data-school="1" onclick="AdhanNative.setAsrSchool(1)">
-                الحنفي
-              </button>
-            </div>
-          </div>
-
-          <div class="prayer-setting-block">
-            <div class="prayer-setting-head">
-              <span class="prayer-setting-label">تعديل الدقائق يدوياً (±٣٠ دقيقة)</span>
-              <button type="button" class="prayer-offset-reset-btn" onclick="AdhanNative.resetPrayerOffsets()">
-                إعادة للصفر
-              </button>
-            </div>
-            <div class="prayer-offsets-list" id="prayerOffsetsList"></div>
-          </div>
-        </div>
-
-        <div class="adhan-section-title" style="margin-top: 1.25rem;">
+          <span>عام</span>
+        </button>
+        <button type="button" class="settings-tab-btn" data-settings-tab="adhan" role="tab" aria-selected="false" onclick="switchSettingsTab('adhan')">
           <i class="fas fa-bell"></i>
-          <span>إعدادات الأذان والتنبيهات</span>
-        </div>
+          <span>الأذان</span>
+        </button>
+        <button type="button" class="settings-tab-btn" data-settings-tab="prayer" role="tab" aria-selected="false" onclick="switchSettingsTab('prayer')">
+          <i class="fas fa-location-dot"></i>
+          <span>المواقيت</span>
+        </button>
+      </div>
 
-        <div class="adhan-web-notice" id="adhanWebNotice">
-          <i class="fas fa-circle-info"></i>
-          <span>المحرك الأصلي للأذان يعمل في تطبيق أندرويد. افتح التطبيق المثبّت لتفعيل الأذان في الخلفية ووضع توفير الطاقة.</span>
-        </div>
-
-        <!-- Master switch -->
-        <div class="adhan-master">
-          <div>
-            <h4>تشغيل الأذان تلقائياً</h4>
-            <p>يعمل حتى لو كان التطبيق مغلقاً أو الشاشة مقفلة</p>
+      <div class="adhan-modal-body" id="adhanModalBody">
+        <!-- ==================== TAB 1: GENERAL ==================== -->
+        <div class="settings-tab-panel is-active" data-settings-panel="general">
+          <!-- Theme Mode Section -->
+          <div class="adhan-section-title is-first">
+            <i class="fas fa-palette"></i>
+            <span>مظهر التطبيق</span>
           </div>
-          <label class="adhan-switch">
-            <input type="checkbox" id="adhanEnabledToggle" onchange="AdhanNative.setEnabled(this.checked)" />
-            <span class="adhan-slider"></span>
-          </label>
-        </div>
-
-        <!-- Muezzin selection -->
-        <div class="adhan-section-title">
-          <i class="fas fa-microphone-lines"></i>
-          <span>اختر المؤذن</span>
-          <!-- <span class="adhan-section-hint">صوت مضمّن</span> -->
-        </div>
-        <div class="adhan-muezzin-list" id="adhanMuezzinList">
-          <!-- Rendered by adhan-native.js -->
-        </div>
-
-        <!-- Per-prayer toggles -->
-        <div class="adhan-section-title">
-          <i class="fas fa-mosque"></i>
-          <span>الصلوات التي يُرفع فيها الأذان</span>
-        </div>
-        <div class="adhan-prayer-grid" id="adhanPrayerGrid">
-          <!-- Rendered by adhan-native.js -->
-        </div>
-
-        <!-- Volume -->
-        <div class="adhan-section-title">
-          <i class="fas fa-volume-high"></i>
-          <span>مستوى صوت الأذان</span>
-          <span class="adhan-section-hint">يستخدم مسار المنبّه</span>
-        </div>
-        <div class="adhan-volume-row">
-          <i class="fas fa-volume-low"></i>
-          <input type="range" id="adhanVolume" min="5" max="100" step="5" value="100"
-            oninput="AdhanNative.setVolume(this.value)" aria-label="مستوى صوت الأذان" />
-          <span class="adhan-volume-value" id="adhanVolumeValue">١٠٠٪</span>
-        </div>
-
-        <!-- Permissions diagnostic -->
-        <div class="adhan-section-title">
-          <i class="fas fa-shield-halved"></i>
-          <span>التشغيل الموثوق في الخلفية</span>
-        </div>
-        <div class="adhan-permissions" id="adhanPermissions">
-          <div class="adhan-perm-row" id="adhanPermNotif">
-            <span class="adhan-perm-badge"><i class="fas fa-exclamation"></i></span>
-            <span class="adhan-perm-text">
-              <span class="adhan-perm-title">إذن الإشعارات</span>
-              <span class="adhan-perm-desc">اسمح بالإشعارات ليظهر تنبيه الأذان</span>
-            </span>
-            <button type="button" class="adhan-perm-fix"
-              onclick="AdhanNative.fixPermission('notifications')">تفعيل</button>
+          <div class="adhan-theme-grid">
+            <button type="button" class="adhan-theme-card" id="themeDarkBtn" onclick="setAppTheme('dark')">
+              <div class="theme-card-icon"><i class="fas fa-moon"></i></div>
+              <div class="theme-card-details">
+                <strong>الوضع الداكن</strong>
+                <span>مريح للعين ويوفّر البطارية</span>
+              </div>
+              <div class="theme-card-check"><i class="fas fa-check-circle"></i></div>
+            </button>
+            <button type="button" class="adhan-theme-card" id="themeLightBtn" onclick="setAppTheme('light')">
+              <div class="theme-card-icon"><i class="fas fa-sun"></i></div>
+              <div class="theme-card-details">
+                <strong>الوضع الفاتح</strong>
+                <span>وضوح في الإضاءة القوية</span>
+              </div>
+              <div class="theme-card-check"><i class="fas fa-check-circle"></i></div>
+            </button>
           </div>
 
-          <div class="adhan-perm-row" id="adhanPermExact">
-            <span class="adhan-perm-badge"><i class="fas fa-exclamation"></i></span>
-            <span class="adhan-perm-text">
-              <span class="adhan-perm-title">المنبهات الدقيقة</span>
-              <span class="adhan-perm-desc">لضبط الأذان في الثانية المحددة</span>
-            </span>
-            <button type="button" class="adhan-perm-fix" onclick="AdhanNative.fixPermission('exact')">تفعيل</button>
+          <!-- Azkar Reminders Toggle -->
+          <div class="adhan-section-title">
+            <i class="fas fa-clock"></i>
+            <span>تذكير الأذكار</span>
+          </div>
+          <div class="adhan-master">
+            <div>
+              <h4>إشعارات تذكير الأذكار</h4>
+              <p>أذكار الصباح والمساء والنوم وسورة الكهف يوم الجمعة</p>
+            </div>
+            <label class="adhan-switch">
+              <input type="checkbox" id="azkarReminderToggle" onchange="setAzkarReminderEnabled(this.checked)" checked />
+              <span class="adhan-slider"></span>
+            </label>
           </div>
 
-          <div class="adhan-perm-row" id="adhanPermBattery">
-            <span class="adhan-perm-badge"><i class="fas fa-exclamation"></i></span>
-            <span class="adhan-perm-text">
-              <span class="adhan-perm-title">استثناء توفير البطارية</span>
-              <span class="adhan-perm-desc">يمنع النظام من إيقاف الأذان في الخلفية</span>
-            </span>
-            <button type="button" class="adhan-perm-fix" onclick="AdhanNative.fixPermission('battery')">تفعيل</button>
+          <!-- Quick navigation shortcuts -->
+          <div class="adhan-section-title">
+            <i class="fas fa-compass"></i>
+            <span>وصول سريع</span>
+          </div>
+          <div class="settings-quick-links">
+            <button type="button" class="settings-quick-row" onclick="switchSettingsTab('adhan')">
+              <span class="settings-quick-ico"><i class="fas fa-bell"></i></span>
+              <span class="settings-quick-text">
+                <strong>إعدادات الأذان والمؤذن</strong>
+                <span id="generalAdhanSummary">تخصيص المؤذن والصلوات والصوت</span>
+              </span>
+              <i class="fas fa-chevron-left settings-quick-chev"></i>
+            </button>
+            <button type="button" class="settings-quick-row" onclick="switchSettingsTab('prayer')">
+              <span class="settings-quick-ico is-gold"><i class="fas fa-location-dot"></i></span>
+              <span class="settings-quick-text">
+                <strong>المدينة وحساب المواقيت</strong>
+                <span id="generalCitySummary">تحديد تلقائي عبر الموقع الجغرافي</span>
+              </span>
+              <i class="fas fa-chevron-left settings-quick-chev"></i>
+            </button>
           </div>
         </div>
 
-        <!-- Next alarm status -->
-        <div class="adhan-next-info" id="adhanNextInfo">
-          <i class="fas fa-clock"></i>
-          <span>جارٍ قراءة جدول الأذان...</span>
+        <!-- ==================== TAB 2: ADHAN ==================== -->
+        <div class="settings-tab-panel" data-settings-panel="adhan">
+          <div class="adhan-web-notice" id="adhanWebNotice">
+            <i class="fas fa-circle-info"></i>
+            <span>المحرك الأصلي للأذان يعمل في تطبيق أندرويد المثبّت لرفع الأذان في الخلفية.</span>
+          </div>
+
+          <!-- Master switch -->
+          <div class="adhan-master is-first">
+            <div>
+              <h4>تشغيل الأذان تلقائياً</h4>
+              <p>يعمل حتى عند إغلاق التطبيق أو قفل الشاشة</p>
+            </div>
+            <label class="adhan-switch">
+              <input type="checkbox" id="adhanEnabledToggle" onchange="AdhanNative.setEnabled(this.checked)" />
+              <span class="adhan-slider"></span>
+            </label>
+          </div>
+
+          <!-- Next alarm status -->
+          <div class="adhan-next-info" id="adhanNextInfo">
+            <i class="fas fa-clock"></i>
+            <span>جارٍ قراءة جدول الأذان...</span>
+          </div>
+
+          <!-- Per-prayer toggles -->
+          <div class="adhan-section-title">
+            <i class="fas fa-mosque"></i>
+            <span>الصلوات المفعّلة</span>
+          </div>
+          <div class="adhan-prayer-grid" id="adhanPrayerGrid">
+            <!-- Rendered by adhan-native.js -->
+          </div>
+
+          <!-- Volume -->
+          <div class="adhan-section-title">
+            <i class="fas fa-volume-high"></i>
+            <span>مستوى صوت الأذان</span>
+            <span class="adhan-section-hint">مسار المنبّه</span>
+          </div>
+          <div class="adhan-volume-row">
+            <i class="fas fa-volume-low"></i>
+            <input type="range" id="adhanVolume" min="5" max="100" step="5" value="100"
+              oninput="AdhanNative.setVolume(this.value)" aria-label="مستوى صوت الأذان" />
+            <span class="adhan-volume-value" id="adhanVolumeValue">١٠٠٪</span>
+          </div>
+
+          <!-- Collapsible Muezzin Selector -->
+          <details class="settings-accordion" id="adhanMuezzinAccordion">
+            <summary class="settings-accordion__summary">
+              <span class="settings-accordion__title">
+                <i class="fas fa-microphone-lines"></i>
+                <span>اختر المؤذن</span>
+              </span>
+              <span class="settings-accordion__meta" id="adhanSelectedMuezzinSummary">الشيخ عبد الباسط</span>
+              <i class="fas fa-chevron-down settings-accordion__chev"></i>
+            </summary>
+            <div class="settings-accordion__body">
+              <div class="adhan-muezzin-list" id="adhanMuezzinList">
+                <!-- Rendered by adhan-native.js -->
+              </div>
+            </div>
+          </details>
+
+          <!-- Collapsible Permissions Diagnostic -->
+          <details class="settings-accordion" id="adhanPermAccordion">
+            <summary class="settings-accordion__summary">
+              <span class="settings-accordion__title">
+                <i class="fas fa-shield-alt"></i>
+                <span>صلاحيات العمل في الخلفية</span>
+              </span>
+              <span class="settings-accordion__badge" id="adhanPermSummary">التحقق</span>
+              <i class="fas fa-chevron-down settings-accordion__chev"></i>
+            </summary>
+            <div class="settings-accordion__body">
+              <div class="adhan-permissions" id="adhanPermissions">
+                <div class="adhan-perm-row" id="adhanPermNotif">
+                  <span class="adhan-perm-badge"><i class="fas fa-exclamation"></i></span>
+                  <span class="adhan-perm-text">
+                    <span class="adhan-perm-title">إذن الإشعارات</span>
+                    <span class="adhan-perm-desc">اسمح بالإشعارات ليظهر تنبيه الأذان</span>
+                  </span>
+                  <button type="button" class="adhan-perm-fix"
+                    onclick="AdhanNative.fixPermission('notifications')">تفعيل</button>
+                </div>
+
+                <div class="adhan-perm-row" id="adhanPermExact">
+                  <span class="adhan-perm-badge"><i class="fas fa-exclamation"></i></span>
+                  <span class="adhan-perm-text">
+                    <span class="adhan-perm-title">المنبهات الدقيقة</span>
+                    <span class="adhan-perm-desc">لضبط الأذان في الثانية المحددة</span>
+                  </span>
+                  <button type="button" class="adhan-perm-fix" onclick="AdhanNative.fixPermission('exact')">تفعيل</button>
+                </div>
+
+                <div class="adhan-perm-row" id="adhanPermBattery">
+                  <span class="adhan-perm-badge"><i class="fas fa-exclamation"></i></span>
+                  <span class="adhan-perm-text">
+                    <span class="adhan-perm-title">استثناء توفير البطارية</span>
+                    <span class="adhan-perm-desc">يمنع النظام من إيقاف الأذان في الخلفية</span>
+                  </span>
+                  <button type="button" class="adhan-perm-fix" onclick="AdhanNative.fixPermission('battery')">تفعيل</button>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <p class="adhan-footnote" id="adhanFootnote">
+            التسجيلات الصوتية مضمّنة داخل التطبيق وتعمل دون إنترنت.
+          </p>
         </div>
 
-        <!-- Actions -->
-        <div class="adhan-action-row">
-          <button type="button" class="adhan-action-btn" onclick="AdhanNative.testNow(10)">
-            <i class="fas fa-play"></i>
-            <span>تجربة الأذان</span>
-          </button>
-          <button type="button" class="adhan-action-btn is-gold" onclick="AdhanNative.testFajr()">
-            <i class="fas fa-cloud-moon"></i>
-            <span>أذان الفجر</span>
-          </button>
-          <button type="button" class="adhan-action-btn is-ghost" onclick="AdhanNative.resync()">
-            <i class="fas fa-rotate"></i>
-            <span>إعادة المزامنة</span>
-          </button>
-          <button type="button" class="adhan-action-btn is-danger" onclick="AdhanNative.stopPlayback()">
-            <i class="fas fa-stop"></i>
-            <span>إيقاف الأذان</span>
-          </button>
-        </div>
+        <!-- ==================== TAB 3: PRAYER & LOCATION ==================== -->
+        <div class="settings-tab-panel" data-settings-panel="prayer">
+          <div class="prayer-settings-card is-first" id="prayerSettingsCard">
+            <div class="prayer-setting-block">
+              <div class="prayer-setting-head">
+                <span class="prayer-setting-label">الموقع المعتمد</span>
+                <button type="button" class="prayer-auto-loc-btn" id="prayerCityAutoBtn" onclick="AdhanNative.useAutoLocation()">
+                  <i class="fas fa-location-crosshairs"></i>
+                  <span>تلقائي</span>
+                </button>
+              </div>
+              <div class="prayer-city-current" id="prayerCityCurrentLabel">تحديد تلقائي عبر الموقع الجغرافي</div>
+              <div class="loc-city-search-wrap">
+                <i class="fas fa-magnifying-glass"></i>
+                <input type="text" id="prayerCitySearchInput" placeholder="اختر مدينة يدوياً (مثل: القاهرة، مكة، دبي)..."
+                  autocomplete="off" oninput="AdhanNative.renderSettingsCityList(this.value)" />
+              </div>
+              <div class="prayer-city-chips" id="prayerCityResultsList"></div>
+            </div>
 
-        <p class="adhan-footnote" id="adhanFootnote">
-          التسجيلات الصوتية مضمّنة داخل التطبيق وتعمل دون إنترنت.
-        </p>
+            <div class="prayer-setting-block">
+              <label class="prayer-setting-label" for="prayerMethodSelect">طريقة حساب المواقيت</label>
+              <select id="prayerMethodSelect" class="prayer-method-select"
+                onchange="AdhanNative.setCalculationMethod(this.value)"></select>
+            </div>
+
+            <div class="prayer-setting-block">
+              <span class="prayer-setting-label">مذهب حساب صلاة العصر</span>
+              <div class="prayer-school-group">
+                <button type="button" class="prayer-school-btn active" data-school="0" onclick="AdhanNative.setAsrSchool(0)">
+                  الشافعي والجمهور
+                </button>
+                <button type="button" class="prayer-school-btn" data-school="1" onclick="AdhanNative.setAsrSchool(1)">
+                  الحنفي
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Collapsible Manual Minute Adjustments -->
+          <details class="settings-accordion" id="prayerOffsetsAccordion">
+            <summary class="settings-accordion__summary">
+              <span class="settings-accordion__title">
+                <i class="fas fa-history"></i>
+                <span>تعديل الدقائق يدوياً (±٣٠ د)</span>
+              </span>
+              <span class="settings-accordion__meta" id="prayerOffsetsSummary">افتراضي</span>
+              <i class="fas fa-chevron-down settings-accordion__chev"></i>
+            </summary>
+            <div class="settings-accordion__body">
+              <div class="prayer-offsets-head">
+                <span class="prayer-offsets-hint">ضبط دقيق لكل صلاة عند الحاجة</span>
+                <button type="button" class="prayer-offset-reset-btn" onclick="AdhanNative.resetPrayerOffsets()">
+                  إعادة للصفر
+                </button>
+              </div>
+              <div class="prayer-offsets-list" id="prayerOffsetsList"></div>
+            </div>
+          </details>
+        </div>
       </div>
     </div>
   </div>

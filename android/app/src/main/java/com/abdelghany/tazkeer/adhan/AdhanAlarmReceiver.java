@@ -7,6 +7,8 @@ import android.os.Build;
 import android.os.PowerManager;
 import android.util.Log;
 
+import com.abdelghany.tazkeer.widget.TazkeerPrayerWidget;
+
 /**
  * ============================================================================
  * AdhanAlarmReceiver — entry point fired by AlarmManager.setAlarmClock().
@@ -77,5 +79,8 @@ public class AdhanAlarmReceiver extends BroadcastReceiver {
                 }
             }
         }
+
+        // Advance home screen widget immediately to the next upcoming prayer.
+        TazkeerPrayerWidget.updateAllWidgets(context);
     }
 }

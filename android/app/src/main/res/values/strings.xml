@@ -4,4 +4,14 @@
     <string name="title_activity_main">ذَكِّرْ</string>
     <string name="package_name">com.abdelghany.tazkeer</string>
     <string name="custom_url_scheme">com.abdelghany.tazkeer</string>
+
+    <!-- Home screen widget -->
+    <string name="widget_description">عرض الصلاة القادمة والوقت المتبقي وذِكر يومي على الشاشة الرئيسية</string>
+    <string name="widget_next_prayer">الصلاة القادمة</string>
+    <string name="widget_remaining">متبقي</string>
+    <string name="widget_default_prayer">مواقيت الصلاة</string>
+    <string name="widget_tap_to_sync">افتح للتحديث</string>
+    <string name="widget_daily_dhikr">ذِكر اليوم</string>
+    <string name="widget_default_dhikr">سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ</string>
+    <string name="widget_refresh_desc">تحديث الذكر والمواقيت</string>
 </resources>

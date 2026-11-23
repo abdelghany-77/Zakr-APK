@@ -667,9 +667,408 @@
   color: var(--pt-em);
 }
 
+/* ── Compact Category Tabs inside Settings Sheet ─────────────────────────── */
+#adhanModal .adhan-modal-content {
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#adhanModal .adhan-modal-header {
+  border-bottom: none;
+  padding: 18px 18px 10px;
+}
+
+#adhanModal .settings-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 0 18px 12px;
+  border-bottom: 1px solid var(--pt-line);
+  background: var(--pt-bg);
+  flex-shrink: 0;
+}
+
+#adhanModal .settings-tab-btn {
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s1);
+  color: var(--pt-mu);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+#adhanModal .settings-tab-btn i {
+  font-size: 12px;
+}
+
+#adhanModal .settings-tab-btn.is-active {
+  background: var(--pt-em-bg);
+  border-color: var(--pt-em-line);
+  color: var(--pt-em);
+}
+
+#adhanModal .adhan-modal-body {
+  padding: 12px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+#adhanModal .settings-tab-panel {
+  display: none;
+}
+
+#adhanModal .settings-tab-panel.is-active {
+  display: block;
+}
+
+#adhanModal .adhan-section-title {
+  margin: 14px 0 8px;
+}
+
+#adhanModal .adhan-section-title.is-first {
+  margin-top: 2px;
+}
+
+#adhanModal .adhan-master.is-first,
+#adhanModal .prayer-settings-card.is-first {
+  margin-top: 2px;
+}
+
+/* ── Quick navigation shortcuts on General tab ───────────────────────────── */
+#adhanModal .settings-quick-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#adhanModal .settings-quick-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s1);
+  color: var(--pt-tx);
+  font-family: var(--font-sans);
+  text-align: start;
+  cursor: pointer;
+}
+
+#adhanModal .settings-quick-row:active {
+  background: var(--pt-s2);
+}
+
+#adhanModal .settings-quick-ico {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pt-em-bg);
+  color: var(--pt-em);
+  font-size: 13px;
+}
+
+#adhanModal .settings-quick-ico.is-gold {
+  background: var(--pt-gd-bg);
+  color: var(--pt-gd);
+}
+
+#adhanModal .settings-quick-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#adhanModal .settings-quick-text strong {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+
+#adhanModal .settings-quick-text span {
+  font-size: 11px;
+  color: var(--pt-mu);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#adhanModal .settings-quick-chev {
+  font-size: 11px;
+  color: var(--pt-mu-2);
+  flex-shrink: 0;
+}
+
+/* ── Collapsible Accordions (keep Settings compact & zero bloat) ─────────── */
+#adhanModal .settings-accordion {
+  margin-top: 10px;
+  border-radius: 15px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s1);
+  overflow: hidden;
+}
+
+#adhanModal .settings-accordion__summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+#adhanModal .settings-accordion__summary::-webkit-details-marker {
+  display: none;
+}
+
+#adhanModal .settings-accordion__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pt-tx);
+  flex: 1;
+  min-width: 0;
+}
+
+#adhanModal .settings-accordion__title i {
+  color: var(--pt-em);
+  font-size: 12px;
+}
+
+#adhanModal .settings-accordion__meta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pt-mu);
+  max-width: 135px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#adhanModal .settings-accordion__badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--pt-s2);
+  color: var(--pt-mu);
+  border: 1px solid var(--pt-line);
+  white-space: nowrap;
+}
+
+#adhanModal .settings-accordion__badge.is-ok {
+  background: var(--pt-em-bg);
+  border-color: var(--pt-em-line);
+  color: var(--pt-em);
+}
+
+#adhanModal .settings-accordion__badge.is-warn {
+  background: var(--pt-warm-bg);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: var(--pt-warm);
+}
+
+#adhanModal .settings-accordion__chev {
+  font-size: 11px;
+  color: var(--pt-mu-2);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+#adhanModal .settings-accordion[open] .settings-accordion__chev {
+  transform: rotate(180deg);
+}
+
+#adhanModal .settings-accordion__body {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--pt-line);
+  padding-top: 10px;
+}
+
+#adhanModal .prayer-offsets-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+#adhanModal .prayer-offsets-hint {
+  font-size: 11px;
+  color: var(--pt-mu);
+}
+
+#adhanModal .prayer-city-chips {
+  max-height: 120px;
+}
+
+/* ── In-App Privacy Policy Bottom Sheet (#privacyPolicyModal) ────────────── */
+#privacyPolicyModal.privacy-policy-modal {
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.58);
+  z-index: 10060;
+}
+
+#privacyPolicyModal .privacy-modal-content {
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 26px 26px 0 0;
+  border: 1px solid var(--pt-line);
+  border-bottom: none;
+  background: var(--pt-bg);
+  color: var(--pt-tx);
+  box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.4);
+  animation: ptSheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+#privacyPolicyModal .adhan-modal-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--pt-line);
+  background: var(--pt-bg);
+  flex-shrink: 0;
+}
+
+#privacyPolicyModal .adhan-modal-header::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--pt-line-2);
+}
+
+#privacyPolicyModal .adhan-modal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+
+#privacyPolicyModal .adhan-modal-title i {
+  color: var(--pt-em);
+  font-size: 15px;
+}
+
+#privacyPolicyModal .adhan-close-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+  color: var(--pt-tx);
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#privacyPolicyModal .privacy-modal-body {
+  padding: 14px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#privacyPolicyModal .privacy-intro-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--pt-em-line);
+  background: var(--pt-em-bg);
+}
+
+#privacyPolicyModal .privacy-intro-card p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--pt-tx);
+}
+
+#privacyPolicyModal .privacy-section {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s1);
+}
+
+#privacyPolicyModal .privacy-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pt-tx);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#privacyPolicyModal .privacy-section h4 i {
+  color: var(--pt-em);
+  font-size: 12px;
+}
+
+#privacyPolicyModal .privacy-section ul {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#privacyPolicyModal .privacy-section li,
+#privacyPolicyModal .privacy-section p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--pt-mu);
+}
+
+#privacyPolicyModal .privacy-section strong {
+  color: var(--pt-tx);
+}
+
 /* ── Accordion groupings on small screens ────────────────────────────────── */
 @media (max-width: 380px) {
   #adhanModal .adhan-theme-grid {
     grid-template-columns: 1fr;
+  }
+  #adhanModal .settings-tab-btn {
+    font-size: 11.5px;
+    padding: 6px 6px;
   }
 }

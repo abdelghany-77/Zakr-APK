@@ -620,6 +620,61 @@
   // Native synchronisation
   // ---------------------------------------------------------------------------
 
+  async function pushWidgetPrayerSchedule(days) {
+    var plugin = getPlugin();
+    if (!isNativePlatform() || !plugin || typeof plugin.updateWidgetData !== "function") {
+      return;
+    }
+    try {
+      var list = [];
+      var now = Date.now();
+      var cfg = getPrayerCalcConfig();
+      var savedLoc = readJSON("prayerLocation", null);
+      var cityName =
+        (cfg && cfg.manualCity && cfg.manualCity.nameAr) ||
+        (savedLoc && savedLoc.city) ||
+        "";
+
+      (days || []).forEach(function (day) {
+        if (!day || !day.date || !day.timings) return;
+        PRAYERS.forEach(function (p) {
+          var rawTime = day.timings[p.key];
+          var hhmm = typeof rawTime === "string" ? rawTime.slice(0, 5) : "";
+          if (!/^\d{2}:\d{2}$/.test(hhmm)) return;
+          var parts = hhmm.split(":");
+          var dParts = day.date.split("-");
+          if (dParts.length !== 3) return;
+          var dt = new Date(
+            Number(dParts[0]),
+            Number(dParts[1]) - 1,
+            Number(dParts[2]),
+            Number(parts[0]),
+            Number(parts[1]),
+            0,
+            0
+          );
+          var epoch = dt.getTime();
+          if (epoch > now + 1000) {
+            list.push({
+              prayer: p.key,
+              nameAr: "صلاة " + p.name,
+              date: day.date,
+              timeOfDay: hhmm,
+              time: epoch
+            });
+          }
+        });
+      });
+
+      await plugin.updateWidgetData({
+        city: cityName,
+        prayers: list
+      });
+    } catch (err) {
+      console.warn("[Adhan] Widget data sync failed", err);
+    }
+  }
+
   async function syncSchedule(reason) {
     var settings = getSettings();
     var plugin = getPlugin();
@@ -635,6 +690,15 @@
     renderStatus();
 
     try {
+      var location = getLocation();
+      var days = await collectDays(location.lat, location.lng, settings.daysAhead);
+
+      // Always keep the Android home-screen widget synced with the latest prayers & city
+      // even if the user disabled Adhan audio playback.
+      if (days && days.length) {
+        await pushWidgetPrayerSchedule(days);
+      }
+
       if (!settings.enabled) {
         await plugin.cancelAllAlarms();
         state.nextAlarm = null;
@@ -642,9 +706,6 @@
         state.lastSync = Date.now();
         return true;
       }
-
-      var location = getLocation();
-      var days = await collectDays(location.lat, location.lng, settings.daysAhead);
 
       if (!days.length) {
         state.lastError =
@@ -728,7 +789,7 @@
   function scheduleResync(delayMs) {
     if (state._resyncTimer) clearTimeout(state._resyncTimer);
     state._resyncTimer = setTimeout(function () {
-      if (isNativePlatform() && getSettings().enabled) {
+      if (isNativePlatform()) {
         syncSchedule("configuration");
       }
     }, Math.max(0, delayMs || 800));
@@ -855,6 +916,22 @@
         ? "التطبيق مستثنى من توفير البطارية"
         : "قد يؤخر توفير البطارية الأذان — أضف استثناءً"
     );
+
+    var permSummary = document.getElementById("adhanPermSummary");
+    if (permSummary) {
+      if (!isNativePlatform()) {
+        permSummary.textContent = "أندرويد فقط";
+        permSummary.classList.remove("is-ok", "is-warn");
+      } else if (notificationsOk && exactOk && batteryOk) {
+        permSummary.textContent = "مفعّلة بالكامل";
+        permSummary.classList.add("is-ok");
+        permSummary.classList.remove("is-warn");
+      } else {
+        permSummary.textContent = "تحتاج تفعيل";
+        permSummary.classList.add("is-warn");
+        permSummary.classList.remove("is-ok");
+      }
+    }
   }
 
   async function fixPermission(kind) {
@@ -1006,7 +1083,7 @@
       } else if (isReady) {
         actionHtml = '<span class="adhan-badge-downloaded"><i class="fas fa-check"></i> جاهز</span>';
       } else {
-        actionHtml = '<button type="button" class="adhan-download-btn" onclick="event.stopPropagation(); AdhanNative.downloadMuezzin(\'' + key + '\')" title="تحميل الصوت"><i class="fas fa-arrow-down-to-bracket"></i> تحميل</button>';
+        actionHtml = '<button type="button" class="adhan-download-btn" onclick="event.stopPropagation(); AdhanNative.downloadMuezzin(\'' + key + '\')" title="تحميل الصوت"><i class="fas fa-download"></i> تحميل</button>';
       }
 
       html +=
@@ -1037,6 +1114,11 @@
     });
 
     container.innerHTML = html;
+
+    var selectedMeta = document.getElementById("adhanSelectedMuezzinSummary");
+    if (selectedMeta && MUEZZINS[current]) {
+      selectedMeta.textContent = MUEZZINS[current].name;
+    }
   }
 
   function renderPrayerGrid() {
@@ -1165,6 +1247,18 @@
         ? "التسجيلات الصوتية مضمّنة داخل التطبيق وتعمل دون إنترنت."
         : "لتشغيل الأذان في الخلفية ثبّت نسخة أندرويد من التطبيق.";
     }
+
+    var generalAdhanSummary = document.getElementById("generalAdhanSummary");
+    if (generalAdhanSummary) {
+      var activeMuezzin = MUEZZINS[settings.muezzin] ? MUEZZINS[settings.muezzin].name : "";
+      if (!native) {
+        generalAdhanSummary.textContent = activeMuezzin || "تخصيص المؤذن والصلوات والصوت";
+      } else if (!settings.enabled) {
+        generalAdhanSummary.textContent = "الأذان متوقف حالياً";
+      } else {
+        generalAdhanSummary.textContent = "مفعّل • " + activeMuezzin;
+      }
+    }
   }
 
   function renderPrayerSettingsUI() {
@@ -1209,11 +1303,20 @@
       (document.getElementById("prayerCitySearchInput") || {}).value || ""
     );
 
+    var generalCitySummary = document.getElementById("generalCitySummary");
+    if (generalCitySummary) {
+      generalCitySummary.textContent = cfg.manualCity
+        ? cfg.manualCity.nameAr + (cfg.manualCity.countryAr ? "، " + cfg.manualCity.countryAr : "")
+        : "تحديد تلقائي عبر الموقع الجغرافي";
+    }
+
     // 4. Per-prayer minute offsets
     var offsetsWrap = document.getElementById("prayerOffsetsList");
+    var hasCustomOffset = false;
     if (offsetsWrap) {
       var html = PRAYERS.map(function (p) {
         var val = Number((cfg.offsets && cfg.offsets[p.key]) || 0);
+        if (val !== 0) hasCustomOffset = true;
         var sign = val > 0 ? "+" : val < 0 ? "−" : "";
         var displayVal = sign + arNum(Math.abs(val)) + " د";
         return (
@@ -1228,6 +1331,11 @@
         );
       }).join("");
       offsetsWrap.innerHTML = html;
+    }
+
+    var offsetsSummary = document.getElementById("prayerOffsetsSummary");
+    if (offsetsSummary) {
+      offsetsSummary.textContent = hasCustomOffset ? "معدّل" : "افتراضي";
     }
   }
 
@@ -1535,12 +1643,33 @@
     }
   }
 
-  function openAdhanModal() {
+  function switchSettingsTab(tabKey) {
+    var target = tabKey === "adhan" || tabKey === "prayer" ? tabKey : "general";
+    var modal = document.getElementById("adhanModal");
+    if (!modal) return;
+
+    modal.querySelectorAll(".settings-tab-btn").forEach(function (btn) {
+      var isActive = btn.getAttribute("data-settings-tab") === target;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    modal.querySelectorAll(".settings-tab-panel").forEach(function (panel) {
+      var isActive = panel.getAttribute("data-settings-panel") === target;
+      panel.classList.toggle("is-active", isActive);
+    });
+
+    var body = document.getElementById("adhanModalBody");
+    if (body) body.scrollTop = 0;
+  }
+
+  function openAdhanModal(initialTab) {
     var modal = document.getElementById("adhanModal");
     if (!modal) return;
 
     modal.style.display = "flex";
     document.body.style.overflow = "hidden";
+    switchSettingsTab(initialTab || "general");
     render();
     syncDownloadedMuezzins();
     if (typeof global.updateThemeSwitcherUI === "function") {
@@ -1553,16 +1682,6 @@
     var azkarToggle = document.getElementById("azkarReminderToggle");
     if (azkarToggle && typeof global.isAzkarReminderEnabled === "function") {
       azkarToggle.checked = global.isAzkarReminderEnabled();
-    }
-
-    // Show first-launch welcome banner if applicable
-    var firstLaunchBanner = document.getElementById("adhanFirstLaunchBanner");
-    if (firstLaunchBanner) {
-      if (sessionStorage.getItem("tazkeer_is_first_launch") === "true") {
-        firstLaunchBanner.style.display = "block";
-      } else {
-        firstLaunchBanner.style.display = "none";
-      }
     }
 
     if (
@@ -1868,6 +1987,7 @@
     onPrayerTimesUpdated: onPrayerTimesUpdated,
     openModal: openAdhanModal,
     closeModal: closeAdhanModal,
+    switchSettingsTab: switchSettingsTab,
     setEnabled: setEnabled,
     selectMuezzin: selectMuezzin,
     downloadMuezzin: downloadMuezzin,
@@ -1895,6 +2015,7 @@
   // Compatibility globals for inline HTML handlers / existing code.
   global.openAdhanModal = openAdhanModal;
   global.closeAdhanModal = closeAdhanModal;
+  global.switchSettingsTab = switchSettingsTab;
   global.testAdhanNow = testAdhanNow;
   global.stopAdhanPlayback = stopPlayback;
   global.resyncAdhanSchedule = resyncNow;

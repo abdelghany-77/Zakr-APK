@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+import com.abdelghany.tazkeer.widget.TazkeerPrayerWidget;
+
 /**
  * ============================================================================
  * AdhanBootReceiver — self-healing schedule across reboots & clock changes.
@@ -40,6 +42,7 @@ public class AdhanBootReceiver extends BroadcastReceiver {
             Log.i(TAG, "Restored " + restored + " adhan alarms");
             int adhkarRestored = AdhkarAlarmManager.rescheduleStored(context);
             Log.i(TAG, "Restored " + adhkarRestored + " adhkar reminders");
+            TazkeerPrayerWidget.updateAllWidgets(context);
         } catch (Exception e) {
             Log.e(TAG, "Failed to restore adhan alarms", e);
         }
