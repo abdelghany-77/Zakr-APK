@@ -2037,8 +2037,13 @@ const isCapacitorNative =
   window.Capacitor.isNativePlatform();
 
 const TAZKEER_APP_VERSION = "2.2.0";
+const TAZKEER_APP_VERSION_CODE = 4;
+const TAZKEER_REMOTE_VERSION_URL = "https://abdelghany-77.github.io/tazkeer/version.json";
+const TAZKEER_FALLBACK_APK_URL = "https://github.com/Abdelghany-77/tazkeer/releases/latest";
+const TAZKEER_PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.abdelghany.tazkeer";
 let _activeUpdateWorker = null;
 let _updateModalShownThisSession = false;
+let _lastRemoteUpdateCheckAt = 0;
 
 function compareSemver(a, b) {
   const pa = String(a || "0.0.0").split(".").map((n) => parseInt(n, 10) || 0);
@@ -2048,6 +2053,25 @@ function compareSemver(a, b) {
     if ((pa[i] || 0) < (pb[i] || 0)) return -1;
   }
   return 0;
+}
+
+async function openUpdateDownloadLink(url) {
+  if (!url) return;
+  if (
+    isCapacitorNative &&
+    window.Capacitor &&
+    window.Capacitor.Plugins &&
+    window.Capacitor.Plugins.AdhanScheduler &&
+    typeof window.Capacitor.Plugins.AdhanScheduler.openExternalUrl === "function"
+  ) {
+    try {
+      await window.Capacitor.Plugins.AdhanScheduler.openExternalUrl({ url });
+      return;
+    } catch (_) {
+      /* fallback below */
+    }
+  }
+  window.location.href = url;
 }
 
 function closeAppUpdateModal(syncRouter) {
@@ -2079,6 +2103,8 @@ function showAppUpdateModal(options) {
   if (_updateModalShownThisSession && !opts.force) return;
   _updateModalShownThisSession = true;
 
+  const targetUrl = opts.downloadUrl || opts.storeUrl || "";
+
   const openModalNow = () => {
     if (descEl) {
       descEl.textContent =
@@ -2108,8 +2134,8 @@ function showAppUpdateModal(options) {
         setTimeout(() => {
           window.location.reload();
         }, 2500);
-      } else if (opts.storeUrl) {
-        window.location.href = opts.storeUrl;
+      } else if (targetUrl) {
+        openUpdateDownloadLink(targetUrl);
         closeAppUpdateModal();
       } else {
         window.location.reload();
@@ -2144,20 +2170,63 @@ function showSwUpdateBanner(waitingWorker) {
   showAppUpdateModal({ waitingWorker });
 }
 
-async function checkRemoteAppVersionUpdate() {
+async function getInstalledAppVersionInfo() {
+  let installedVersion = TAZKEER_APP_VERSION;
+  let installedCode = TAZKEER_APP_VERSION_CODE;
+  if (
+    isCapacitorNative &&
+    window.Capacitor &&
+    window.Capacitor.Plugins &&
+    window.Capacitor.Plugins.App &&
+    typeof window.Capacitor.Plugins.App.getInfo === "function"
+  ) {
+    try {
+      const info = await window.Capacitor.Plugins.App.getInfo();
+      if (info && info.version) installedVersion = String(info.version);
+      if (info && info.build) {
+        const parsedCode = parseInt(info.build, 10);
+        if (!Number.isNaN(parsedCode) && parsedCode > 0) installedCode = parsedCode;
+      }
+    } catch (_) {
+      /* keep bundled constants */
+    }
+  }
+  return { version: installedVersion, versionCode: installedCode };
+}
+
+async function checkRemoteAppVersionUpdate(force) {
   if (!navigator.onLine) return;
-  const manifestUrl = window.TAZKEER_UPDATE_MANIFEST_URL || "./version.json";
+  const now = Date.now();
+  if (!force && now - _lastRemoteUpdateCheckAt < 6 * 60 * 60 * 1000) return;
+  _lastRemoteUpdateCheckAt = now;
+
+  const baseManifestUrl =
+    window.TAZKEER_UPDATE_MANIFEST_URL ||
+    (isCapacitorNative ? TAZKEER_REMOTE_VERSION_URL : "./version.json");
+  const separator = baseManifestUrl.includes("?") ? "&" : "?";
+  const manifestUrl = `${baseManifestUrl}${separator}_t=${now}`;
+
   try {
     const res = await fetch(manifestUrl, { cache: "no-store" });
     if (!res.ok) return;
     const data = await res.json();
-    if (data && data.version && compareSemver(data.version, TAZKEER_APP_VERSION) > 0) {
+    if (!data) return;
+
+    const current = await getInstalledAppVersionInfo();
+    const remoteVersion = data.version ? String(data.version) : "";
+    const remoteCode = Number(data.versionCode) || 0;
+    const isNewerBySemver = remoteVersion && compareSemver(remoteVersion, current.version) > 0;
+    const isNewerByCode = remoteCode > 0 && remoteCode > current.versionCode;
+
+    if (isNewerBySemver || isNewerByCode) {
+      const downloadUrl = data.preferStore
+        ? data.storeUrl || TAZKEER_PLAY_STORE_URL
+        : data.apkUrl || data.storeUrl || TAZKEER_FALLBACK_APK_URL;
       showAppUpdateModal({
-        version: data.version,
+        version: remoteVersion || current.version,
         notes: data.notes,
-        storeUrl:
-          data.storeUrl ||
-          "https://play.google.com/store/apps/details?id=com.abdelghany.tazkeer",
+        downloadUrl,
+        storeUrl: data.storeUrl || TAZKEER_PLAY_STORE_URL,
       });
     }
   } catch (_) {
@@ -2168,6 +2237,7 @@ async function checkRemoteAppVersionUpdate() {
 window.showAppUpdateModal = showAppUpdateModal;
 window.closeAppUpdateModal = closeAppUpdateModal;
 window.showSwUpdateBanner = showSwUpdateBanner;
+window.checkRemoteAppVersionUpdate = checkRemoteAppVersionUpdate;
 
 if ("serviceWorker" in navigator) {
   if (isCapacitorNative) {
@@ -2183,7 +2253,12 @@ if ("serviceWorker" in navigator) {
         /* non-fatal */
       });
     window.addEventListener("load", () => {
-      setTimeout(checkRemoteAppVersionUpdate, 4500);
+      setTimeout(() => checkRemoteAppVersionUpdate(true), 3500);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        checkRemoteAppVersionUpdate(false);
+      }
     });
   } else {
     let swRefreshing = false;

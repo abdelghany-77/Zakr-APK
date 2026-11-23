@@ -1,6 +1,8 @@
 {
   "version": "2.2.0",
   "versionCode": 4,
+  "apkUrl": "https://github.com/Abdelghany-77/tazkeer/releases/latest",
   "storeUrl": "https://play.google.com/store/apps/details?id=com.abdelghany.tazkeer",
+  "preferStore": false,
   "notes": "تحسينات شاملة في الأداء ومواقيت الصلاة والواجهة العربية وتجربة القراءة."
 }

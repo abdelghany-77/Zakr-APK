@@ -98,6 +98,14 @@ public class AdhanSchedulerPlugin extends Plugin {
             "cdn.jsdelivr.net"
     };
 
+    private static final String[] TRUSTED_EXTERNAL_HOSTS = new String[] {
+            "github.com",
+            "abdelghany-77.github.io",
+            "objects.githubusercontent.com",
+            "release-assets.githubusercontent.com",
+            "play.google.com"
+    };
+
     private final ExecutorService downloadExecutor = Executors.newFixedThreadPool(2);
 
     private static boolean isValidSoundId(String sound) {
@@ -190,6 +198,43 @@ public class AdhanSchedulerPlugin extends Plugin {
         } catch (JSONException e) {
             Log.w(TAG, "Invalid widget prayer payload", e);
             call.reject("Invalid widget prayer payload");
+        }
+    }
+
+    @PluginMethod
+    public void openExternalUrl(PluginCall call) {
+        String rawUrl = call.getString("url", "");
+        if (rawUrl == null || rawUrl.trim().isEmpty()) {
+            call.reject("URL is required");
+            return;
+        }
+        try {
+            URL parsed = new URL(rawUrl.trim());
+            if (!"https".equalsIgnoreCase(parsed.getProtocol())) {
+                call.reject("Only HTTPS URLs are allowed");
+                return;
+            }
+            String host = parsed.getHost() == null ? "" : parsed.getHost().toLowerCase(Locale.US);
+            boolean trusted = false;
+            for (String allowed : TRUSTED_EXTERNAL_HOSTS) {
+                if (host.equals(allowed) || host.endsWith("." + allowed)) {
+                    trusted = true;
+                    break;
+                }
+            }
+            if (!trusted) {
+                call.reject("Untrusted update host");
+                return;
+            }
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(parsed.toString()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject res = new JSObject();
+            res.put("opened", true);
+            call.resolve(res);
+        } catch (Exception e) {
+            Log.w(TAG, "Could not open external URL", e);
+            call.reject("Failed to open URL");
         }
     }
 
