@@ -36,7 +36,7 @@
     "LocalNotifications": {
       "smallIcon": "ic_stat_adhan",
       "iconColor": "#d4a847",
-      "sound": "adhan"
+      "sound": "adhan_abdulbasit"
     }
   }
 }

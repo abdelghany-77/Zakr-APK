@@ -38,7 +38,7 @@
   justify-content: space-between;
   gap: 7px;
   width: 100%;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .pt-hero .pt-chip--glass {
@@ -47,6 +47,18 @@
   background: rgba(0, 0, 0, 0.25) !important;
   color: #d7f5ec !important;
   border-color: transparent !important;
+  max-width: 100%;
+}
+
+#locationBtn {
+  min-width: 0;
+  max-width: calc(100% - 88px);
+}
+
+#locationBtn #cityName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pt-hero__main {
@@ -70,14 +82,14 @@
 }
 
 .pt-hero__name {
-  font-size: 38px;
+  font-size: clamp(28px, 9.2vw, 38px);
   font-weight: 700;
   line-height: 1.22;
-  letter-spacing: -1px;
+  letter-spacing: -0.6px;
 }
 
 .pt-hero__time {
-  font-size: 25px;
+  font-size: clamp(19px, 6.2vw, 25px);
   font-weight: 600;
   line-height: 1.1;
   padding-bottom: 4px;
@@ -216,8 +228,9 @@
   font-size: 11.5px;
   font-weight: 700;
   color: var(--pt-tx);
-  line-height: 1.2;
   direction: rtl;
+  unicode-bidi: plaintext;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
@@ -1163,4 +1176,84 @@ body.light-mode .pt-continue .cr-resume-btn {
   display: none !important;
 }
 
-/* Fasting/hadith link style already covers this */
+/* ── Small-screen responsive tuning (320px – 380px) ─────────────────────── */
+@media (max-width: 380px) {
+  .pt-prayers {
+    padding: 6px 3px;
+  }
+
+  .pt-prayers .prayer-card {
+    padding: 5px 1px !important;
+    min-height: 60px;
+    gap: 4px !important;
+  }
+
+  .pt-prayers .prayer-card .prayer-icon {
+    font-size: 14px;
+  }
+
+  .pt-prayers .prayer-card .prayer-name {
+    font-size: 10px;
+  }
+
+  .pt-prayers .prayer-card .prayer-time {
+    font-size: 10px;
+  }
+
+  .pt-dua .duaa-compact-text {
+    font-size: 17.5px !important;
+    line-height: 1.85 !important;
+  }
+
+  .pt-remind-row {
+    padding: 11px 12px;
+    gap: 10px;
+  }
+
+  .pt-remind-main {
+    font-size: 14px;
+  }
+
+  .pt-rsheet-focus__stat {
+    min-height: 92px;
+  }
+
+  .pt-rsheet-focus__stat strong {
+    font-size: 25px;
+  }
+
+  .pt-rsheet-focus__stat span {
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 345px) {
+  /* Switch 6-prayer strip into 2 clean rows of 3 so times never clip on 320px phones */
+  .pt-prayers .prayer-times-grid,
+  .prayer-times-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+  }
+
+  .pt-prayers .prayer-card .prayer-name {
+    font-size: 11px;
+  }
+
+  .pt-prayers .prayer-card .prayer-time {
+    font-size: 11px;
+  }
+
+  .pt-hero__meta {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .pt-continue {
+    flex-wrap: wrap;
+  }
+
+  .pt-continue .cr-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

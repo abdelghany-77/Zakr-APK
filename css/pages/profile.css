@@ -51,10 +51,11 @@
 .pt-streak {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 80px;
-  min-height: 80px;
-  padding: 10px 18px;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  height: auto;
+  min-height: 76px;
+  padding: 12px 16px;
   border-radius: var(--pt-r-lg);
   background: var(--pt-warm-grad);
   border: 1px solid var(--pt-warm-line);
@@ -135,7 +136,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  height: 98px;
+  height: auto;
 }
 
 .pt-mini-card {
@@ -143,8 +144,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  height: 98px;
-  min-height: 98px;
+  height: auto;
+  min-height: 92px;
   padding: 12px;
   border-radius: var(--pt-r);
   background: var(--pt-s1);
@@ -154,18 +155,20 @@
 
 .pt-mini-card__body {
   min-width: 0;
+  flex: 1;
 }
 
 .pt-mini-card__title {
-  font-size: 18px;
+  font-size: clamp(14.5px, 4.2vw, 18px);
   font-weight: 700;
   color: var(--pt-tx);
+  line-height: 1.25;
 }
 
 .pt-mini-card__sub {
   margin-top: 3px;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: clamp(11px, 3.2vw, 13px);
+  line-height: 1.35;
   color: var(--pt-mu);
 }
 
@@ -174,9 +177,9 @@
 }
 
 .pt-mini-card .pt-ring {
-  width: 68px;
-  height: 68px;
-  min-width: 68px;
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
 }
 
 .pt-mini-card .pt-ring::after {
@@ -264,17 +267,17 @@
 .pt-stat-grid--4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  height: 98px;
+  height: auto;
 }
 
 .pt-stat--tile {
   flex-direction: column;
   justify-content: center;
   text-align: center;
-  gap: 6px;
-  padding: 12px 4px;
-  height: 98px;
-  min-height: 98px;
+  gap: 5px;
+  padding: 12px 6px;
+  height: auto;
+  min-height: 92px;
 }
 
 .pt-stat__ico {
@@ -300,19 +303,20 @@
 }
 
 .pt-stat--tile .pt-stat__val {
-  font-size: 26px;
+  font-size: clamp(20px, 6vw, 26px);
   font-weight: 700;
 }
 
 .pt-stat--tile .pt-stat__label {
-  font-size: 13px;
+  font-size: clamp(11px, 3vw, 13px);
   line-height: 1.25;
   color: var(--pt-mu);
 }
 
 /* ── Weekly chart card ───────────────────────────────────────────────────── */
 .pt-chart-card {
-  height: 205px;
+  height: auto;
+  min-height: 200px;
   padding: 12px;
 }
 
@@ -320,11 +324,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px 10px;
 }
 
 .pt-chart-head__title {
-  font-size: 20px;
+  font-size: clamp(16.5px, 4.8vw, 20px);
   font-weight: 700;
   color: var(--pt-tx);
 }
@@ -503,7 +508,7 @@
 
 .pt-settings__label {
   flex: 1;
-  font-size: 17px;
+  font-size: clamp(14px, 4vw, 16.5px);
   min-width: 0;
 }
 
@@ -532,7 +537,7 @@
   border: 1px solid var(--pt-line) !important;
   color: #dfeae6;
   font-family: var(--font-hadith);
-  font-size: 19px;
+  font-size: clamp(16px, 4.8vw, 19px);
   line-height: 2;
   text-align: center;
 }
@@ -550,4 +555,63 @@ body.light-mode #tab-profile .pt-sadaqa {
 /* No heart watermark on the sadaqa card any more. */
 .pt-sadaqa::before {
   content: none;
+}
+
+/* ── Small-screen Profile breakpoints (320px – 380px) ───────────────────── */
+@media (max-width: 380px) {
+  .pt-prof-avatar {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    font-size: 20px;
+  }
+
+  .pt-profile .pt-title {
+    font-size: 22px;
+  }
+
+  .pt-profile .pt-sub {
+    font-size: 12.5px;
+  }
+
+  .pt-mini-card {
+    padding: 10px;
+    gap: 7px;
+  }
+
+  .pt-mini-card .pt-ring {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+  }
+
+  .pt-ring__val {
+    font-size: 11.5px;
+  }
+
+  /* 2x2 grid on narrow phones so Arabic stat labels never clip or crowd */
+  .pt-stat-grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pt-stat--tile {
+    min-height: 82px;
+    padding: 10px 8px;
+  }
+
+  .pt-settings {
+    padding: 4px 13px;
+  }
+}
+
+@media (max-width: 335px) {
+  .pt-mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pt-mini-card .pt-ring {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+  }
 }
