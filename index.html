@@ -675,15 +675,18 @@
           </button>
         </div>
 
-        <!-- 4. Battery Optimization (Android only) -->
-        <div class="perms-onboard-item" id="permOnboardBattery">
+        <!-- 4. Battery Optimization (Android only — Optional) -->
+        <div class="perms-onboard-item is-optional" id="permOnboardBattery">
           <div class="perms-onboard-item__icon"><i class="fas fa-battery-full"></i></div>
           <div class="perms-onboard-item__info">
-            <span class="perms-onboard-item__title">استثناء توفير البطارية</span>
-            <span class="perms-onboard-item__desc">يمنع النظام من إيقاف الأذان في الخلفية</span>
+            <span class="perms-onboard-item__title">
+              استثناء توفير البطارية
+              <span class="perms-onboard-optional-badge">اختياري</span>
+            </span>
+            <span class="perms-onboard-item__desc">اختياري وليس إجبارياً — يُنصح به فقط إذا تأخر الأذان على جهازك</span>
           </div>
-          <button type="button" class="perms-onboard-item__btn" onclick="permOnboardGrantBattery(this)">
-            <i class="fas fa-check-circle"></i> تفعيل
+          <button type="button" class="perms-onboard-item__btn is-optional" onclick="permOnboardGrantBattery(this)">
+            <i class="fas fa-sliders"></i> إعداد
           </button>
         </div>
       </div>
@@ -691,7 +694,7 @@
       <!-- Actions -->
       <div class="perms-onboard-actions">
         <button type="button" class="perms-onboard-btn-primary" onclick="permOnboardGrantAll()">
-          <i class="fas fa-check-double"></i> تفعيل جميع الصلاحيات
+          <i class="fas fa-check-double"></i> تفعيل الصلاحيات الأساسية
         </button>
         <button type="button" class="perms-onboard-btn-skip" onclick="closePermissionsOnboarding()">
           تخطي الآن
@@ -1106,13 +1109,16 @@
                   <button type="button" class="adhan-perm-fix" onclick="AdhanNative.fixPermission('exact')">تفعيل</button>
                 </div>
 
-                <div class="adhan-perm-row" id="adhanPermBattery">
-                  <span class="adhan-perm-badge"><i class="fas fa-exclamation"></i></span>
+                <div class="adhan-perm-row is-optional" id="adhanPermBattery">
+                  <span class="adhan-perm-badge is-optional"><i class="fas fa-circle-info"></i></span>
                   <span class="adhan-perm-text">
-                    <span class="adhan-perm-title">استثناء توفير البطارية</span>
-                    <span class="adhan-perm-desc">يمنع النظام من إيقاف الأذان في الخلفية</span>
+                    <span class="adhan-perm-title">
+                      استثناء توفير البطارية
+                      <span class="adhan-perm-optional-tag">اختياري</span>
+                    </span>
+                    <span class="adhan-perm-desc">اختياري وليس إجبارياً — يُنصح به فقط إذا تأخر الأذان في الخلفية</span>
                   </span>
-                  <button type="button" class="adhan-perm-fix" onclick="AdhanNative.fixPermission('battery')">تفعيل</button>
+                  <button type="button" class="adhan-perm-fix" onclick="AdhanNative.fixPermission('battery')">إعداد</button>
                 </div>
               </div>
             </div>

@@ -842,20 +842,24 @@
   function setPermissionRow(kind, ok, description) {
     var row = document.getElementById(permissionRowId(kind));
     if (!row) return;
+    var isOptional = kind === "battery";
     var badge = row.querySelector(".adhan-perm-badge");
     var desc = row.querySelector(".adhan-perm-desc");
     var button = row.querySelector(".adhan-perm-fix");
 
     if (badge) {
       badge.classList.toggle("is-ok", !!ok);
+      badge.classList.toggle("is-optional", isOptional && !ok);
       badge.innerHTML = ok
         ? '<i class="fas fa-check"></i>'
-        : '<i class="fas fa-exclamation"></i>';
+        : isOptional
+          ? '<i class="fas fa-circle-info"></i>'
+          : '<i class="fas fa-exclamation"></i>';
     }
     if (desc) desc.textContent = description;
     if (button) {
       button.disabled = !!ok || !isNativePlatform();
-      button.textContent = ok ? "تم" : "تفعيل";
+      button.textContent = ok ? "تم" : isOptional ? "إعداد" : "تفعيل";
     }
   }
 
@@ -876,7 +880,7 @@
       setPermissionRow(
         "battery",
         false,
-        "استثناء البطارية متاح داخل تطبيق أندرويد"
+        "اختياري — متاح داخل تطبيق أندرويد فقط"
       );
       return;
     }
@@ -884,7 +888,7 @@
     if (permissions.error) {
       setPermissionRow("notifications", false, "تعذر قراءة حالة الإشعارات");
       setPermissionRow("exact", false, "تعذر قراءة حالة المنبهات الدقيقة");
-      setPermissionRow("battery", false, "تعذر قراءة حالة البطارية");
+      setPermissionRow("battery", false, "اختياري — تعذر قراءة حالة البطارية");
       return;
     }
 
@@ -913,8 +917,8 @@
       "battery",
       batteryOk,
       batteryOk
-        ? "التطبيق مستثنى من توفير البطارية"
-        : "قد يؤخر توفير البطارية الأذان — أضف استثناءً"
+        ? "مفعّل (اختياري) — التطبيق مستثنى من توفير البطارية"
+        : "اختياري وليس إجبارياً — يُنصح به فقط إذا تأخر الأذان في الخلفية"
     );
 
     var permSummary = document.getElementById("adhanPermSummary");
@@ -922,7 +926,7 @@
       if (!isNativePlatform()) {
         permSummary.textContent = "أندرويد فقط";
         permSummary.classList.remove("is-ok", "is-warn");
-      } else if (notificationsOk && exactOk && batteryOk) {
+      } else if (notificationsOk && exactOk) {
         permSummary.textContent = "مفعّلة بالكامل";
         permSummary.classList.add("is-ok");
         permSummary.classList.remove("is-warn");

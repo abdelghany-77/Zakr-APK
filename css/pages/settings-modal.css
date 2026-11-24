@@ -317,10 +317,31 @@
   color: var(--pt-em);
 }
 
+#adhanModal .adhan-perm-badge.is-optional {
+  background: var(--pt-s2);
+  color: var(--pt-mu);
+}
+
 #adhanModal .adhan-perm-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
   font-size: 12px;
   font-weight: 700;
   color: var(--pt-tx);
+}
+
+#adhanModal .adhan-perm-optional-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  background: var(--pt-s2);
+  border: 1px solid var(--pt-line);
+  color: var(--pt-mu);
 }
 
 #adhanModal .adhan-perm-desc {

@@ -1971,15 +1971,20 @@ function loadSwiperFontSize() {
 
 // ═══════════════════════════════════════════════════════
 
-// Save progress to localStorage (date-aware)
-function saveProgress() {
-  localStorage.setItem(
-    "adhkarProgress",
-    JSON.stringify({
-      date: new Date().toDateString(),
-      data: adhkarData,
-    }),
-  );
+// Save progress to localStorage (date-aware & dirty-checked to avoid redundant writes)
+let _lastSavedProgressSnapshot = null;
+function saveProgress(force) {
+  const payload = JSON.stringify({
+    date: new Date().toDateString(),
+    data: adhkarData,
+  });
+  if (!force && payload === _lastSavedProgressSnapshot) return;
+  _lastSavedProgressSnapshot = payload;
+  try {
+    localStorage.setItem("adhkarProgress", payload);
+  } catch (_) {
+    /* quota/storage fallback */
+  }
 }
 
 // Load progress from localStorage (starts fresh on a new day)
@@ -2000,7 +2005,7 @@ function loadProgress() {
           });
           localStorage.removeItem("swiperPos_" + categoryKey);
         });
-        saveProgress();
+        saveProgress(true);
         return;
       }
 
@@ -2019,14 +2024,26 @@ function loadProgress() {
           });
         }
       });
+      _lastSavedProgressSnapshot = JSON.stringify({
+        date: today,
+        data: adhkarData,
+      });
     } catch (error) {
       console.error("Error loading progress:", error);
     }
   }
 }
 
-// Auto-save progress
-setInterval(saveProgress, 10000); // Save every 10 seconds
+// Auto-save progress (only writes when changed and skips background ticks)
+setInterval(() => {
+  if (!document.hidden) saveProgress();
+}, 10000);
+
+// Flush any pending unsaved progress when app is backgrounded or closed
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) saveProgress();
+});
+window.addEventListener("pagehide", () => saveProgress());
 
 // Service Worker for offline functionality (optional)
 // Capacitor serves the app from a local https://localhost origin where a
@@ -2084,7 +2101,11 @@ function closeAppUpdateModal(syncRouter) {
     window.AppRouter.closeModal("appUpdateModal");
   }
   if (window.TazkeerModalQueue) {
-    window.TazkeerModalQueue.complete("appUpdateModal");
+    if (typeof window.TazkeerModalQueue.notifyClosed === "function") {
+      window.TazkeerModalQueue.notifyClosed("appUpdateModal");
+    } else if (typeof window.TazkeerModalQueue.complete === "function") {
+      window.TazkeerModalQueue.complete("appUpdateModal");
+    }
   }
 }
 
@@ -2159,7 +2180,11 @@ function showAppUpdateModal(options) {
   };
 
   if (window.TazkeerModalQueue && typeof window.TazkeerModalQueue.enqueue === "function") {
-    window.TazkeerModalQueue.enqueue("appUpdateModal", openModalNow);
+    window.TazkeerModalQueue.enqueue({
+      id: "appUpdateModal",
+      delayMs: 300,
+      show: openModalNow,
+    });
   } else {
     openModalNow();
   }
@@ -2371,27 +2396,35 @@ function initializeEnhancedFeatures() {
     });
   if (installBtn) installBtn.addEventListener("click", showInstallModal);
 
-  // Show/hide quick access buttons at end of page
-  window.addEventListener("scroll", () => {
-    const scrollPosition = window.pageYOffset;
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.documentElement.scrollHeight;
-    const quickAccessBtn = document.querySelector(".quick-access");
-    const quickHomeBtn = document.querySelector(".quick-home");
-
-    // Calculate how far from bottom (percentage)
-    const scrolledPercentage =
-      ((scrollPosition + windowHeight) / documentHeight) * 100;
-
-    // Show buttons only when scrolled 90% or more of the page (very near the end)
-    if (scrolledPercentage >= 90) {
-      if (quickAccessBtn) quickAccessBtn.style.display = "flex";
-      if (quickHomeBtn) quickHomeBtn.style.display = "flex";
-    } else {
-      if (quickAccessBtn) quickAccessBtn.style.display = "none";
-      if (quickHomeBtn) quickHomeBtn.style.display = "none";
-    }
-  }); // Initialize enhanced theme
+  // Show/hide quick access buttons at end of page (only attach if elements exist; passive + rAF)
+  const quickAccessFloatEl = document.querySelector(".quick-access");
+  const quickHomeFloatEl = document.querySelector(".quick-home");
+  if (quickAccessFloatEl || quickHomeFloatEl) {
+    let quickScrollRaf = 0;
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (quickScrollRaf) return;
+        quickScrollRaf = requestAnimationFrame(() => {
+          quickScrollRaf = 0;
+          const scrollPosition = window.pageYOffset;
+          const windowHeight = window.innerHeight;
+          const documentHeight = document.documentElement.scrollHeight;
+          const scrolledPercentage =
+            ((scrollPosition + windowHeight) / documentHeight) * 100;
+          const displayVal = scrolledPercentage >= 90 ? "flex" : "none";
+          if (quickAccessFloatEl && quickAccessFloatEl.style.display !== displayVal) {
+            quickAccessFloatEl.style.display = displayVal;
+          }
+          if (quickHomeFloatEl && quickHomeFloatEl.style.display !== displayVal) {
+            quickHomeFloatEl.style.display = displayVal;
+          }
+        });
+      },
+      { passive: true },
+    );
+  }
+  // Initialize enhanced theme
   initializeEnhancedTheme();
 
   // Show install prompt on first visit
@@ -3735,14 +3768,37 @@ function formatTo12Hour(time24) {
   return `${hour}:${minutes} ${period}`;
 }
 
+let _countdownVisibilityBound = false;
+let _lastCountdownState = {
+  dataRef: null,
+  nextPrayer: null,
+  previousPrayer: null,
+  countdownText: "",
+  progressWidth: "",
+};
+
 // Start countdown to next prayer
 function startCountdown() {
   if (countdownInterval) {
     clearInterval(countdownInterval);
   }
+  _lastCountdownState.dataRef = null;
 
   updateCountdown();
-  countdownInterval = setInterval(updateCountdown, 1000);
+  countdownInterval = setInterval(() => {
+    if (!document.hidden) updateCountdown();
+  }, 1000);
+
+  if (!_countdownVisibilityBound) {
+    _countdownVisibilityBound = true;
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        if (prayerTimesData) updateCountdown();
+        if (typeof updateRamadanCountdown === "function") updateRamadanCountdown();
+        if (typeof checkAzkarReminderTransition === "function") checkAzkarReminderTransition();
+      }
+    });
+  }
 }
 
 // Helper to format remaining time in proper Arabic grammar
@@ -3771,7 +3827,7 @@ function formatArabicRemainingTime(hours, minutes, seconds) {
   return `متبقي ${result}`;
 }
 
-// Update countdown display
+// Update countdown display (diffed DOM updates to avoid redundant reflows every second)
 function updateCountdown() {
   if (!prayerTimesData) return;
 
@@ -3823,6 +3879,7 @@ function updateCountdown() {
   const diffMs = targetDate - now;
 
   if (diffMs <= 0) {
+    _lastCountdownState.dataRef = null;
     if (typeof displayPrayerTimes === "function") {
       const cityName = activePrayerCity || _safeReadStr("cachedPrayerCity", "") || _getActiveLocationConfig().city;
       displayPrayerTimes(cityName);
@@ -3840,57 +3897,75 @@ function updateCountdown() {
     `${hours}:${pad(minutes)}:${pad(seconds)}`,
   );
 
-  const nextPrayerNameEl = document.getElementById("nextPrayerName");
-  const countdownTimeEl = document.getElementById("countdownTime");
-  const nextPrayerTimeEl = document.getElementById("nextPrayerTime");
-  const elapsedEl = document.getElementById("prayerElapsed");
-  const progressEl = document.getElementById("prayerProgressFill");
-
-  if (nextPrayerNameEl) {
-    nextPrayerNameEl.textContent = prayerNames[nextPrayer] || nextPrayer;
-  }
-
-  if (nextPrayerTimeEl && prayerTimesData[nextPrayer]) {
-    nextPrayerTimeEl.textContent = formatToArabic12Hour(
-      prayerTimesData[nextPrayer],
-    );
-  }
-
-  if (countdownTimeEl) {
-    countdownTimeEl.textContent = countdownText;
-  }
-
-  // Previous point label: "منذ الشروق ٦:١٦ ص"
-  if (elapsedEl) {
-    if (previousDate && previousPrayer) {
-      const prevName = prayerNames[previousPrayer] || previousPrayer;
-      const prevTime = prayerTimesData[previousPrayer]
-        ? formatToArabic12Hour(prayerTimesData[previousPrayer])
-        : "";
-      elapsedEl.textContent = `منذ ${prevName}${prevTime ? " " + prevTime : ""}`;
-    } else {
-      elapsedEl.textContent = "منذ الفجر";
+  if (countdownText !== _lastCountdownState.countdownText) {
+    _lastCountdownState.countdownText = countdownText;
+    const countdownTimeEl = document.getElementById("countdownTime");
+    if (countdownTimeEl) {
+      countdownTimeEl.textContent = countdownText;
     }
   }
 
   // Progress from previous prayer to the next one
-  if (progressEl) {
-    let progress = 0;
-    if (previousDate) {
-      const span = targetDate - previousDate;
-      progress = span > 0 ? ((now - previousDate) / span) * 100 : 0;
+  let progress = 0;
+  if (previousDate) {
+    const span = targetDate - previousDate;
+    progress = span > 0 ? ((now - previousDate) / span) * 100 : 0;
+  }
+  progress = Math.min(100, Math.max(0, progress));
+  const progressWidth = progress.toFixed(1) + "%";
+  if (progressWidth !== _lastCountdownState.progressWidth) {
+    _lastCountdownState.progressWidth = progressWidth;
+    const progressEl = document.getElementById("prayerProgressFill");
+    if (progressEl) {
+      progressEl.style.width = progressWidth;
     }
-    progress = Math.min(100, Math.max(0, progress));
-    progressEl.style.width = progress.toFixed(1) + "%";
   }
 
-  // Highlight next prayer card and dim finished ones
-  document.querySelectorAll(".prayer-card").forEach((card) => {
-    const key = card.getAttribute("data-prayer");
-    const pDate = prayerDateFor(key, now);
-    card.classList.toggle("is-past", !!(pDate && pDate <= now));
-    card.classList.toggle("next-prayer", key === nextPrayer);
-  });
+  // Only update prayer titles, previous label, and card classes when boundary or dataset changes
+  const boundaryChanged =
+    _lastCountdownState.dataRef !== prayerTimesData ||
+    _lastCountdownState.nextPrayer !== nextPrayer ||
+    _lastCountdownState.previousPrayer !== previousPrayer;
+
+  if (boundaryChanged) {
+    _lastCountdownState.dataRef = prayerTimesData;
+    _lastCountdownState.nextPrayer = nextPrayer;
+    _lastCountdownState.previousPrayer = previousPrayer;
+
+    const nextPrayerNameEl = document.getElementById("nextPrayerName");
+    const nextPrayerTimeEl = document.getElementById("nextPrayerTime");
+    const elapsedEl = document.getElementById("prayerElapsed");
+
+    if (nextPrayerNameEl) {
+      nextPrayerNameEl.textContent = prayerNames[nextPrayer] || nextPrayer;
+    }
+
+    if (nextPrayerTimeEl && prayerTimesData[nextPrayer]) {
+      nextPrayerTimeEl.textContent = formatToArabic12Hour(
+        prayerTimesData[nextPrayer],
+      );
+    }
+
+    if (elapsedEl) {
+      if (previousDate && previousPrayer) {
+        const prevName = prayerNames[previousPrayer] || previousPrayer;
+        const prevTime = prayerTimesData[previousPrayer]
+          ? formatToArabic12Hour(prayerTimesData[previousPrayer])
+          : "";
+        elapsedEl.textContent = `منذ ${prevName}${prevTime ? " " + prevTime : ""}`;
+      } else {
+        elapsedEl.textContent = "منذ الفجر";
+      }
+    }
+
+    // Highlight next prayer card and dim finished ones
+    document.querySelectorAll(".prayer-card").forEach((card) => {
+      const key = card.getAttribute("data-prayer");
+      const pDate = prayerDateFor(key, now);
+      card.classList.toggle("is-past", !!(pDate && pDate <= now));
+      card.classList.toggle("next-prayer", key === nextPrayer);
+    });
+  }
 }
 
 // Show prayer times error
@@ -4720,10 +4795,14 @@ document.addEventListener("keydown", function (e) {
  */
 let liveClockInterval = null;
 function startLiveClock() {
-  if (liveClockInterval) clearInterval(liveClockInterval);
+  if (liveClockInterval) {
+    clearInterval(liveClockInterval);
+    liveClockInterval = null;
+  }
+  const el = document.getElementById("liveClockText");
+  if (!el) return; // Avoid running a 1s background timer when element is absent
   const updateClock = () => {
-    const el = document.getElementById("liveClockText");
-    if (!el) return;
+    if (document.hidden) return;
     const now = new Date();
     let hours = now.getHours();
     const minutes = String(now.getMinutes()).padStart(2, "0");
@@ -5184,7 +5263,9 @@ function startRamadanCountdownTicker() {
     clearInterval(ramadanCountdownInterval);
   }
   updateRamadanCountdown();
-  ramadanCountdownInterval = setInterval(updateRamadanCountdown, 60000);
+  ramadanCountdownInterval = setInterval(() => {
+    if (!document.hidden) updateRamadanCountdown();
+  }, 60000);
 }
 window.updateRamadanCountdown = updateRamadanCountdown;
 
@@ -5192,29 +5273,37 @@ window.updateRamadanCountdown = updateRamadanCountdown;
 // FASTING REMINDER & CALENDAR SYSTEM
 // ========================================
 
+// Cached Intl.DateTimeFormat instances to avoid expensive ICU re-allocation per call
+let _hijriNumericFmt = null;
+let _hijriNamedFmt = null;
+
 /**
  * Gets Hijri date parts for a given Gregorian date.
  * Returns { day: number, month: number, year: number, monthName: string }
  */
 function getHijriDate(date) {
   try {
-    const hijriNumeric = new Intl.DateTimeFormat(
-      "en-US-u-ca-islamic-umalqura",
-      {
-        day: "numeric",
-        month: "numeric",
-        year: "numeric",
-      },
-    );
-    const hijriNamed = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
-      month: "long",
-    });
+    if (!_hijriNumericFmt) {
+      _hijriNumericFmt = new Intl.DateTimeFormat(
+        "en-US-u-ca-islamic-umalqura",
+        {
+          day: "numeric",
+          month: "numeric",
+          year: "numeric",
+        },
+      );
+    }
+    if (!_hijriNamedFmt) {
+      _hijriNamedFmt = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
+        month: "long",
+      });
+    }
 
-    const parts = hijriNumeric.formatToParts(date);
-    const day = parseInt(parts.find((p) => p.type === "day")?.value || "0");
-    const month = parseInt(parts.find((p) => p.type === "month")?.value || "0");
-    const year = parseInt(parts.find((p) => p.type === "year")?.value || "0");
-    const monthName = hijriNamed.format(date);
+    const parts = _hijriNumericFmt.formatToParts(date);
+    const day = parseInt(parts.find((p) => p.type === "day")?.value || "0", 10);
+    const month = parseInt(parts.find((p) => p.type === "month")?.value || "0", 10);
+    const year = parseInt(parts.find((p) => p.type === "year")?.value || "0", 10);
+    const monthName = _hijriNamedFmt.format(date);
 
     return { day, month, year, monthName };
   } catch (e) {
@@ -6252,14 +6341,57 @@ function testAzkarReminder() {
 
 /**
  * ===== First-Use Permissions Onboarding =====
- * Shows all required permissions on first launch so the user can grant them in one step.
+ * Shows permissions clearly on first launch with Battery Optimization explicitly marked optional.
  */
+let _permsOnboardVisibilityHandler = null;
+
+async function _syncPermissionsOnboardingStatus() {
+  const isNative = !!(
+    window.Capacitor &&
+    window.Capacitor.isNativePlatform &&
+    window.Capacitor.isNativePlatform()
+  );
+
+  // Reflect saved location if already configured
+  const savedLoc = _safeReadStr("prayerLocation", null);
+  if (savedLoc) {
+    const locBtn = document.querySelector("#permOnboardLocation .perms-onboard-item__btn");
+    _markPermBtn(locBtn, "تم");
+  }
+
+  if (isNative && window.AdhanNative && typeof window.AdhanNative.refreshPermissions === "function") {
+    try {
+      const perms = await window.AdhanNative.refreshPermissions(true);
+      if (perms && !perms.error) {
+        const notifOk = perms.notifications === true && perms.notificationRuntimePermission !== false;
+        if (notifOk) {
+          _markPermBtn(document.querySelector("#permOnboardNotif .perms-onboard-item__btn"), "تم");
+        }
+        if (perms.exactAlarms === true) {
+          _markPermBtn(document.querySelector("#permOnboardExact .perms-onboard-item__btn"), "تم");
+        }
+        if (perms.batteryOptimizations === true) {
+          _markPermBtn(document.querySelector("#permOnboardBattery .perms-onboard-item__btn"), "تم");
+        }
+      }
+    } catch (_) {
+      /* non-fatal */
+    }
+  } else if ("Notification" in window && Notification.permission === "granted") {
+    _markPermBtn(document.querySelector("#permOnboardNotif .perms-onboard-item__btn"), "تم");
+  }
+}
+
 function showPermissionsOnboarding() {
   const modal = document.getElementById("permissionsOnboardingModal");
   if (!modal) return;
 
   // Hide non-native items when running in browser (not Capacitor)
-  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+  const isNative = !!(
+    window.Capacitor &&
+    window.Capacitor.isNativePlatform &&
+    window.Capacitor.isNativePlatform()
+  );
   const exactItem = document.getElementById("permOnboardExact");
   const batteryItem = document.getElementById("permOnboardBattery");
   if (!isNative) {
@@ -6268,6 +6400,17 @@ function showPermissionsOnboarding() {
   }
 
   modal.classList.add("is-open");
+  _syncPermissionsOnboardingStatus();
+
+  if (!_permsOnboardVisibilityHandler) {
+    _permsOnboardVisibilityHandler = () => {
+      if (!document.hidden && modal.classList.contains("is-open")) {
+        _syncPermissionsOnboardingStatus();
+      }
+    };
+    document.addEventListener("visibilitychange", _permsOnboardVisibilityHandler);
+  }
+
   if (window.AppRouter) {
     window.AppRouter.pushModal("permissionsOnboardingModal", closePermissionsOnboarding);
   }
@@ -6277,6 +6420,10 @@ function closePermissionsOnboarding() {
   const modal = document.getElementById("permissionsOnboardingModal");
   if (!modal) return;
   modal.classList.remove("is-open");
+  if (_permsOnboardVisibilityHandler) {
+    document.removeEventListener("visibilitychange", _permsOnboardVisibilityHandler);
+    _permsOnboardVisibilityHandler = null;
+  }
   if (window.AppRouter && window.AppRouter.isModalOpen("permissionsOnboardingModal")) {
     window.AppRouter.closeModal("permissionsOnboardingModal");
   }
@@ -6291,61 +6438,109 @@ function _markPermBtn(btn, label) {
   btn.innerHTML = '<i class="fas fa-check"></i> ' + (label || "تم");
 }
 
-function permOnboardGrantLocation(btn) {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      () => _markPermBtn(btn, "تم"),
-      () => _markPermBtn(btn, "مرفوض"),
-      { timeout: 10000 }
-    );
+async function permOnboardGrantLocation(btn) {
+  if (!navigator.geolocation) {
+    _markPermBtn(btn, "غير مدعوم");
+    return;
+  }
+  try {
+    if (typeof requestLocation === "function") {
+      await requestLocation(true);
+      const savedLoc = _safeReadStr("prayerLocation", null);
+      _markPermBtn(btn, savedLoc ? "تم" : "لاحقاً");
+    } else {
+      await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            _markPermBtn(btn, "تم");
+            resolve();
+          },
+          () => {
+            _markPermBtn(btn, "مرفوض");
+            resolve();
+          },
+          { timeout: 10000 }
+        );
+      });
+    }
+  } catch (_) {
+    _markPermBtn(btn, "مرفوض");
   }
 }
 
-function permOnboardGrantNotif(btn) {
-  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+async function permOnboardGrantNotif(btn) {
+  const isNative = !!(
+    window.Capacitor &&
+    window.Capacitor.isNativePlatform &&
+    window.Capacitor.isNativePlatform()
+  );
   if (isNative && window.AdhanNative && typeof window.AdhanNative.fixPermission === "function") {
-    window.AdhanNative.fixPermission("notifications");
-    _markPermBtn(btn);
+    await window.AdhanNative.fixPermission("notifications");
+    _markPermBtn(btn, "تم");
   } else if ("Notification" in window) {
-    Notification.requestPermission().then((perm) => {
+    try {
+      const perm = await Notification.requestPermission();
       _markPermBtn(btn, perm === "granted" ? "تم" : "مرفوض");
-    });
+    } catch (_) {
+      _markPermBtn(btn, "مرفوض");
+    }
   } else {
     _markPermBtn(btn, "غير مدعوم");
   }
 }
 
-function permOnboardGrantExact(btn) {
+async function permOnboardGrantExact(btn) {
   if (window.AdhanNative && typeof window.AdhanNative.fixPermission === "function") {
-    window.AdhanNative.fixPermission("exact");
-    _markPermBtn(btn);
+    await window.AdhanNative.fixPermission("exact");
+    _markPermBtn(btn, "تم");
   }
 }
 
-function permOnboardGrantBattery(btn) {
+async function permOnboardGrantBattery(btn) {
   if (window.AdhanNative && typeof window.AdhanNative.fixPermission === "function") {
-    window.AdhanNative.fixPermission("battery");
-    _markPermBtn(btn);
+    await window.AdhanNative.fixPermission("battery");
+    _markPermBtn(btn, "تم");
   }
 }
 
-function permOnboardGrantAll() {
+async function permOnboardGrantAll() {
   const locBtn = document.querySelector("#permOnboardLocation .perms-onboard-item__btn");
   const notifBtn = document.querySelector("#permOnboardNotif .perms-onboard-item__btn");
   const exactBtn = document.querySelector("#permOnboardExact .perms-onboard-item__btn");
-  const batteryBtn = document.querySelector("#permOnboardBattery .perms-onboard-item__btn");
 
-  permOnboardGrantLocation(locBtn);
-  permOnboardGrantNotif(notifBtn);
-
-  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
-  if (isNative) {
-    permOnboardGrantExact(exactBtn);
-    permOnboardGrantBattery(batteryBtn);
+  // Request essential permissions sequentially (never force optional Battery Optimization)
+  if (notifBtn && !notifBtn.classList.contains("granted")) {
+    await permOnboardGrantNotif(notifBtn);
+  }
+  if (locBtn && !locBtn.classList.contains("granted")) {
+    await permOnboardGrantLocation(locBtn);
   }
 
-  // Auto-close after a short delay to let the OS prompts appear
-  setTimeout(() => closePermissionsOnboarding(), 1500);
+  const isNative = !!(
+    window.Capacitor &&
+    window.Capacitor.isNativePlatform &&
+    window.Capacitor.isNativePlatform()
+  );
+  if (isNative && exactBtn && !exactBtn.classList.contains("granted")) {
+    let needExact = true;
+    try {
+      if (window.AdhanNative && typeof window.AdhanNative.refreshPermissions === "function") {
+        const perms = await window.AdhanNative.refreshPermissions(true);
+        if (perms && perms.exactAlarms === true) {
+          needExact = false;
+          _markPermBtn(exactBtn, "تم");
+        }
+      }
+    } catch (_) {
+      /* fallback to opening exact alarm settings */
+    }
+    if (needExact) {
+      await permOnboardGrantExact(exactBtn);
+    }
+  }
+
+  // Close cleanly after essential prompts finish
+  setTimeout(() => closePermissionsOnboarding(), 600);
 }
 
 // Expose globally
@@ -6444,7 +6639,11 @@ function startAzkarReminderEngine() {
   _lastHeroMode = getHeroCardMode(new Date());
 
   if (_azkarReminderInterval) clearInterval(_azkarReminderInterval);
-  _azkarReminderInterval = setInterval(checkAzkarReminderTransition, 60000);
+  _azkarReminderInterval = setInterval(() => {
+    // On native Android, AlarmManager handles background reminders; skip hidden UI ticks
+    if (document.hidden && isCapacitorNative) return;
+    checkAzkarReminderTransition();
+  }, 60000);
 }
 
 // Start engine & check first launch on DOMContentLoaded
@@ -6883,21 +7082,25 @@ setTimeout(() => {
    ================================================================ */
 // Managed via js/modules/misbaha.js with Haptics, AppRouter & SafeStorage;
 
-// Carousel scroll listener for Quick Actions indicator dots
+// Carousel scroll listener for Quick Actions indicator dots (passive)
 document.addEventListener("DOMContentLoaded", function () {
   const quickGrid = document.getElementById("homeQuickGrid");
   if (quickGrid) {
-    quickGrid.addEventListener("scroll", function () {
-      const dots = document.querySelectorAll("#homeQuickDots .hq-dot");
-      if (!dots.length) return;
-      const scrollLeft = Math.abs(quickGrid.scrollLeft);
-      const maxScroll = quickGrid.scrollWidth - quickGrid.clientWidth;
-      if (maxScroll <= 0) return;
-      const ratio = scrollLeft / maxScroll;
-      const activeIdx = ratio > 0.4 ? 1 : 0;
-      dots.forEach((dot, idx) => {
-        dot.classList.toggle("active", idx === activeIdx);
-      });
-    });
+    const dots = document.querySelectorAll("#homeQuickDots .hq-dot");
+    if (!dots.length) return;
+    quickGrid.addEventListener(
+      "scroll",
+      function () {
+        const scrollLeft = Math.abs(quickGrid.scrollLeft);
+        const maxScroll = quickGrid.scrollWidth - quickGrid.clientWidth;
+        if (maxScroll <= 0) return;
+        const ratio = scrollLeft / maxScroll;
+        const activeIdx = ratio > 0.4 ? 1 : 0;
+        dots.forEach((dot, idx) => {
+          dot.classList.toggle("active", idx === activeIdx);
+        });
+      },
+      { passive: true },
+    );
   }
 });

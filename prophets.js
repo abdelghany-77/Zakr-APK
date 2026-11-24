@@ -669,18 +669,23 @@
     // Populate drawer
     renderDrawer();
 
-    // Setup scroll listener for real-time progress & auto-hiding chrome
+    // Setup scroll listener for real-time progress & auto-hiding chrome (passive + rAF)
     lastScrollY = window.scrollY;
     isChromeHidden = false;
     if (scrollHandler) {
       window.removeEventListener("scroll", scrollHandler);
     }
+    var scrollRafId = 0;
     scrollHandler = function () {
-      updateScrollProgress();
-      handleAutoHidingScroll();
-      debouncedSavePosition();
+      if (scrollRafId) return;
+      scrollRafId = requestAnimationFrame(function () {
+        scrollRafId = 0;
+        updateScrollProgress();
+        handleAutoHidingScroll();
+        debouncedSavePosition();
+      });
     };
-    window.addEventListener("scroll", scrollHandler);
+    window.addEventListener("scroll", scrollHandler, { passive: true });
   }
 
   var saveTimer = null;
