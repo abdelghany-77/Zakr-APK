@@ -1797,9 +1797,10 @@
     try {
       // Capacitor StatusBar: Style.Dark = light icons on dark background; Style.Light = dark icons on light background.
       statusBar.setStyle({ style: darkMode ? "DARK" : "LIGHT" });
+      statusBar.setOverlaysWebView({ overlay: true }).catch(function () {});
       statusBar.setBackgroundColor({
-        color: darkMode ? "#0b1418" : "#f4f7f5"
-      });
+        color: "#00000000"
+      }).catch(function () {});
     } catch (error) {
       /* non-fatal */
     }
@@ -1852,7 +1853,8 @@
         global.Capacitor.Plugins &&
         global.Capacitor.Plugins.StatusBar;
       if (statusBar) {
-        statusBar.setOverlaysWebView({ overlay: false }).catch(function () {});
+        statusBar.setOverlaysWebView({ overlay: true }).catch(function () {});
+        statusBar.setBackgroundColor({ color: "#00000000" }).catch(function () {});
         updateStatusBar();
       }
     } catch (error) {

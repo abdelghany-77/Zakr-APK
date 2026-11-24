@@ -20,8 +20,8 @@
   "plugins": {
     "StatusBar": {
       "style": "DARK",
-      "backgroundColor": "#0b1418",
-      "overlaysWebView": false
+      "backgroundColor": "#00000000",
+      "overlaysWebView": true
     },
     "SplashScreen": {
       "launchShowDuration": 1200,

@@ -1095,7 +1095,7 @@
 .mushaf-header {
   background: var(--quran-header-bg);
   color: white;
-  padding: max(calc(0.5rem + env(safe-area-inset-top, 0px)), 38px) 0.8rem 0.5rem;
+  padding: max(calc(0.5rem + var(--safe-top, env(safe-area-inset-top, 0px))), 38px) 0.8rem 0.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2051,7 +2051,7 @@ body.light-mode .khatmah-dua-view-btn {
     font-size: 1.5rem;
   }
   .mushaf-header {
-    padding: max(calc(0.4rem + env(safe-area-inset-top, 0px)), 36px) 0.6rem 0.4rem;
+    padding: max(calc(0.4rem + var(--safe-top, env(safe-area-inset-top, 0px))), 36px) 0.6rem 0.4rem;
   }
   .mushaf-back-btn,
   .mushaf-action-btn {
