@@ -5,17 +5,19 @@
             <gradient
                 android:type="linear"
                 android:angle="135"
-                android:startColor="#10382f"
+                android:startColor="#123f34"
                 android:centerColor="#0b1418"
                 android:endColor="#0b1418" />
         </shape>
     </item>
     <item
-        android:width="160dp"
-        android:height="160dp"
+        android:width="220dp"
+        android:height="220dp"
         android:gravity="center">
         <bitmap
             android:src="@drawable/app_logo"
+            android:antialias="true"
+            android:filter="true"
             android:gravity="fill" />
     </item>
 </layer-list>

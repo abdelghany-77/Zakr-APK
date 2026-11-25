@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/app_logo"
-    android:insetLeft="48dp"
-    android:insetTop="48dp"
-    android:insetRight="48dp"
-    android:insetBottom="48dp" />
+    android:insetLeft="34dp"
+    android:insetTop="34dp"
+    android:insetRight="34dp"
+    android:insetBottom="34dp" />
