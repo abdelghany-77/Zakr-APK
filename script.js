@@ -3959,17 +3959,28 @@ document.addEventListener("DOMContentLoaded", function () {
     console.error("Fast-boot enhanced features error:", err);
   }
 
-  try {
-    initializeEnhancedUX();
-  } catch (err) {
-    console.error("Fast-boot enhanced UX error:", err);
-  }
+  // Defer non-critical UI animations, charts, compass, and install prompt until after first paint
+  var _scheduleNonCriticalBoot = function (fn) {
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(fn, { timeout: 250 });
+    } else {
+      setTimeout(fn, 40);
+    }
+  };
 
-  try {
-    initializeNewFeatures();
-  } catch (err) {
-    console.error("Fast-boot new features error:", err);
-  }
+  _scheduleNonCriticalBoot(function () {
+    try {
+      initializeEnhancedUX();
+    } catch (err) {
+      console.error("Deferred enhanced UX error:", err);
+    }
+
+    try {
+      initializeNewFeatures();
+    } catch (err) {
+      console.error("Deferred new features error:", err);
+    }
+  });
 
   // Delayed check for install prompt
   setTimeout(() => {
@@ -6583,11 +6594,18 @@ function startAzkarReminderEngine() {
   }, 60000);
 }
 
-// Start engine & check first launch on DOMContentLoaded
+// Start engine & check first launch after first paint
 document.addEventListener("DOMContentLoaded", function () {
-  startAzkarReminderEngine();
-  checkFirstLaunchSettings();
-  syncAzkarNativeSchedule();
+  var runReminderBoot = function () {
+    startAzkarReminderEngine();
+    checkFirstLaunchSettings();
+    syncAzkarNativeSchedule();
+  };
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(runReminderBoot, { timeout: 300 });
+  } else {
+    setTimeout(runReminderBoot, 60);
+  }
 });
 
 // Global exports

@@ -24,9 +24,9 @@
       "overlaysWebView": true
     },
     "SplashScreen": {
-      "launchShowDuration": 900,
+      "launchShowDuration": 0,
       "launchAutoHide": true,
-      "launchFadeOutDuration": 150,
+      "launchFadeOutDuration": 100,
       "backgroundColor": "#0b1418",
       "androidSplashResourceName": "splash",
       "androidScaleType": "FIT_XY",
