@@ -586,7 +586,7 @@ function createAdhkarSlide(zikr, index, category, track) {
       <!-- ── Meta Row (Source & Fadl Trigger & Copy) ── -->
       <div class="slide-meta-row">
         <span class="slide-source-label">
-          <i class="fas fa-book-open"></i> ${toArabicNumerals(zikr.source || "")}
+          <i class="fas fa-book-open"></i> <span class="slide-source-text">${toArabicNumerals(zikr.source || "")}</span>
         </span>
         <div class="slide-meta-actions">
           ${

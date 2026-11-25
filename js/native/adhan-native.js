@@ -1457,6 +1457,26 @@
     group.querySelectorAll("[data-widget-style]").forEach(function (btn) {
       btn.classList.toggle("active", btn.getAttribute("data-widget-style") === saved);
     });
+    var previewCard = document.getElementById("widgetPreviewCard");
+    if (previewCard) {
+      previewCard.classList.remove("is-solid", "is-translucent", "is-glass");
+      previewCard.classList.add("is-" + saved);
+      var citySrc = document.getElementById("locationLabel");
+      var cityDst = document.getElementById("widgetPreviewCity");
+      if (citySrc && cityDst && citySrc.textContent.trim()) {
+        cityDst.textContent = "• " + citySrc.textContent.trim();
+      }
+      var nextNameSrc = document.getElementById("nextPrayerName");
+      var nextTimeSrc = document.getElementById("nextPrayerTime");
+      var nextNameDst = document.getElementById("widgetPreviewPrayer");
+      var nextTimeDst = document.getElementById("widgetPreviewTime");
+      if (nextNameSrc && nextNameDst && nextNameSrc.textContent.trim()) {
+        nextNameDst.textContent = "صلاة " + nextNameSrc.textContent.trim().replace(/^صلاة\s+/, "");
+      }
+      if (nextTimeSrc && nextTimeDst && nextTimeSrc.textContent.trim()) {
+        nextTimeDst.textContent = nextTimeSrc.textContent.trim();
+      }
+    }
   }
 
   async function setWidgetStyle(style) {

@@ -433,27 +433,28 @@
 }
 
 #categoryPage .swiper-topbar {
-  background: transparent !important;
+  background: var(--pt-bg) !important;
   border-bottom: 1px solid var(--pt-line) !important;
 }
 
 #categoryPage .swiper-page-title {
   color: var(--pt-tx) !important;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 #categoryPage .swiper-prog-badge {
-  background: var(--pt-s2) !important;
+  background: var(--pt-s1) !important;
   color: var(--pt-mu) !important;
   border: 1px solid var(--pt-line);
+  border-radius: 999px;
 }
 
 #categoryPage .sw-back-btn,
 #categoryPage .sw-settings-btn {
-  background: var(--pt-s2) !important;
+  background: var(--pt-s1) !important;
   color: var(--pt-tx) !important;
   border: 1px solid var(--pt-line);
-  border-radius: 12px !important;
+  border-radius: 10px !important;
 }
 
 #categoryPage .swiper-floating-menu {

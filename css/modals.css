@@ -316,6 +316,18 @@ body:not(.capacitor-native) .native-only-block {
   background: var(--pt-bg) !important;
   max-width: 520px;
 }
+.loc-close-btn {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 5;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  font-size: 1.3rem !important;
+  border-radius: 12px !important;
+}
 .loc-btn-secondary {
   min-height: 44px !important;
 }
