@@ -2704,29 +2704,25 @@ document.addEventListener("DOMContentLoaded", () => {
 let isOnline = navigator.onLine;
 let keyboardShortcutsVisible = false;
 
-// Initialize enhanced UX features
+// Initialize enhanced UX features (mobile-aware & non-blocking)
 function initializeEnhancedUX() {
-  setupOfflineDetection();
-  setupKeyboardShortcuts();
-  setupTouchFeedback();
+  const isTouchDevice =
+    isCapacitorNative ||
+    (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  if (!isTouchDevice) {
+    setupKeyboardShortcuts();
+  }
   setupSmoothAnimations();
-  setupAccessibilityFeatures();
   setupPerformanceOptimizations();
 }
 
-// Offline Detection - Unified via initializeOfflineDetection
-function setupOfflineDetection() {
-  // Handled cleanly and uniformly by initializeOfflineDetection to avoid overlapping banners
-}
-
-// Keyboard Shortcuts
+// Keyboard Shortcuts (desktop web only — skipped on Android/touch devices)
 function setupKeyboardShortcuts() {
   const shortcutsDiv = document.createElement("div");
   shortcutsDiv.className = "keyboard-shortcuts";
   shortcutsDiv.innerHTML = `
     <h4>اختصارات لوحة المفاتيح</h4>
     <div class="shortcut"><span>الرئيسية</span><span class="key">H</span></div>
-    <div class="shortcut"><span>البحث</span><span class="key">/</span></div>
     <div class="shortcut"><span>الوضع المظلم</span><span class="key">D</span></div>
     <div class="shortcut"><span>تكبير الخط</span><span class="key">+</span></div>
     <div class="shortcut"><span>تصغير الخط</span><span class="key">-</span></div>
@@ -2757,14 +2753,6 @@ function setupKeyboardShortcuts() {
           e.preventDefault();
           showHomePage();
           break;
-        case "/":
-          e.preventDefault();
-          const searchInput = document.getElementById("searchInput");
-          if (searchInput) {
-            searchInput.focus();
-            searchInput.select();
-          }
-          break;
         case "d":
           e.preventDefault();
           toggleTheme();
@@ -2791,95 +2779,30 @@ function setupKeyboardShortcuts() {
   });
 }
 
-// Touch Feedback
-function setupTouchFeedback() {
-  // Add haptic feedback for mobile devices
-  const addHapticFeedback = (element, type = "light") => {
-    element.addEventListener("touchstart", () => {
-      if (navigator.vibrate) {
-        navigator.vibrate(type === "heavy" ? 50 : 20);
-      }
-    });
-  };
-
-  // Add haptic feedback to interactive elements
-  document
-    .querySelectorAll(".count-btn, .action-btn, .nav-btn")
-    .forEach((btn) => {
-      addHapticFeedback(btn, "light");
-    });
-
-  document.querySelectorAll(".category-card, .adhkar-card").forEach((card) => {
-    addHapticFeedback(card, "light");
-  });
-}
-
-// Smooth Animations
+// Smooth Animations (unobserves revealed elements to avoid permanent IntersectionObserver overhead)
 function setupSmoothAnimations() {
-  // Intersection Observer for scroll animations
-  const observerOptions = {
-    threshold: 0.1,
-    rootMargin: "0px 0px -50px 0px",
-  };
+  const targets = document.querySelectorAll(".category-card, .adhkar-card, .stat-item");
+  if (!targets.length || typeof IntersectionObserver === "undefined") return;
 
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.style.animationDelay = "0s";
-        entry.target.style.animationPlayState = "running";
-      }
-    });
-  }, observerOptions);
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.style.animationDelay = "0s";
+          entry.target.style.animationPlayState = "running";
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.1, rootMargin: "0px 0px -50px 0px" },
+  );
 
-  // Add animation classes to elements
-  document
-    .querySelectorAll(".category-card, .adhkar-card, .stat-item")
-    .forEach((el, index) => {
-      el.style.animation = "slideInUp 0.6s ease forwards";
-      el.style.animationDelay = `${index * 0.1}s`;
-      el.style.animationPlayState = "paused";
-      observer.observe(el);
-    });
-}
-
-// Accessibility Features
-function setupAccessibilityFeatures() {
-  // Add ARIA labels and roles
-  document.querySelectorAll(".count-btn").forEach((btn) => {
-    btn.setAttribute("aria-label", "زيادة العداد");
+  targets.forEach((el, index) => {
+    el.style.animation = "slideInUp 0.6s ease forwards";
+    el.style.animationDelay = `${Math.min(index, 6) * 0.06}s`;
+    el.style.animationPlayState = "paused";
+    observer.observe(el);
   });
-
-  document.querySelectorAll(".reset-btn").forEach((btn) => {
-    btn.setAttribute("aria-label", "إعادة تعيين العداد");
-  });
-
-  // Add skip links for screen readers
-  const skipLink = document.createElement("a");
-  skipLink.href = "#main";
-  skipLink.className = "skip-link";
-  skipLink.textContent = "تخطي إلى المحتوى الرئيسي";
-  document.body.insertBefore(skipLink, document.body.firstChild);
-
-  // Add skip link styles
-  const style = document.createElement("style");
-  style.textContent = `
-    .skip-link {
-      position: absolute;
-      top: -60px;
-      left: 6px;
-      background: #1a8a5c;
-      color: white;
-      padding: 8px;
-      text-decoration: none;
-      border-radius: 4px;
-      z-index: 1000;
-      transition: top 0.3s;
-    }
-    .skip-link:focus {
-      top: 6px;
-    }
-  `;
-  document.head.appendChild(style);
 }
 
 // Performance Optimizations
@@ -5556,7 +5479,7 @@ function selectCalendarDay(dateStr, isToday, isFasting) {
   } else {
     html += `
       <div class="cal-panel-regular-box">
-        <p><i class="far fa-calendar-check"></i> يوم مبارك — رطّب لسانك بذكر الله وقراءة القرآن</p>
+        <p><i class="fas fa-calendar-check"></i> يوم مبارك — رطّب لسانك بذكر الله وقراءة القرآن</p>
       </div>
     `;
   }
@@ -5611,7 +5534,7 @@ function buildRemindersSheetHtml(tab, atDate) {
     fastingHtml = `
       <div class="pt-rsheet__block" data-rsheet="fasting">
         <div class="pt-rsheet__top">
-          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__kicker"><i class="fas fa-calendar-alt"></i> صيام التطوع</span>
           <span class="pt-rsheet__chip">لا صيام</span>
         </div>
         <p class="pt-rsheet__date">${fasting.reason} — لا يجوز صيامه.</p>
@@ -5621,7 +5544,7 @@ function buildRemindersSheetHtml(tab, atDate) {
     fastingHtml = `
       <div class="pt-rsheet__block is-em" data-rsheet="fasting">
         <div class="pt-rsheet__top">
-          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__kicker"><i class="fas fa-calendar-alt"></i> صيام التطوع</span>
           <span class="pt-rsheet__chip">اليوم</span>
         </div>
         <p class="pt-rsheet__date">${fasting.events.map((e) => cleanEventName(e.name)).join(" · ")}</p>
@@ -5631,7 +5554,7 @@ function buildRemindersSheetHtml(tab, atDate) {
     fastingHtml = `
       <div class="pt-rsheet__block" data-rsheet="fasting">
         <div class="pt-rsheet__top">
-          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__kicker"><i class="fas fa-calendar-alt"></i> صيام التطوع</span>
           <span class="pt-rsheet__chip">غدًا</span>
         </div>
         <p class="pt-rsheet__date">${fasting.events.map((e) => cleanEventName(e.name)).join(" · ")}</p>
@@ -5641,7 +5564,7 @@ function buildRemindersSheetHtml(tab, atDate) {
     fastingHtml = `
       <div class="pt-rsheet__block" data-rsheet="fasting">
         <div class="pt-rsheet__top">
-          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__kicker"><i class="fas fa-calendar-alt"></i> صيام التطوع</span>
           <span class="pt-rsheet__chip">بعد ${formatDaysAfter(fasting.days)}</span>
         </div>
         <p class="pt-rsheet__date">${fasting.events.map((e) => cleanEventName(e.name)).join(" · ")}</p>
@@ -5651,7 +5574,7 @@ function buildRemindersSheetHtml(tab, atDate) {
     fastingHtml = `
       <div class="pt-rsheet__block" data-rsheet="fasting">
         <div class="pt-rsheet__top">
-          <span class="pt-rsheet__kicker"><i class="far fa-calendar-alt"></i> صيام التطوع</span>
+          <span class="pt-rsheet__kicker"><i class="fas fa-calendar-alt"></i> صيام التطوع</span>
           <span class="pt-rsheet__chip">سنة</span>
         </div>
         <p class="pt-rsheet__date">الاثنين والخميس والأيام البيض</p>
@@ -7072,10 +6995,17 @@ function convertNodeTextToArabic(node) {
   }
 }
 
-// Run a single initial pass for static numeric text without heavy global MutationObserver overhead
-setTimeout(() => {
-  convertNodeTextToArabic(document.body);
-}, 120);
+// Run a single initial pass for static numeric text during idle time (never blocks first paint)
+if (typeof window.requestIdleCallback === "function") {
+  window.requestIdleCallback(
+    () => convertNodeTextToArabic(document.body),
+    { timeout: 1000 },
+  );
+} else {
+  setTimeout(() => {
+    convertNodeTextToArabic(document.body);
+  }, 450);
+}
 
 /* ================================================================
    MISBAHA (Digital Prayer Beads) — Extracted to js/modules/misbaha.js

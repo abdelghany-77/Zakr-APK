@@ -2772,8 +2772,13 @@ document.addEventListener("keydown", function (e) {
 
 // ===== TAB INTEGRATION =====
 
+let _offlineStatusChecked = false;
 function initQuranTab() {
   showQuranPage();
+  if (!_offlineStatusChecked) {
+    _offlineStatusChecked = true;
+    checkOfflineQuranStatus();
+  }
 }
 
 function updateProfileTab() {
@@ -2878,9 +2883,12 @@ function updateProfileTab() {
 
 function initQuranFeature() {
   khatmahState = loadKhatmahState();
-  checkOfflineQuranStatus();
+  // Defer Cache API scan until the Quran tab is opened to speed up cold Home boot
+  var quranTab = document.getElementById("tab-quran");
+  if (quranTab && quranTab.classList.contains("active-tab") && !_offlineStatusChecked) {
+    _offlineStatusChecked = true;
+    checkOfflineQuranStatus();
+  }
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-  setTimeout(initQuranFeature, 200);
-});
+document.addEventListener("DOMContentLoaded", initQuranFeature);

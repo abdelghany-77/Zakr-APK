@@ -29,7 +29,8 @@
     "@capacitor/status-bar": "6.0.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "6.2.1"
+    "@capacitor/cli": "6.2.1",
+    "esbuild": "^0.28.2"
   },
   "engines": {
     "node": ">=18.0.0"

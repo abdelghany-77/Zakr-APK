@@ -1,4 +1,4 @@
-const CACHE_NAME = "tazkeer-v12.8.0";
+const CACHE_NAME = "tazkeer-v12.9.0";
 const QURAN_CACHE_NAME = "tazkeer-quran-pages-v1";
 const PROPHETS_CACHE_NAME = "tazkeer-prophets-v1";
 const API_CACHE_NAME = "tazkeer-api-v1";
@@ -24,31 +24,14 @@ const CORE_LOCAL_ASSETS = [
   "./css/pages/settings-modal.css",
   "./assets/fontawesome/css/all.min.css",
   "./assets/fontawesome/webfonts/fa-solid-900.woff2",
-  "./assets/fontawesome/webfonts/fa-regular-400.woff2",
-  "./assets/fontawesome/webfonts/fa-brands-400.woff2",
-  "./assets/fontawesome/webfonts/fa-v4compatibility.woff2",
   "./assets/fonts/gf-01.woff2",
-  "./assets/fonts/gf-02.woff2",
   "./assets/fonts/gf-03.woff2",
   "./assets/fonts/gf-04.woff2",
-  "./assets/fonts/gf-05.woff2",
   "./assets/fonts/gf-06.woff2",
   "./assets/fonts/gf-07.woff2",
   "./assets/fonts/gf-08.woff2",
-  "./assets/fonts/gf-09.woff2",
-  "./assets/fonts/gf-10.woff2",
-  "./assets/fonts/gf-11.woff2",
-  "./assets/fonts/gf-12.woff2",
-  "./assets/fonts/gf-13.woff2",
-  "./assets/fonts/gf-14.woff2",
   "./assets/fonts/gf-15.woff2",
-  "./assets/fonts/gf-16.woff2",
   "./assets/fonts/gf-17.woff2",
-  "./assets/fonts/gf-18.woff2",
-  "./assets/fonts/gf-19.woff2",
-  "./assets/fonts/gf-20.woff2",
-  "./assets/fonts/gf-21.woff2",
-  "./assets/fonts/gf-22.woff2",
   "./js/core/app-utils.js",
   "./js/core/storage.js",
   "./js/core/router.js",
@@ -65,7 +48,6 @@ const CORE_LOCAL_ASSETS = [
   "./prophets.js",
   "./data/prophets-index.json",
   "./images/pattern.svg",
-  "./images/icon.png",
   "./images/icon-192.png",
   "./images/icon-512.png"
 ];
