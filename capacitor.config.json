@@ -24,14 +24,15 @@
       "overlaysWebView": true
     },
     "SplashScreen": {
-      "launchShowDuration": 1200,
+      "launchShowDuration": 900,
       "launchAutoHide": true,
+      "launchFadeOutDuration": 150,
       "backgroundColor": "#0b1418",
       "androidSplashResourceName": "splash",
       "androidScaleType": "FIT_XY",
       "showSpinner": false,
-      "splashFullScreen": true,
-      "splashImmersive": true
+      "splashFullScreen": false,
+      "splashImmersive": false
     },
     "LocalNotifications": {
       "smallIcon": "ic_stat_adhan",

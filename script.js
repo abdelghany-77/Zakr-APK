@@ -503,6 +503,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Show install instructions on first visit (only in web browser mode)
   checkAndShowInstallInstructions();
+
+  // Dismiss native splash screen immediately once initial UI is ready
+  // (avoids waiting for launchShowDuration timeout & unblocks WebView first draw)
+  setTimeout(function () {
+    try {
+      var splash =
+        window.Capacitor &&
+        window.Capacitor.Plugins &&
+        window.Capacitor.Plugins.SplashScreen;
+      if (splash && typeof splash.hide === "function") {
+        splash.hide();
+      }
+    } catch (_) {}
+  }, 0);
 });
 
 function checkAndShowInstallInstructions() {
