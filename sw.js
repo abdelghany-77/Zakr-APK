@@ -1,4 +1,4 @@
-const CACHE_NAME = "tazkeer-v12.9.0";
+const CACHE_NAME = "tazkeer-v13.0.0";
 const QURAN_CACHE_NAME = "tazkeer-quran-pages-v1";
 const PROPHETS_CACHE_NAME = "tazkeer-prophets-v1";
 const API_CACHE_NAME = "tazkeer-api-v1";
@@ -8,7 +8,6 @@ const CORE_LOCAL_ASSETS = [
   "./",
   "./index.html",
   "./privacy-policy.html",
-  "./styles.css",
   "./quran.css",
   "./adhan-native.css",
   "./manifest.json",
@@ -16,10 +15,13 @@ const CORE_LOCAL_ASSETS = [
   "./css/tokens.css",
   "./css/base.css",
   "./css/components.css",
+  "./css/modals.css",
   "./css/pages/home.css",
   "./css/pages/azkar.css",
+  "./css/pages/misbaha-swiper.css",
   "./css/pages/quran.css",
   "./css/pages/prophets.css",
+  "./css/pages/prophets-reader.css",
   "./css/pages/profile.css",
   "./css/pages/settings-modal.css",
   "./assets/fontawesome/css/all.min.css",
@@ -35,6 +37,7 @@ const CORE_LOCAL_ASSETS = [
   "./js/core/app-utils.js",
   "./js/core/storage.js",
   "./js/core/router.js",
+  "./js/core/app-updater.js",
   "./js/core/schedule-utils.mjs",
   "./js/core/storage-schema.mjs",
   "./js/data/adhkar-data.js",
@@ -44,6 +47,10 @@ const CORE_LOCAL_ASSETS = [
   "./js/modules/misbaha.js",
   "./dailyDuas.js",
   "./script.js",
+  "./js/features/azkar/azkar-swiper.js",
+  "./js/features/prayer/prayer-times.js",
+  "./js/features/profile/stats-dashboard.js",
+  "./js/features/calendar/hijri-fasting.js",
   "./quran.js",
   "./prophets.js",
   "./data/prophets-index.json",

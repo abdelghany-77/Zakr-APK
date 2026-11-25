@@ -34,55 +34,26 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="css/fonts-local.css" />
   <link rel="stylesheet" href="assets/fontawesome/css/all.min.css" />
-  <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="quran.css" />
   <link rel="stylesheet" href="adhan-native.css" />
 
-  <!-- Tazkeer v2 design system (loaded after the legacy sheets on purpose) -->
+  <!-- Tazkeer v2 design system -->
   <link rel="stylesheet" href="css/tokens.css" />
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/pages/home.css" />
   <link rel="stylesheet" href="css/pages/azkar.css" />
+  <link rel="stylesheet" href="css/pages/misbaha-swiper.css" />
   <link rel="stylesheet" href="css/pages/quran.css" />
   <link rel="stylesheet" href="css/pages/prophets.css" />
+  <link rel="stylesheet" href="css/pages/prophets-reader.css" />
   <link rel="stylesheet" href="css/pages/profile.css" />
   <link rel="stylesheet" href="css/pages/settings-modal.css" />
+  <link rel="stylesheet" href="css/modals.css" />
 
 </head>
 
 <body class="dark-mode">
-  <!-- ============================================================
-       Legacy header — kept only for backward-compatible IDs.
-       Every page renders its own title row now.
-       ============================================================ -->
-  <header class="header pt-legacy-header" aria-hidden="true">
-    <div class="container">
-      <div class="header-content">
-        <h1 class="logo">
-          <i class="fas fa-moon"></i>
-          ذَكِّرْ
-        </h1>
-        <nav class="nav" id="nav">
-          <button class="nav-btn misbaha-header-btn" onclick="openMisbaha()" title="المسبحة الإلكترونية"
-            aria-label="المسبحة الإلكترونية" tabindex="-1">
-            <i class="fas fa-fingerprint"></i>
-          </button>
-          <button class="nav-btn install-btn hidden" id="installBtn" tabindex="-1">
-            <i class="fas fa-download"></i>
-          </button>
-          <button class="nav-btn theme-toggle-btn settings-header-btn" id="settingsHeaderBtn"
-            onclick="openAdhanModal()" title="الإعدادات" aria-label="الإعدادات" tabindex="-1">
-            <i class="fas fa-cog"></i>
-          </button>
-          <button class="nav-btn back-btn hidden" id="backBtn" tabindex="-1">
-            <i class="fas fa-arrow-right"></i>
-          </button>
-        </nav>
-      </div>
-    </div>
-  </header>
-
   <!-- ===== Main Content with Tab Sections ===== -->
   <main class="main">
     <div class="container">
@@ -317,7 +288,7 @@
             <i class="fas fa-magnifying-glass"></i>
             <input type="text" id="azkarSearchInput" placeholder="ابحث عن نوع الذكر..." autocomplete="off"
               oninput="filterAzkarCategories(this.value)" />
-            <button class="pt-iconbtn" style="width:32px;height:32px;min-width:32px;border:none;background:transparent"
+            <button type="button" class="pt-iconbtn" style="width:44px;height:44px;min-width:44px;border:none;background:transparent"
               onclick="toggleAzkarSearch()" aria-label="إغلاق البحث">
               <i class="fas fa-xmark" style="font-size:13px"></i>
             </button>
@@ -691,6 +662,9 @@
         </div>
       </div>
 
+      <!-- OEM Battery Guidance (populated dynamically for Xiaomi/Samsung/Huawei/Oppo) -->
+      <div id="permsOemTip" class="perms-onboard-oem-tip hidden"></div>
+
       <!-- Actions -->
       <div class="perms-onboard-actions">
         <button type="button" class="perms-onboard-btn-primary" onclick="permOnboardGrantAll()">
@@ -734,14 +708,14 @@
   </div>
 
   <!-- Sunnah Fasting Guide Modal -->
-  <div id="fastingGuideModal" class="modal fasting-guide-modal">
+  <div id="fastingGuideModal" class="modal fasting-guide-modal" role="dialog" aria-modal="true" onclick="if (event.target === this) closeFastingGuideModal()">
     <div class="modal-content fasting-modal-content">
       <div class="modal-header">
         <div class="fasting-modal-title">
           <i class="fas fa-moon modal-gold-icon"></i>
           <h3>دليل سنن ومناسبات الصيام</h3>
         </div>
-        <span class="close" onclick="closeFastingGuideModal()">&times;</span>
+        <button type="button" class="close" onclick="closeFastingGuideModal()" aria-label="إغلاق">&times;</button>
       </div>
       <div class="modal-body fasting-modal-body">
         <div class="fasting-guide-intro">
@@ -880,14 +854,14 @@
   </div>
 
   <!-- Qibla Compass Modal -->
-  <div id="qiblaModal" class="modal qibla-modal">
+  <div id="qiblaModal" class="modal qibla-modal" role="dialog" aria-modal="true" onclick="if (event.target === this) closeQiblaModal()">
     <div class="modal-content qibla-modal-content">
       <div class="modal-header">
         <div class="qibla-modal-title">
           <i class="fas fa-compass modal-gold-icon"></i>
           <h3>اتجاه القبلة الشريفة</h3>
         </div>
-        <span class="close" onclick="closeQiblaModal()">&times;</span>
+        <button type="button" class="close" onclick="closeQiblaModal()" aria-label="إغلاق">&times;</button>
       </div>
       <div class="modal-body qibla-modal-body">
         <div class="qibla-modal-compass-wrap">
@@ -987,6 +961,17 @@
               <input type="checkbox" id="azkarReminderToggle" onchange="setAzkarReminderEnabled(this.checked)" checked />
               <span class="adhan-slider"></span>
             </label>
+          </div>
+
+          <!-- Widget Style Section (Android Only) -->
+          <div class="adhan-section-title native-only-block">
+            <i class="fas fa-mobile-screen"></i>
+            <span>مظهر أداة الشاشة الرئيسية (Widget)</span>
+          </div>
+          <div class="prayer-school-group native-only-block" id="widgetStyleGroup" style="margin-bottom: 6px;">
+            <button type="button" class="prayer-school-btn active" data-widget-style="solid" onclick="AdhanNative.setWidgetStyle('solid')">داكن</button>
+            <button type="button" class="prayer-school-btn" data-widget-style="translucent" onclick="AdhanNative.setWidgetStyle('translucent')">شفاف</button>
+            <button type="button" class="prayer-school-btn" data-widget-style="glass" onclick="AdhanNative.setWidgetStyle('glass')">زجاجي</button>
           </div>
 
           <!-- Quick navigation shortcuts -->
@@ -1335,6 +1320,7 @@
   <script src="js/core/storage.js" defer></script>
   <script src="js/core/app-utils.js" defer></script>
   <script src="js/core/router.js" defer></script>
+  <script src="js/core/app-updater.js" defer></script>
   <script src="js/modules/qibla.js" defer></script>
   <script src="js/modules/misbaha.js" defer></script>
   <script src="js/features/prayer/daily-refresh.js" defer></script>
@@ -1346,6 +1332,10 @@
   <script src="dailyDuas.js" defer></script>
   <script src="js/data/adhkar-data.js" defer></script>
   <script src="script.js" defer></script>
+  <script src="js/features/azkar/azkar-swiper.js" defer></script>
+  <script src="js/features/prayer/prayer-times.js" defer></script>
+  <script src="js/features/profile/stats-dashboard.js" defer></script>
+  <script src="js/features/calendar/hijri-fasting.js" defer></script>
   <script src="quran.js" defer></script>
   <script src="prophets.js" defer></script>
 </body>

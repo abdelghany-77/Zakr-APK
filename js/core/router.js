@@ -43,6 +43,16 @@
       var target = document.getElementById(tabId);
       if (!target) return;
       if (currentTab === tabId && target.classList.contains("active-tab")) {
+        if (tabId === "tab-azkar") {
+          var azCc = document.getElementById("categoriesContainer");
+          if (azCc && azCc.children.length === 0) AppRouter.triggerTabInit(tabId);
+        } else if (tabId === "tab-prophets") {
+          var prHost = document.getElementById("prophetsPageContent");
+          if (prHost && prHost.children.length === 0) AppRouter.triggerTabInit(tabId);
+        } else if (tabId === "tab-quran") {
+          var qrHost = document.getElementById("quranPageContent");
+          if (qrHost && qrHost.children.length === 0) AppRouter.triggerTabInit(tabId);
+        }
         return;
       }
 
@@ -117,27 +127,31 @@
      */
     triggerTabInit: function (tabId) {
       if (tabId === "tab-home") {
+        if (typeof global.startHomeTicker === "function") global.startHomeTicker();
         if (typeof global.updateDynamicHeroCard === "function") global.updateDynamicHeroCard();
         if (typeof global.updateContinueReadingPill === "function") global.updateContinueReadingPill();
         if (typeof global.initializePrayerTimes === "function") global.initializePrayerTimes();
         if (typeof global.updateRamadanCountdown === "function") global.updateRamadanCountdown();
-      } else if (tabId === "tab-azkar") {
-        var categoryPage = document.getElementById("categoryPage");
-        var azkarListView = document.getElementById("azkarListView");
-        var categoriesContainer = document.getElementById("categoriesContainer");
-        if (categoriesContainer && categoriesContainer.children.length === 0) {
-          if (typeof global.showHomePage === "function") global.showHomePage();
-        } else if (categoryPage && categoryPage.classList.contains("hidden")) {
-          if (azkarListView) azkarListView.classList.remove("hidden");
+      } else {
+        if (typeof global.stopHomeTicker === "function") global.stopHomeTicker();
+        if (tabId === "tab-azkar") {
+          var categoryPage = document.getElementById("categoryPage");
+          var azkarListView = document.getElementById("azkarListView");
+          var categoriesContainer = document.getElementById("categoriesContainer");
+          if (categoriesContainer && categoriesContainer.children.length === 0) {
+            if (typeof global.showHomePage === "function") global.showHomePage();
+          } else if (categoryPage && categoryPage.classList.contains("hidden")) {
+            if (azkarListView) azkarListView.classList.remove("hidden");
+          }
+        } else if (tabId === "tab-quran") {
+          if (typeof global.initQuranTab === "function") global.initQuranTab();
+        } else if (tabId === "tab-prophets") {
+          if (typeof global.initProphetsTab === "function") global.initProphetsTab();
+        } else if (tabId === "tab-profile") {
+          if (typeof global.updateProfileTab === "function") global.updateProfileTab();
+          if (typeof global.updateStatsDashboard === "function") global.updateStatsDashboard();
+          if (typeof global.updateWeeklyChart === "function") global.updateWeeklyChart();
         }
-      } else if (tabId === "tab-quran") {
-        if (typeof global.initQuranTab === "function") global.initQuranTab();
-      } else if (tabId === "tab-prophets") {
-        if (typeof global.initProphetsTab === "function") global.initProphetsTab();
-      } else if (tabId === "tab-profile") {
-        if (typeof global.updateProfileTab === "function") global.updateProfileTab();
-        if (typeof global.updateStatsDashboard === "function") global.updateStatsDashboard();
-        if (typeof global.updateWeeklyChart === "function") global.updateWeeklyChart();
       }
     },
 
@@ -287,8 +301,8 @@
     AppRouter.switchTab(tabId, true);
   };
 
-  // Auto-init router when DOM is ready
-  if (document.readyState === "loading") {
+  // Wait for DOMContentLoaded when deferred scripts are still running (readyState === "interactive")
+  if (document.readyState !== "complete") {
     document.addEventListener("DOMContentLoaded", function () {
       AppRouter.init();
     });

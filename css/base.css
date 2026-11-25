@@ -2,13 +2,61 @@
    Tazkeer v2 — Base layout & the application shell
    ============================================================================ */
 
+:root {
+  --font-sans: "Cairo", system-ui, -apple-system, sans-serif;
+  --font-quran: "Amiri Quran", "Amiri", "Noto Naskh Arabic", serif;
+  --font-hadith: "Amiri", "Noto Naskh Arabic", serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 *,
 *::before,
 *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
   -webkit-touch-callout: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.tab-content {
+  display: none;
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 1200px;
+}
+
+.tab-content.active-tab {
+  display: block;
+  content-visibility: visible;
+  animation: tabFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.container {
+  margin: 0 auto;
+}
+
+/* Skeleton Shimmer Placeholder */
+.skeleton {
+  background: linear-gradient(90deg, var(--pt-s1) 25%, var(--pt-s2) 50%, var(--pt-s1) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.3s infinite linear;
+  border-radius: 8px;
+}
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 *::-webkit-scrollbar {
@@ -302,6 +350,11 @@ main,
 
 /* ── Bottom navigation ───────────────────────────────────────────────────── */
 .bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
   display: grid;
   grid-template-columns:
     minmax(0, 0.88fr)
@@ -317,8 +370,8 @@ main,
   background: rgba(11, 20, 24, 0.94) !important;
   border-top: 1px solid var(--pt-line) !important;
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28) !important;
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 /* Always honor immersive reader hide state (Mushaf & Prophets reader) */
@@ -341,6 +394,17 @@ body.light-mode .bottom-nav {
 .bottom-nav-item {
   min-width: 0;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
   gap: 3px !important;
   padding: 4px 2px !important;
   color: var(--pt-mu) !important;
@@ -434,8 +498,6 @@ body.light-mode .bottom-nav {
   justify-content: center;
   padding: 20px;
   background: rgba(5, 11, 14, 0.72);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -559,8 +621,6 @@ body.light-mode .app-dialog-btn--confirm {
   justify-content: center;
   padding: 20px;
   background: rgba(5, 11, 14, 0.74);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;

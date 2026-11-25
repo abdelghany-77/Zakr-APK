@@ -1,0 +1,753 @@
+/* ============================================================================
+   Tazkeer — Unified Bottom-Sheet Modals, Notifications & Light/Dark Tokens
+   (Zero backdrop-filter blur lag, >= 44px touch targets across all modals)
+   ============================================================================ */
+
+/* ── Base Modal Backdrop (unified solid tint overlay) ── */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  background-color: rgba(0, 0, 0, 0.58);
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+.modal.is-open {
+  display: flex;
+}
+
+body:not(.capacitor-native) .native-only-block {
+  display: none !important;
+}
+
+.modal-content {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 26px 26px 0 0;
+  border: 1px solid var(--pt-line);
+  border-bottom: none;
+  background: var(--pt-bg);
+  color: var(--pt-tx);
+  box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.42);
+  animation: ptSheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Sheet handle bar on unified bottom sheets */
+.modal-content::before,
+.app-update-modal-card::before {
+  content: "";
+  display: block;
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--pt-line-2);
+  margin: 10px auto 2px;
+  flex-shrink: 0;
+}
+
+/* Exclude specialized sheets that already render their own header handle */
+#adhanModal .modal-content::before,
+#privacyPolicyModal .modal-content::before {
+  display: none;
+}
+
+.modal-header {
+  padding: 10px 18px 12px;
+  border-bottom: 1px solid var(--pt-line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--pt-bg);
+}
+
+.modal-header h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--pt-tx);
+  margin: 0;
+}
+
+.modal-body {
+  padding: 16px 18px calc(24px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  text-align: center;
+}
+
+.close,
+.pt-ksheet-close,
+#adhanModal .adhan-close-btn,
+#privacyPolicyModal .adhan-close-btn {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  border-radius: 13px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-s2);
+  color: var(--pt-tx);
+  font-size: 1.25rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.close:active,
+.pt-ksheet-close:active,
+#adhanModal .adhan-close-btn:active,
+#privacyPolicyModal .adhan-close-btn:active {
+  transform: scale(0.94);
+  background: var(--pt-s3);
+}
+
+/* Accessible touch target for Daily Duaa copy button */
+.pt-dua .duaa-action-btn {
+  min-height: 44px !important;
+  min-width: 44px !important;
+  padding: 6px 14px !important;
+}
+
+@media (min-width: 600px) {
+  .modal:not(#adhanModal):not(#privacyPolicyModal) {
+    align-items: center;
+    padding: 20px;
+  }
+  .modal:not(#adhanModal):not(#privacyPolicyModal) .modal-content {
+    border-radius: 26px;
+    border-bottom: 1px solid var(--pt-line);
+    box-shadow: var(--pt-shadow);
+  }
+  .modal:not(#adhanModal):not(#privacyPolicyModal) .modal-content::before {
+    display: none;
+  }
+}
+
+/* ── Permissions Onboarding Sheet ── */
+.perms-onboard-modal.is-open {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+.perms-onboard-content {
+  padding: 6px 18px calc(22px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  text-align: center;
+  background: var(--pt-bg);
+  color: var(--pt-tx);
+}
+.perms-onboard-icon-wrap {
+  width: 48px;
+  height: 48px;
+  margin: 6px auto 8px;
+  border-radius: 15px;
+  background: var(--pt-em-grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #ffffff;
+}
+.perms-onboard-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--pt-tx);
+}
+.perms-onboard-desc {
+  font-size: 0.82rem;
+  color: var(--pt-mu);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.perms-onboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.perms-onboard-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--pt-s1);
+  border: 1px solid var(--pt-line);
+  border-radius: 14px;
+  padding: 8px 10px;
+  text-align: right;
+  direction: rtl;
+}
+.perms-onboard-item__icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: var(--pt-em-bg);
+  color: var(--pt-em);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+.perms-onboard-item__info { flex: 1; min-width: 0; }
+.perms-onboard-item__title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+.perms-onboard-item__desc {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--pt-mu);
+  margin-top: 2px;
+  line-height: 1.45;
+}
+.perms-onboard-optional-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--pt-s2);
+  border: 1px solid var(--pt-line);
+  color: var(--pt-mu);
+}
+.perms-onboard-item.is-optional {
+  border-style: dashed;
+}
+.perms-onboard-item.is-optional .perms-onboard-item__icon {
+  background: var(--pt-s2);
+  color: var(--pt-mu);
+}
+.perms-onboard-item__btn {
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 68px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  background: var(--pt-em-grad);
+  color: #ffffff;
+  padding: 0 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  transition: transform 0.15s ease;
+}
+.perms-onboard-item__btn.is-optional {
+  background: var(--pt-s2);
+  border-color: var(--pt-line);
+  color: var(--pt-tx);
+}
+.perms-onboard-item__btn:active { transform: scale(0.95); }
+.perms-onboard-item__btn.granted {
+  background: var(--pt-em-bg);
+  border-color: var(--pt-em-line);
+  color: var(--pt-em);
+  pointer-events: none;
+}
+
+.perms-onboard-oem-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background: var(--pt-gd-bg);
+  border: 1px solid var(--pt-gd-line);
+  color: var(--pt-tx);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  text-align: right;
+}
+.perms-onboard-oem-tip i {
+  color: var(--pt-gd);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.perms-onboard-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.perms-onboard-btn-primary {
+  min-height: 46px;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  background: var(--pt-em-grad);
+  color: #ffffff;
+  padding: 12px;
+  font-size: 0.96rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+}
+.perms-onboard-btn-skip {
+  min-height: 44px;
+  background: none;
+  border: none;
+  color: var(--pt-mu);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+/* ── Location Permission Bottom Sheet Override ── */
+.location-permission-modal {
+  padding: 0 !important;
+  align-items: flex-end !important;
+}
+.location-permission-modal .loc-modal-content {
+  border-radius: 26px 26px 0 0 !important;
+  padding: 6px 18px calc(22px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) !important;
+  background: var(--pt-bg) !important;
+  max-width: 520px;
+}
+.loc-btn-secondary {
+  min-height: 44px !important;
+}
+
+/* ── Qibla Modal Bottom Sheet ── */
+.qibla-modal {
+  z-index: 10055;
+}
+.qibla-modal-content {
+  background: var(--pt-bg);
+  color: var(--pt-tx);
+}
+.qibla-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.qibla-modal-title h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+.modal-gold-icon {
+  color: var(--pt-gd);
+  font-size: 1.1rem;
+}
+
+.qibla-modal-compass-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 0.8rem 0 0.4rem;
+}
+.qibla-mini-compass {
+  width: 170px;
+  height: 170px;
+  flex-shrink: 0;
+}
+.qibla-mini-dial {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--pt-s2) 0%, var(--pt-s1) 100%);
+  border: 2px solid var(--pt-gd-line);
+  position: relative;
+  box-shadow: var(--pt-shadow-sm);
+}
+.qmc-dir {
+  position: absolute;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--pt-mu);
+  z-index: 2;
+  white-space: nowrap;
+}
+.qmc-n { top: 6px; left: 50%; transform: translateX(-50%); font-size: 1.15rem; }
+.qmc-s { bottom: 7px; left: 50%; transform: translateX(-50%); }
+.qmc-e { right: 9px; top: 50%; transform: translateY(-50%); }
+.qmc-w { left: 9px; top: 50%; transform: translateY(-50%); }
+
+.qibla-mini-needle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 62px;
+  transform: translate(-50%, -100%);
+  transform-origin: bottom center;
+  z-index: 3;
+  transition: transform 0.1s ease-out;
+}
+.qibla-mini-needle.qibla-aligned .qmn-tip {
+  border-bottom-color: var(--pt-em);
+}
+.qmn-tip {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 44px solid var(--pt-gd);
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.qmn-tail {
+  width: 2px;
+  height: 16px;
+  background: var(--pt-line-2);
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+.qibla-mini-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  width: 10px;
+  height: 10px;
+  background: var(--pt-gd);
+  border-radius: 50%;
+}
+
+.qibla-modal-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+}
+.qibla-deg-badge {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--pt-gd);
+  line-height: 1;
+}
+body.light-mode .qibla-deg-badge {
+  color: var(--pt-em);
+}
+.qibla-modal-status {
+  font-size: 0.9rem;
+  color: var(--pt-mu);
+  margin: 0;
+  text-align: center;
+}
+.qibla-calibrate-action-btn {
+  margin-top: 0.4rem;
+  min-height: 44px;
+  padding: 0.55rem 1.35rem;
+  border-radius: 20px;
+  border: 1px solid var(--pt-gd-line);
+  background: var(--pt-gd-bg);
+  color: var(--pt-gd);
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+body.light-mode .qibla-calibrate-action-btn {
+  background: var(--pt-em-bg);
+  border-color: var(--pt-em-line);
+  color: var(--pt-em);
+}
+
+/* ── Sunnah Fasting Guide Bottom Sheet ── */
+.fasting-guide-modal {
+  z-index: 10055;
+}
+.fasting-modal-content {
+  background: var(--pt-bg);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.fasting-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fasting-modal-body {
+  padding: 14px 18px calc(24px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  overflow-y: auto;
+  text-align: right;
+}
+.fasting-guide-intro {
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  background: var(--pt-gd-bg);
+  border: 1px solid var(--pt-gd-line);
+  border-radius: 14px;
+  margin-bottom: 1rem;
+  align-items: flex-start;
+}
+.intro-quote {
+  color: var(--pt-gd);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+}
+.fasting-guide-intro p {
+  font-family: var(--font-hadith);
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: var(--pt-tx);
+  margin: 0;
+}
+.fasting-occasions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.fasting-occasion-card {
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  background: var(--pt-s1);
+  border: 1px solid var(--pt-line);
+  text-align: right;
+}
+.foc-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  flex-wrap: wrap;
+}
+.foc-head h4 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--pt-tx);
+}
+.foc-badge {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.foc-badge--gold { background: var(--pt-gd-bg); color: var(--pt-gd); border: 1px solid var(--pt-gd-line); }
+.foc-badge--green { background: var(--pt-em-bg); color: var(--pt-em); border: 1px solid var(--pt-em-line); }
+.foc-badge--blue { background: rgba(56, 189, 248, 0.16); color: var(--pt-blue); border: 1px solid rgba(56, 189, 248, 0.35); }
+.foc-badge--purple { background: rgba(168, 85, 247, 0.16); color: var(--pt-purple); border: 1px solid rgba(168, 85, 247, 0.35); }
+.foc-hadith {
+  font-family: var(--font-hadith);
+  font-size: 1.02rem;
+  line-height: 1.8;
+  color: var(--pt-tx);
+  margin: 0;
+}
+.hadith-ref {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--pt-mu);
+  margin-right: 0.25rem;
+}
+
+/* ── App Update Bottom Sheet on Mobile ── */
+@media (max-width: 599px) {
+  .app-update-modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .app-update-modal-card {
+    max-width: 520px !important;
+    border-radius: 26px 26px 0 0 !important;
+    border-bottom: none !important;
+    padding: 6px 20px calc(24px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) !important;
+    transform: translateY(24px) !important;
+  }
+  .app-update-modal-overlay.active .app-update-modal-card {
+    transform: translateY(0) !important;
+  }
+}
+
+/* ── Floating Toast Notification & Offline Pill ── */
+.notification {
+  position: fixed;
+  bottom: calc(var(--pt-nav-h) + 12px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--pt-em-grad);
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 30px;
+  box-shadow: var(--pt-shadow);
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  font-family: var(--font-sans);
+  max-width: 90vw;
+}
+.notification.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.offline-banner {
+  position: fixed;
+  top: calc(14px + var(--safe-top, env(safe-area-inset-top, 0px)));
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: #b91c1c;
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: 30px;
+  box-shadow: var(--pt-shadow);
+  z-index: 100001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  max-width: 92vw;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.offline-banner.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-40px);
+  pointer-events: none;
+}
+.offline-banner.online-recovered {
+  background: var(--pt-em);
+}
+
+/* ── Install Modal (Web browser only) ── */
+.install-modal-content {
+  background: var(--pt-bg);
+  color: var(--pt-tx);
+}
+.install-content {
+  padding: 16px 18px 24px;
+}
+.install-header h3 {
+  font-size: 1.25rem;
+  color: var(--pt-em);
+  margin: 0 0 6px;
+}
+.install-subtitle {
+  font-size: 0.86rem;
+  color: var(--pt-mu);
+  margin: 0;
+}
+.device-badge {
+  display: inline-block;
+  background: var(--pt-em-grad);
+  color: #ffffff;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 12px 0;
+}
+.install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: right;
+  margin-bottom: 14px;
+}
+.install-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--pt-s1);
+  border: 1px solid var(--pt-line);
+  padding: 12px;
+  border-radius: 14px;
+}
+.step-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--pt-em-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+.step-content {
+  flex: 1;
+  min-width: 0;
+}
+.step-content h5 {
+  margin: 0 0 4px;
+  font-size: 0.92rem;
+  color: var(--pt-tx);
+}
+.step-content p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--pt-mu);
+  line-height: 1.55;
+}
+.install-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--pt-em-bg);
+  color: var(--pt-em);
+  font-size: 0.8rem;
+  margin-bottom: 12px;
+}
+.install-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.install-btn {
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--pt-line);
+}
+.install-btn.primary {
+  background: var(--pt-em-grad);
+  color: #ffffff;
+  border-color: transparent;
+}
+.install-btn.secondary {
+  background: var(--pt-s2);
+  color: var(--pt-tx);
+}

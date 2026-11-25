@@ -958,7 +958,7 @@ body.light-mode #dailyDuaaCard.pt-dua {
   margin: 10px 0 12px !important;
   font-weight: 400;
   letter-spacing: 0;
-  text-rendering: optimizeLegibility;
+  text-rendering: optimizeSpeed;
 }
 
 body.light-mode .pt-dua .duaa-compact-text {

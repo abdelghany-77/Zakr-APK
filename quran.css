@@ -783,11 +783,9 @@
   gap: 0.6rem;
   margin-bottom: 1.25rem;
   padding: 0.5rem 0.75rem;
-  background: var(--quran-card-bg, rgba(255, 255, 255, 0.6));
+  background: var(--quran-card-bg, rgba(255, 255, 255, 0.92));
   border: 1px solid var(--quran-border, rgba(226, 232, 240, 0.8));
   border-radius: 14px;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
 }
 .mushaf-dark-mode .quran-juz-chips-wrap {
   background: rgba(30, 41, 59, 0.6);
@@ -1457,30 +1455,30 @@
 /* ---- Bottom Bar (Fixed-Height Morphing Footer) ---- */
 .mushaf-bottom-bar {
   flex-shrink: 0;
-  height: calc(56px + env(safe-area-inset-bottom, 0px));
-  min-height: calc(56px + env(safe-area-inset-bottom, 0px));
-  max-height: calc(56px + env(safe-area-inset-bottom, 0px));
+  min-height: calc(60px + env(safe-area-inset-bottom, 0px));
+  height: auto;
   box-sizing: border-box;
   background: var(--quran-header-bg);
-  padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 16px calc(8px + env(safe-area-inset-bottom, 0px));
   display: flex;
   align-items: center;
   justify-content: center;
   direction: rtl;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   z-index: 10;
 }
 
 /* Progress wrapper */
 .mushaf-progress-wrapper {
   width: 100%;
-  height: 40px;
+  min-height: 44px;
+  height: auto;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
 }
 
 .mushaf-bottom-info {
@@ -1648,9 +1646,7 @@
 .khatmah-dua-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 16, 26, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(10, 16, 26, 0.86);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2257,8 +2253,6 @@ body.light-mode .khatmah-dua-view-btn {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
 }
 .mushaf-dark-mode .quran-offline-progress-box {
   background: rgba(30, 41, 59, 0.7);
@@ -2469,4 +2463,108 @@ body.light-mode .surah-name {
 body.light-mode .surah-info {
   color: #64748b !important;
 }
+
+/* ===== Mushaf Scrubber, Zoom & Immersive Chrome Toggle ===== */
+.mushaf-image-area {
+  touch-action: none;
+  overflow: hidden;
+  user-select: none;
+}
+
+.mushaf-page-img {
+  transform-origin: center center;
+  will-change: transform;
+  transition: transform 0.16s ease-out;
+}
+
+.mushaf-page-img.is-pinching {
+  transition: none !important;
+}
+
+.mushaf-container.chrome-hidden .mushaf-header {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mushaf-container.chrome-hidden .mushaf-bottom-bar {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mushaf-header,
+.mushaf-bottom-bar {
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+.mushaf-scrubber-wrap {
+  position: relative;
+  width: 100%;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  touch-action: none;
+}
+
+.mushaf-scrubber-wrap .mushaf-progress-track {
+  width: 100%;
+}
+
+.mushaf-page-scrubber {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 3;
+  touch-action: none;
+}
+
+.mushaf-scrub-tooltip {
+  position: fixed;
+  bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  background: rgba(11, 20, 24, 0.96);
+  color: #f4fffb;
+  border: 1px solid rgba(52, 209, 168, 0.45);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: "Cairo", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 30;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.mushaf-scrub-tooltip.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.mushaf-zoom-badge {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(11, 20, 24, 0.85);
+  color: #34d1a8;
+  border: 1px solid rgba(52, 209, 168, 0.35);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-family: "Cairo", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  z-index: 12;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 

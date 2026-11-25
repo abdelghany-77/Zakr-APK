@@ -22,7 +22,6 @@ const outDir = path.join(root, "www");
 
 const FILES = [
   "index.html",
-  "styles.css",
   "quran.css",
   "adhan-native.css",
   "dailyDuas.js",
@@ -85,6 +84,7 @@ async function minifyBuiltAssets(targetDir) {
               minifyWhitespace: true,
               minifyIdentifiers: false,
               minifySyntax: false,
+              pure: ["console.log", "console.debug"],
               charset: "utf8",
               legalComments: "none",
             });

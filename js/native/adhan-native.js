@@ -988,6 +988,7 @@
   }
 
   var downloadingMuezzins = {};
+  var downloadingProgress = {};
 
   function isMuezzinReady(key) {
     var item = MUEZZINS[key];
@@ -1035,6 +1036,7 @@
     }
 
     downloadingMuezzins[key] = true;
+    downloadingProgress[key] = { percent: 0 };
     renderMuezzinList();
     notify("جارٍ تحميل أذان " + item.name + "...", "info");
 
@@ -1052,6 +1054,7 @@
     }
 
     delete downloadingMuezzins[key];
+    delete downloadingProgress[key];
 
     if (success) {
       var downloaded = readJSON("adhan_downloaded_muezzins.v1", {});
@@ -1083,7 +1086,15 @@
       if (item.isBuiltIn) {
         actionHtml = '<span class="adhan-badge-builtin"><i class="fas fa-bolt"></i> أساسي</span>';
       } else if (isDownloading) {
-        actionHtml = '<span class="adhan-muezzin-downloading"><i class="fas fa-spinner fa-spin"></i> جارٍ التحميل</span>';
+        var prog = downloadingProgress[key];
+        var pctVal = prog && typeof prog.percent === "number" && prog.percent >= 0 ? Math.min(100, Math.round(prog.percent)) : null;
+        var pctLabel = pctVal !== null ? arNum(pctVal) + "٪" : "جارٍ التحميل";
+        var fillW = pctVal !== null ? pctVal : 25;
+        actionHtml =
+          '<span class="adhan-muezzin-downloading" id="adhanDlBadge_' + key + '">' +
+          '<span class="adhan-muezzin-dl-row"><i class="fas fa-spinner fa-spin"></i> <span class="adhan-dl-pct">' + pctLabel + '</span></span>' +
+          '<span class="adhan-muezzin-dl-bar"><span class="adhan-muezzin-dl-fill" style="width:' + fillW + '%"></span></span>' +
+          '</span>';
       } else if (isReady) {
         actionHtml = '<span class="adhan-badge-downloaded"><i class="fas fa-check"></i> جاهز</span>';
       } else {
@@ -1434,12 +1445,42 @@
     );
   }
 
+  var WIDGET_STYLE_STORAGE_KEY = "tazkeer_widget_style.v1";
+
+  function syncWidgetStyleUI() {
+    var group = document.getElementById("widgetStyleGroup");
+    if (!group) return;
+    var saved = "solid";
+    try {
+      saved = localStorage.getItem(WIDGET_STYLE_STORAGE_KEY) || "solid";
+    } catch (_) {}
+    group.querySelectorAll("[data-widget-style]").forEach(function (btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-widget-style") === saved);
+    });
+  }
+
+  async function setWidgetStyle(style) {
+    var normalized = style === "translucent" || style === "glass" ? style : "solid";
+    try {
+      localStorage.setItem(WIDGET_STYLE_STORAGE_KEY, normalized);
+    } catch (_) {}
+    syncWidgetStyleUI();
+    var plugin = getPlugin();
+    if (isNativePlatform() && plugin && typeof plugin.setWidgetStyle === "function") {
+      try {
+        await plugin.setWidgetStyle({ style: normalized });
+        notify("تم تحديث مظهر الويدجت", "success");
+      } catch (_) {}
+    }
+  }
+
   function render() {
     renderMuezzinList();
     renderPrayerGrid();
     renderStatus();
     renderPrayerSettingsUI();
     updatePermissionUI();
+    syncWidgetStyleUI();
   }
 
   // ---------------------------------------------------------------------------
@@ -1942,6 +1983,31 @@
     state.settings = loadSettings();
     setupAppLockdown();
     setupNativeShell();
+    var pluginRef = getPlugin();
+    if (isNativePlatform() && pluginRef && typeof pluginRef.addListener === "function") {
+      try {
+        pluginRef.addListener("adhanDownloadProgress", function (ev) {
+          if (!ev || !ev.sound) return;
+          var matchedKey = Object.keys(MUEZZINS).find(function (k) {
+            return MUEZZINS[k] && MUEZZINS[k].sound === ev.sound;
+          });
+          if (!matchedKey) return;
+          downloadingProgress[matchedKey] = {
+            percent: typeof ev.percent === "number" ? ev.percent : -1,
+            downloadedBytes: ev.downloadedBytes || 0,
+            totalBytes: ev.totalBytes || 0
+          };
+          var badge = document.getElementById("adhanDlBadge_" + matchedKey);
+          if (badge) {
+            var pctTxtEl = badge.querySelector(".adhan-dl-pct");
+            var fillEl = badge.querySelector(".adhan-muezzin-dl-fill");
+            var pct = typeof ev.percent === "number" && ev.percent >= 0 ? Math.min(100, Math.round(ev.percent)) : null;
+            if (pctTxtEl) pctTxtEl.textContent = pct !== null ? arNum(pct) + "٪" : "جارٍ التحميل";
+            if (fillEl && pct !== null) fillEl.style.width = pct + "%";
+          }
+        });
+      } catch (_) {}
+    }
     render();
     refreshPermissions(true);
 
@@ -2011,6 +2077,7 @@
     stopPlayback: stopPlayback,
     resync: resyncNow,
     fixPermission: fixPermission,
+    setWidgetStyle: setWidgetStyle,
     formatNextAlarm: formatNextAlarm,
     PRAYERS: PRAYERS,
     MUEZZINS: MUEZZINS
@@ -2026,7 +2093,7 @@
   global.stopAdhanPlayback = stopPlayback;
   global.resyncAdhanSchedule = resyncNow;
 
-  if (document.readyState === "loading") {
+  if (document.readyState !== "complete") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
     init();

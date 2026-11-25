@@ -1,0 +1,682 @@
+/* ============================================================================
+   Tazkeer — Prophets e-Reader Styles (v2 tokens, dark & light, zero blur lag)
+   ============================================================================ */
+
+/* ── Top Bar ── */
+.pr-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: max(0.5rem, var(--safe-top, env(safe-area-inset-top, 0px))) 0.75rem 0.5rem;
+  background: var(--pt-bg);
+  border-bottom: 1px solid var(--pt-line);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+.pr-topbar--hidden {
+  transform: translateY(-100%) !important;
+}
+
+.pr-back-btn,
+.pr-toc-btn {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pt-s1);
+  border: 1px solid var(--pt-line);
+  color: var(--pt-em);
+  font-size: 1.05rem;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background 0.2s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.pr-back-btn:active,
+.pr-toc-btn:active {
+  background: var(--pt-em-bg);
+  transform: scale(0.95);
+}
+
+.pr-topbar-info {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.pr-topbar-name {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--pt-tx);
+  line-height: 1.25;
+}
+.pr-topbar-chapter {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--pt-mu);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Reading Progress Bar ── */
+.pr-progress-bar {
+  height: 3px;
+  background: var(--pt-em-bg);
+  position: sticky;
+  top: 56px;
+  z-index: 99;
+}
+.pr-progress-fill {
+  height: 100%;
+  background: var(--pt-em-grad);
+  border-radius: 0 3px 3px 0;
+  transition: width 0.15s linear;
+  width: 0%;
+}
+
+/* ── Reader Controls ── */
+.pr-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--pt-s1);
+  border-bottom: 1px solid var(--pt-line);
+}
+.pr-ctrl-btn {
+  min-width: 44px;
+  min-height: 44px;
+  background: var(--pt-em-bg);
+  border: 1px solid var(--pt-em-line);
+  color: var(--pt-em);
+  padding: 0.35rem 0.85rem;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s;
+}
+.pr-ctrl-btn:active {
+  transform: scale(0.95);
+}
+.pr-font-label {
+  font-family: var(--font-hadith);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.pr-font-label--lg {
+  font-size: 1.1rem;
+}
+.pr-reading-time {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--pt-mu);
+  margin-right: auto;
+}
+.pr-reading-time i {
+  margin-left: 0.25rem;
+}
+
+/* ── Chapter Content ── */
+.pr-chapter-content {
+  padding: 0 1.25rem 2rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.pr-article {
+  font-family: var(--font-hadith);
+  line-height: 2.25;
+  color: var(--pt-tx);
+  padding-bottom: 6rem !important;
+  text-rendering: optimizeSpeed;
+  animation: prFadeInUp 0.35s ease both;
+}
+@keyframes prFadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pr-chapter-title {
+  font-family: var(--font-sans);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--pt-em);
+  text-align: center;
+  margin: 1.75rem 0 0.5rem;
+  padding-bottom: 0.5rem;
+}
+.pr-chapter-ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 0.4rem 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--pt-em);
+  opacity: 0.55;
+}
+.pr-chapter-ornament::before,
+.pr-chapter-ornament::after {
+  content: "";
+  flex: 1;
+  max-width: 80px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pt-em-line), transparent);
+}
+.pr-chapter-meta {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--pt-mu);
+  margin-bottom: 1.4rem;
+}
+
+.pr-paragraph {
+  margin-bottom: 1.35rem;
+  text-align: justify;
+  text-indent: 1.4rem;
+}
+.pr-paragraph--first {
+  text-indent: 0;
+}
+.pr-paragraph--first::first-letter {
+  font-weight: 700;
+  color: var(--pt-em);
+}
+
+.pr-ornament-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2rem 0;
+  gap: 1rem;
+  opacity: 0.6;
+}
+.pr-ornament-divider::before,
+.pr-ornament-divider::after {
+  content: "";
+  flex: 1;
+  max-width: 100px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pt-em-line), transparent);
+}
+.pr-ornament-divider span {
+  font-family: var(--font-hadith);
+  font-size: 1.15rem;
+  color: var(--pt-em);
+}
+
+/* ── Quran & Hadith Callouts ── */
+.pr-quran-section,
+.pr-hadith-section {
+  margin: 2rem 0;
+}
+.pr-section-label {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--pt-em);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pr-quran-verse {
+  position: relative;
+  margin: 1rem 0;
+  padding: 1.35rem 1.5rem;
+  background: var(--pt-gd-bg);
+  border-radius: 16px;
+  border: 1px solid var(--pt-gd-line);
+  border-right: 4px solid var(--pt-gd);
+}
+.pr-quran-text {
+  font-family: var(--font-quran);
+  font-size: 1.15em;
+  line-height: 2.25;
+  color: var(--pt-tx);
+  text-align: center;
+  margin: 0;
+}
+.pr-quran-cite {
+  display: block;
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--pt-gd);
+  margin-top: 0.75rem;
+  font-style: normal;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--pt-gd-line);
+}
+
+.pr-hadith-box {
+  position: relative;
+  margin: 1rem 0;
+  padding: 1.35rem 1.5rem;
+  background: var(--pt-em-bg);
+  border-radius: 16px;
+  border: 1px solid var(--pt-em-line);
+  border-right: 4px solid var(--pt-em);
+}
+.pr-hadith-text {
+  font-family: var(--font-hadith);
+  font-size: 1.06em;
+  line-height: 2.1;
+  color: var(--pt-tx);
+  margin: 0;
+}
+.pr-hadith-source {
+  display: block;
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--pt-em);
+  margin-top: 0.75rem;
+  font-style: normal;
+  font-weight: 600;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--pt-em-line);
+}
+
+/* ── Sources ── */
+.pr-sources-section {
+  margin: 2rem 0 1rem;
+  padding: 1.15rem 1.35rem;
+  background: var(--pt-s1);
+  border-radius: 14px;
+  border: 1px solid var(--pt-line);
+}
+.pr-sources-title {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--pt-mu);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pr-sources-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.pr-sources-list li {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--pt-mu);
+  background: var(--pt-em-bg);
+  padding: 0.2rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--pt-em-line);
+}
+
+/* ── Completion Screen & Confetti ── */
+.pr-complete-anim {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.pr-check-circle {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--pt-em-grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: prCheckPop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.pr-check-circle i { font-size: 2.6rem; color: #fff; }
+@keyframes prCheckPop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.pr-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 499;
+  pointer-events: none;
+  overflow: hidden;
+}
+.pr-confetti-piece {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  animation: prConfettiFall 1.4s ease-out forwards;
+  opacity: 0;
+}
+@keyframes prConfettiFall {
+  0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+  100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+}
+
+.pr-completion-screen {
+  min-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+.pr-completion-icon {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: var(--pt-em-grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+.pr-completion-icon i { font-size: 2.8rem; color: #fff; }
+.pr-completion-title {
+  font-family: var(--font-sans);
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--pt-em);
+  margin-bottom: 0.5rem;
+}
+.pr-completion-subtitle {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--pt-mu);
+  margin-bottom: 1.5rem;
+  max-width: 360px;
+}
+.pr-completion-stats { display: flex; gap: 1.5rem; margin-bottom: 1.75rem; }
+.pr-completion-stat { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+.pr-completion-stat-num { font-size: 1.55rem; font-weight: 700; color: var(--pt-em); }
+.pr-completion-stat-label { font-size: 0.72rem; color: var(--pt-mu); }
+.pr-completion-dua {
+  font-family: var(--font-hadith);
+  font-size: 1.1rem;
+  color: var(--pt-gd);
+  background: var(--pt-gd-bg);
+  padding: 1.2rem 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--pt-gd-line);
+  margin-bottom: 1.75rem;
+  max-width: 400px;
+  line-height: 2;
+}
+.pr-completion-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
+.pr-completion-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0.75rem 1.4rem;
+  border-radius: 14px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+}
+.pr-completion-btn--primary { background: var(--pt-em-grad); color: #fff; }
+.pr-completion-btn--secondary { background: var(--pt-em-bg); color: var(--pt-em); border: 1px solid var(--pt-em-line); }
+
+/* ── Floating Bottom Chapter Pill Bar ── */
+.pr-chapter-pill-bar {
+  position: fixed;
+  bottom: calc(1rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.65rem;
+  background: var(--pt-s1);
+  border: 1px solid var(--pt-line-2);
+  border-radius: 30px;
+  box-shadow: var(--pt-shadow);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  max-width: 94vw;
+}
+.pr-chapter-pill-bar.pr-pill-bar--hidden {
+  transform: translate(-50%, calc(100% + 2rem)) !important;
+  opacity: 0;
+  pointer-events: none;
+}
+.pr-pill-inner { display: flex; align-items: center; gap: 0.4rem; }
+.pr-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.55rem 0.95rem;
+  border-radius: 22px;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pr-pill-btn--prev,
+.pr-pill-btn--next {
+  background: var(--pt-em-bg);
+  color: var(--pt-em);
+  border: 1px solid var(--pt-em-line);
+}
+.pr-pill-btn--complete {
+  background: var(--pt-em-grad);
+  color: #ffffff;
+  padding: 0.55rem 1.15rem;
+}
+.pr-pill-btn--done {
+  background: var(--pt-s2) !important;
+  color: var(--pt-mu) !important;
+  cursor: default;
+}
+.pr-pill-indicator {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--pt-mu);
+}
+
+/* ── Chapter Drawer / Bottom Sheet ── */
+.pr-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+.pr-drawer-overlay--visible { opacity: 1; pointer-events: auto; }
+.pr-drawer {
+  position: fixed;
+  top: 0;
+  right: -320px;
+  width: 300px;
+  max-width: 85vw;
+  height: 100%;
+  background: var(--pt-bg);
+  border-left: 1px solid var(--pt-line);
+  z-index: 201;
+  box-shadow: var(--pt-shadow);
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pr-drawer--open { right: 0; }
+@media (max-width: 768px) {
+  .pr-drawer {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: -100%;
+    width: 100%;
+    max-width: 100%;
+    max-height: 82vh;
+    border-left: none;
+    border-top: 1px solid var(--pt-line);
+    border-radius: 24px 24px 0 0;
+    transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .pr-drawer.pr-drawer--open { bottom: 0; }
+  .pr-sheet-handle {
+    width: 44px;
+    height: 4px;
+    background: var(--pt-line-2);
+    border-radius: 999px;
+    margin: 0.6rem auto 0.2rem;
+    flex-shrink: 0;
+  }
+}
+.pr-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--pt-line);
+  flex-shrink: 0;
+}
+.pr-drawer-header h3 {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--pt-em);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+}
+.pr-drawer-close {
+  width: 44px;
+  height: 44px;
+  background: var(--pt-s2);
+  border: 1px solid var(--pt-line);
+  color: var(--pt-mu);
+  font-size: 1.05rem;
+  cursor: pointer;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pr-drawer-progress { padding: 0.75rem 1rem; border-bottom: 1px solid var(--pt-line); flex-shrink: 0; }
+.pr-drawer-progress-bar { height: 6px; background: var(--pt-em-bg); border-radius: 6px; overflow: hidden; margin-bottom: 0.3rem; }
+.pr-drawer-progress-fill { height: 100%; background: var(--pt-em-grad); border-radius: 6px; transition: width 0.4s ease; }
+.pr-drawer-progress-text { font-size: 0.7rem; color: var(--pt-mu); text-align: center; }
+.pr-drawer-list { flex: 1; overflow-y: auto; padding: 0.5rem; }
+.pr-drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem 0.8rem;
+  background: none;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: right;
+  font-family: var(--font-sans);
+}
+.pr-drawer-item--active { background: var(--pt-em-bg); }
+.pr-drawer-num {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pt-em-bg);
+  color: var(--pt-em);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.pr-drawer-item--active .pr-drawer-num,
+.pr-drawer-item--read .pr-drawer-num {
+  background: var(--pt-em);
+  color: #ffffff;
+}
+.pr-drawer-check { font-size: 0.65rem; color: var(--pt-em); flex-shrink: 0; }
+.pr-drawer-title { flex: 1; font-size: 0.84rem; font-weight: 600; color: var(--pt-tx); line-height: 1.35; }
+.pr-drawer-time { font-size: 0.68rem; color: var(--pt-mu); flex-shrink: 0; }
+
+/* ── Resume Toast & Scroll Progress ── */
+.pr-resume-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.7rem 1.4rem;
+  background: var(--pt-em);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 14px;
+  box-shadow: var(--pt-shadow);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  max-width: 90vw;
+}
+.pr-resume-toast.hidden { display: none; }
+
+.pr-scroll-progress {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  width: 44px;
+  height: 44px;
+  z-index: 150;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.pr-scroll-progress--visible { opacity: 1; }
+.pr-scroll-progress svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.pr-scroll-progress-track { fill: none; stroke: var(--pt-em-bg); stroke-width: 3; }
+.pr-scroll-progress-fill { fill: none; stroke: var(--pt-em); stroke-width: 3; stroke-linecap: round; }
+.pr-scroll-pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--pt-em);
+}

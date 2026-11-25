@@ -1258,9 +1258,12 @@
 
   // ── Utilities ──────────────────────────────────────────────
   function convertToArabicNum(num) {
+    if (window.TazkeerUtils && typeof window.TazkeerUtils.toArabicDigits === "function") {
+      return window.TazkeerUtils.toArabicDigits(num);
+    }
     var arabicDigits = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
     return String(num).replace(/[0-9]/g, function (d) {
-      return arabicDigits[parseInt(d)];
+      return arabicDigits[parseInt(d, 10)];
     });
   }
 })();

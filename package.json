@@ -9,7 +9,7 @@
     "dev": "node scripts/dev-server.mjs",
     "start": "node scripts/dev-server.mjs",
     "build": "node scripts/prepare-www.mjs",
-    "test": "node --test tests/core-utils.test.mjs tests/storage-atomic.test.mjs",
+    "test": "node --test tests/core-utils.test.mjs tests/storage-atomic.test.mjs tests/features-math.test.mjs",
     "sync": "npm run build && cap sync android",
     "copy": "npm run build && cap copy android",
     "open:android": "npx cap open android",
@@ -31,7 +31,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "6.2.1",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "playwright": "^1.65.1"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -666,9 +666,32 @@ body.dark-mode .adhan-badge-downloaded {
   background: rgba(212, 168, 71, 0.18);
   color: #d4a847;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
-  animation: adhanPulseDownload 1.2s infinite ease-in-out;
+  gap: 0.2rem;
+  min-width: 78px;
+}
+
+.adhan-muezzin-dl-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.adhan-muezzin-dl-bar {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(212, 168, 71, 0.22);
+  overflow: hidden;
+}
+
+.adhan-muezzin-dl-fill {
+  height: 100%;
+  width: 0%;
+  background: #d4a847;
+  border-radius: 999px;
+  transition: width 0.16s ease;
 }
 
 @keyframes adhanPulseDownload {

@@ -29,9 +29,11 @@ import android.view.Surface;
 import android.view.WindowManager;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import android.app.Activity;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Locale;
@@ -357,17 +359,39 @@ public class AdhanSchedulerPlugin extends Plugin {
                     throw new IOException("HTTP error code: " + responseCode);
                 }
 
+                long expectedLength = conn.getContentLengthLong();
+                if (expectedLength > MAX_DOWNLOAD_BYTES) {
+                    throw new IOException("Audio file exceeds maximum allowed size");
+                }
+
                 in = conn.getInputStream();
                 out = new FileOutputStream(tempFile);
                 byte[] buffer = new byte[8192];
                 int bytesRead;
                 long totalBytes = 0L;
+                long lastProgressMs = 0L;
+                int lastPercent = -1;
                 while ((bytesRead = in.read(buffer)) != -1) {
                     totalBytes += bytesRead;
                     if (totalBytes > MAX_DOWNLOAD_BYTES) {
                         throw new IOException("Audio file exceeds maximum allowed size");
                     }
                     out.write(buffer, 0, bytesRead);
+
+                    long nowMs = System.currentTimeMillis();
+                    int percent = expectedLength > 0L
+                            ? (int) Math.min(99L, (totalBytes * 100L) / expectedLength)
+                            : -1;
+                    if (nowMs - lastProgressMs >= 160L || (percent >= 0 && percent >= lastPercent + 5)) {
+                        lastProgressMs = nowMs;
+                        if (percent >= 0) lastPercent = percent;
+                        JSObject prog = new JSObject();
+                        prog.put("sound", sound);
+                        prog.put("downloadedBytes", totalBytes);
+                        prog.put("totalBytes", expectedLength);
+                        prog.put("percent", percent);
+                        notifyListeners("adhanDownloadProgress", prog);
+                    }
                 }
                 out.flush();
                 out.close();
@@ -375,9 +399,17 @@ public class AdhanSchedulerPlugin extends Plugin {
                 in.close();
                 in = null;
 
-                if (tempFile.length() < 10000) {
+                if (tempFile.length() < 50L * 1024L) {
                     tempFile.delete();
                     throw new IOException("Downloaded file is too small or corrupt");
+                }
+                if (expectedLength > 0L && tempFile.length() != expectedLength) {
+                    tempFile.delete();
+                    throw new IOException("Downloaded audio byte length mismatch");
+                }
+                if (!hasValidMp3Header(tempFile)) {
+                    tempFile.delete();
+                    throw new IOException("Downloaded file is not a valid MP3 audio stream");
                 }
 
                 if (targetFile.exists()) {
@@ -387,9 +419,17 @@ public class AdhanSchedulerPlugin extends Plugin {
                     throw new IOException("Failed to save audio file");
                 }
 
+                JSObject doneProg = new JSObject();
+                doneProg.put("sound", sound);
+                doneProg.put("downloadedBytes", targetFile.length());
+                doneProg.put("totalBytes", targetFile.length());
+                doneProg.put("percent", 100);
+                notifyListeners("adhanDownloadProgress", doneProg);
+
                 JSObject res = new JSObject();
                 res.put("success", true);
                 res.put("sound", sound);
+                res.put("size", targetFile.length());
                 call.resolve(res);
             } catch (Exception e) {
                 Log.e(TAG, "Failed to download muezzin audio: " + sound, e);
@@ -993,6 +1033,66 @@ public class AdhanSchedulerPlugin extends Plugin {
         unregisterCompassSensors();
         JSObject res = new JSObject();
         res.put("stopped", true);
+        call.resolve(res);
+    }
+
+    private boolean hasValidMp3Header(File file) {
+        if (file == null || !file.isFile() || file.length() < 16) {
+            return false;
+        }
+        try (FileInputStream fis = new FileInputStream(file)) {
+            byte[] hdr = new byte[4];
+            if (fis.read(hdr) < 3) {
+                return false;
+            }
+            if (hdr[0] == 0x49 && hdr[1] == 0x44 && hdr[2] == 0x33) {
+                return true;
+            }
+            if (hdr[0] == (byte) 0xFF && (hdr[1] & 0xE0) == 0xE0) {
+                return true;
+            }
+        } catch (IOException ignored) {
+            return false;
+        }
+        return false;
+    }
+
+    @PluginMethod
+    public void setKeepScreenOn(PluginCall call) {
+        final boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+        final Activity activity = getActivity();
+        if (activity == null) {
+            call.resolve();
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            try {
+                if (enabled) {
+                    activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                } else {
+                    activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                }
+            } catch (Exception ignored) {}
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void getDeviceInfo(PluginCall call) {
+        JSObject res = new JSObject();
+        res.put("manufacturer", Build.MANUFACTURER != null ? Build.MANUFACTURER : "");
+        res.put("brand", Build.BRAND != null ? Build.BRAND : "");
+        res.put("model", Build.MODEL != null ? Build.MODEL : "");
+        res.put("sdkInt", Build.VERSION.SDK_INT);
+        call.resolve(res);
+    }
+
+    @PluginMethod
+    public void setWidgetStyle(PluginCall call) {
+        String style = call.getString("style", "solid");
+        TazkeerPrayerWidget.setWidgetStyle(getContext(), style);
+        JSObject res = new JSObject();
+        res.put("style", style);
         call.resolve(res);
     }
 

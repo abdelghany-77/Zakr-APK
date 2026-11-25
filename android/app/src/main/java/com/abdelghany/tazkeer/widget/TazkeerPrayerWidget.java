@@ -42,6 +42,18 @@ public class TazkeerPrayerWidget extends AppWidgetProvider {
     private static final String KEY_PRAYERS_JSON = "widget_prayers_json";
     private static final String KEY_DHIKR_OFFSET = "widget_dhikr_offset";
     private static final String KEY_CUSTOM_DHIKR = "widget_custom_dhikr";
+    private static final String KEY_WIDGET_STYLE = "widget_bg_style";
+
+    public static void setWidgetStyle(Context context, String style) {
+        if (context == null) return;
+        String normalized = "translucent".equals(style) || "glass".equals(style) ? style : "solid";
+        context.getApplicationContext()
+                .getSharedPreferences(PREFS_WIDGET, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_WIDGET_STYLE, normalized)
+                .apply();
+        updateAllWidgets(context);
+    }
 
     public static final String ACTION_REFRESH = "com.abdelghany.tazkeer.widget.ACTION_REFRESH";
 
@@ -165,6 +177,15 @@ public class TazkeerPrayerWidget extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_prayer_dhikr);
         SharedPreferences prefs = context.getSharedPreferences(PREFS_WIDGET, Context.MODE_PRIVATE);
 
+        String bgStyle = prefs.getString(KEY_WIDGET_STYLE, "solid");
+        int bgRes = R.drawable.widget_bg;
+        if ("translucent".equals(bgStyle)) {
+            bgRes = R.drawable.widget_bg_translucent;
+        } else if ("glass".equals(bgStyle)) {
+            bgRes = R.drawable.widget_bg_glass;
+        }
+        views.setInt(R.id.widgetRoot, "setBackgroundResource", bgRes);
+
         String city = prefs.getString(KEY_CITY, "");
         if (city != null && !city.isEmpty()) {
             views.setTextViewText(R.id.widgetCityName, "• " + city);
@@ -230,6 +251,18 @@ public class TazkeerPrayerWidget extends AppWidgetProvider {
         refreshIntent.setAction(ACTION_REFRESH);
         PendingIntent refreshPi = PendingIntent.getBroadcast(context, 8103, refreshIntent, pendingFlags);
         views.setOnClickPendingIntent(R.id.widgetRefreshBtn, refreshPi);
+
+        // 4) Quick shortcut: Quran reader
+        Intent openQuran = new Intent(Intent.ACTION_VIEW, Uri.parse("tazkeer://open/tab-quran"), context, MainActivity.class);
+        openQuran.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent quranPi = PendingIntent.getActivity(context, 8104, openQuran, pendingFlags);
+        views.setOnClickPendingIntent(R.id.widgetShortcutQuran, quranPi);
+
+        // 5) Quick shortcut: Azkar
+        Intent openAzkarShortcut = new Intent(Intent.ACTION_VIEW, Uri.parse("tazkeer://open/tab-azkar"), context, MainActivity.class);
+        openAzkarShortcut.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent azkarShortcutPi = PendingIntent.getActivity(context, 8105, openAzkarShortcut, pendingFlags);
+        views.setOnClickPendingIntent(R.id.widgetShortcutAzkar, azkarShortcutPi);
 
         manager.updateAppWidget(widgetId, views);
     }

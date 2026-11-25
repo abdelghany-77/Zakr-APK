@@ -673,14 +673,19 @@ body.light-mode .pt-kdash-reset:active {
 }
 
 .pt-ksheet-close {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 12px;
   border: 1px solid var(--pt-line);
   background: var(--pt-s2);
   color: var(--pt-tx);
-  font-size: 16px;
+  font-size: 17px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pt-ksheet .khatmah-setup-card,

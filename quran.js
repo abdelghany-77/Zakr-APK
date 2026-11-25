@@ -43,6 +43,77 @@ function formatQuranUnitLabel(count, unitKey) {
 
 // ===== QURAN BULK OFFLINE DOWNLOAD MANAGER =====
 const QURAN_CACHE_NAME_JS = "tazkeer-quran-pages-v1";
+const QURAN_NATIVE_DIR = "quran-pages";
+const _nativeSavedPages = new Set();
+let _persistRequested = false;
+
+function _isNativeFsAvailable() {
+  return Boolean(
+    window.Capacitor &&
+      typeof window.Capacitor.isNativePlatform === "function" &&
+      window.Capacitor.isNativePlatform() &&
+      window.Capacitor.Plugins &&
+      window.Capacitor.Plugins.Filesystem
+  );
+}
+
+function _requestPersistentStorage() {
+  if (_persistRequested) return;
+  _persistRequested = true;
+  if (navigator.storage && typeof navigator.storage.persist === "function") {
+    navigator.storage.persist().catch(() => {});
+  }
+}
+
+function _blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const res = String(reader.result || "");
+      const commaIdx = res.indexOf(",");
+      resolve(commaIdx >= 0 ? res.slice(commaIdx + 1) : res);
+    };
+    reader.onerror = () => reject(reader.error || new Error("FileReader error"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function _writePageToNativeFs(pageNumber, blob) {
+  if (!_isNativeFsAvailable()) return;
+  const fs = window.Capacitor.Plugins.Filesystem;
+  const padded = String(pageNumber).padStart(3, "0");
+  const base64Data = await _blobToBase64(blob);
+  await fs.writeFile({
+    path: `${QURAN_NATIVE_DIR}/${padded}.jpg`,
+    data: base64Data,
+    directory: "DATA",
+    recursive: true,
+  });
+  _nativeSavedPages.add(pageNumber);
+}
+
+async function _getNativePageSrc(pageNumber) {
+  if (!_isNativeFsAvailable() || typeof window.Capacitor.convertFileSrc !== "function") {
+    return null;
+  }
+  const fs = window.Capacitor.Plugins.Filesystem;
+  const padded = String(pageNumber).padStart(3, "0");
+  try {
+    const statRes = await fs.stat({
+      path: `${QURAN_NATIVE_DIR}/${padded}.jpg`,
+      directory: "DATA",
+    });
+    if (statRes && statRes.uri && Number(statRes.size || 0) > 100) {
+      _nativeSavedPages.add(pageNumber);
+      const webUrl = window.Capacitor.convertFileSrc(statRes.uri);
+      pageBlobUrlCache.set(pageNumber, webUrl);
+      return webUrl;
+    }
+  } catch (_) {
+    // Not stored natively yet
+  }
+  return null;
+}
 
 const quranOfflineState = {
   status: "idle", // 'idle' | 'downloading' | 'paused' | 'completed'
@@ -52,30 +123,59 @@ const quranOfflineState = {
 };
 
 /**
- * Check how many Quran pages are currently cached in CacheStorage.
+ * Check how many Quran pages are currently saved in native Filesystem / CacheStorage.
  */
 async function checkOfflineQuranStatus() {
   if (quranOfflineState.isChecking) return;
   quranOfflineState.isChecking = true;
+  _requestPersistentStorage();
 
   try {
-    if ('caches' in window) {
+    const savedSet = new Set();
+
+    if (_isNativeFsAvailable()) {
+      try {
+        const fs = window.Capacitor.Plugins.Filesystem;
+        const dirRes = await fs.readdir({
+          path: QURAN_NATIVE_DIR,
+          directory: "DATA",
+        });
+        const files = (dirRes && dirRes.files) || [];
+        for (const f of files) {
+          const name = typeof f === "string" ? f : f && f.name;
+          const m = name && name.match(/^(\d{3})\.jpg$/);
+          if (m) {
+            const pNum = parseInt(m[1], 10);
+            if (pNum >= 1 && pNum <= TOTAL_QURAN_PAGES) {
+              _nativeSavedPages.add(pNum);
+              savedSet.add(pNum);
+            }
+          }
+        }
+      } catch (_) {
+        // Directory does not exist yet
+      }
+    }
+
+    if ("caches" in window) {
       const cache = await caches.open(QURAN_CACHE_NAME_JS);
       const keys = await cache.keys();
-      let cachedCount = 0;
-
       for (const req of keys) {
-        if (req.url.includes("quran-hd-images") || req.url.match(/\/\d{3}\.jpg/)) {
-          cachedCount++;
+        const m = req.url.match(/\/(\d{3})\.jpg/);
+        if (m && (req.url.includes("quran-hd-images") || m)) {
+          const pNum = parseInt(m[1], 10);
+          if (pNum >= 1 && pNum <= TOTAL_QURAN_PAGES) {
+            savedSet.add(pNum);
+          }
         }
       }
+    }
 
-      quranOfflineState.downloadedPages = Math.min(cachedCount, TOTAL_QURAN_PAGES);
-      if (quranOfflineState.downloadedPages >= TOTAL_QURAN_PAGES) {
-        quranOfflineState.status = "completed";
-      } else if (quranOfflineState.status !== "downloading" && quranOfflineState.status !== "paused") {
-        quranOfflineState.status = quranOfflineState.downloadedPages > 0 ? "paused" : "idle";
-      }
+    quranOfflineState.downloadedPages = Math.min(savedSet.size, TOTAL_QURAN_PAGES);
+    if (quranOfflineState.downloadedPages >= TOTAL_QURAN_PAGES) {
+      quranOfflineState.status = "completed";
+    } else if (quranOfflineState.status !== "downloading" && quranOfflineState.status !== "paused") {
+      quranOfflineState.status = quranOfflineState.downloadedPages > 0 ? "paused" : "idle";
     }
   } catch (e) {
     console.warn("Could not check offline cache status:", e);
@@ -135,13 +235,16 @@ async function _fetchPageWithTimeout(url, timeoutMs) {
 async function startOfflineQuranDownload(isAutoResume) {
   if (quranOfflineState.status === "downloading") return;
 
-  if (!('caches' in window)) {
+  const hasNativeFs = _isNativeFsAvailable();
+  const hasCaches = "caches" in window;
+  if (!hasNativeFs && !hasCaches) {
     if (typeof showNotification === "function") {
       showNotification("متصفحك لا يدعم حفظ الصفحات للقراءة دون اتصال");
     }
     return;
   }
 
+  _requestPersistentStorage();
   _clearOfflineAutoResume();
   _offlineWaitingForNetwork = false;
   _ensureOfflineOnlineResumeListener();
@@ -159,18 +262,40 @@ async function startOfflineQuranDownload(isAutoResume) {
   const MAX_AUTO_ROUNDS = 10;
 
   try {
-    const cache = await caches.open(QURAN_CACHE_NAME_JS);
+    const cache = hasCaches ? await caches.open(QURAN_CACHE_NAME_JS) : null;
 
-    // Scan Cache API once to build the list of missing pages
+    if (hasNativeFs && _nativeSavedPages.size === 0) {
+      try {
+        const fs = window.Capacitor.Plugins.Filesystem;
+        const dirRes = await fs.readdir({ path: QURAN_NATIVE_DIR, directory: "DATA" });
+        const files = (dirRes && dirRes.files) || [];
+        for (const f of files) {
+          const name = typeof f === "string" ? f : f && f.name;
+          const m = name && name.match(/^(\d{3})\.jpg$/);
+          if (m) _nativeSavedPages.add(parseInt(m[1], 10));
+        }
+      } catch (_) {}
+    }
+
+    // Build missing pages list (preferring permanent native FS + CacheStorage)
     let pendingPages = [];
     for (let page = 1; page <= TOTAL_QURAN_PAGES; page++) {
       if (quranOfflineState.status !== "downloading") return;
       const url = getPageImageUrl(page);
-      const match = await cache.match(url);
-      if (!match) {
+      const inNative = _nativeSavedPages.has(page);
+      const match = cache ? await cache.match(url) : null;
+      if (!inNative && !match) {
         pendingPages.push(page);
       } else {
         imageCache.set(url, true);
+        if (!inNative && match && hasNativeFs) {
+          try {
+            const cachedBlob = await match.blob();
+            if (cachedBlob && cachedBlob.size >= 1024) {
+              await _writePageToNativeFs(page, cachedBlob);
+            }
+          } catch (_) {}
+        }
       }
     }
 
@@ -212,7 +337,23 @@ async function startOfflineQuranDownload(isAutoResume) {
               try {
                 const resp = await _fetchPageWithTimeout(url, FETCH_TIMEOUT_MS);
                 if (resp && resp.ok) {
-                  await cache.put(url, resp.clone());
+                  const blob = await resp.blob();
+                  if (!blob || blob.size < 1024) {
+                    throw new Error("Empty or truncated page image");
+                  }
+                  if (hasNativeFs) {
+                    await _writePageToNativeFs(pageNumber, blob);
+                  }
+                  if (cache) {
+                    await cache.put(
+                      url,
+                      new Response(blob, {
+                        status: 200,
+                        statusText: "OK",
+                        headers: { "Content-Type": blob.type || "image/jpeg" },
+                      })
+                    );
+                  }
                   imageCache.set(url, true);
                   quranOfflineState.downloadedPages = Math.min(
                     TOTAL_QURAN_PAGES,
@@ -322,19 +463,31 @@ async function deleteOfflineQuranCache() {
   _offlineWaitingForNetwork = false;
 
   try {
-    if ('caches' in window) {
+    if (_isNativeFsAvailable()) {
+      try {
+        await window.Capacitor.Plugins.Filesystem.rmdir({
+          path: QURAN_NATIVE_DIR,
+          directory: "DATA",
+          recursive: true,
+        });
+      } catch (_) {}
+      _nativeSavedPages.clear();
+    }
+    if ("caches" in window) {
       await caches.delete(QURAN_CACHE_NAME_JS);
-      quranOfflineState.downloadedPages = 0;
-      quranOfflineState.status = "idle";
-      imageCache.clear();
-      pageBlobUrlCache.forEach((blobUrl) => {
+    }
+    quranOfflineState.downloadedPages = 0;
+    quranOfflineState.status = "idle";
+    imageCache.clear();
+    pageBlobUrlCache.forEach((blobUrl) => {
+      if (typeof blobUrl === "string" && blobUrl.startsWith("blob:")) {
         try { URL.revokeObjectURL(blobUrl); } catch (e) {}
-      });
-      pageBlobUrlCache.clear();
-      updateOfflineCardUI();
-      if (typeof showNotification === "function") {
-        showNotification("تم حذف صفحات المصحف المحملة وإفراغ المساحة");
       }
+    });
+    pageBlobUrlCache.clear();
+    updateOfflineCardUI();
+    if (typeof showNotification === "function") {
+      showNotification("تم حذف صفحات المصحف المحملة وإفراغ المساحة");
     }
   } catch (e) {
     console.error("Error deleting cache:", e);
@@ -656,6 +809,9 @@ const JUZ_DATA = [
 // ===== UTILITY FUNCTIONS =====
 
 function toArabicNumber(num) {
+  if (window.TazkeerUtils && typeof window.TazkeerUtils.toArabicDigits === "function") {
+    return window.TazkeerUtils.toArabicDigits(num);
+  }
   const arabicDigits = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
   return String(num).replace(/[0-9]/g, (d) => arabicDigits[parseInt(d, 10)]);
 }
@@ -699,8 +855,13 @@ async function getPageImageSrc(pageNumber) {
     return pageBlobUrlCache.get(pageNumber);
   }
 
+  const nativeSrc = await _getNativePageSrc(pageNumber);
+  if (nativeSrc) {
+    return nativeSrc;
+  }
+
   const url = getPageImageUrl(pageNumber);
-  if ('caches' in window) {
+  if ("caches" in window) {
     try {
       const cache = await caches.open(QURAN_CACHE_NAME_JS);
       const match = await cache.match(url);
@@ -919,17 +1080,62 @@ async function loadPageImage(pageNumber) {
  * Preload adjacent page images for smoother navigation.
  * Loads ±2 pages ahead and ±1 behind using idle callback.
  */
+let _quranWakeLock = null;
+let _quranWakeVisibilityBound = false;
+
+async function setQuranKeepScreenOn(enabled) {
+  const on = Boolean(enabled);
+  const plugin =
+    window.Capacitor &&
+    window.Capacitor.Plugins &&
+    window.Capacitor.Plugins.AdhanScheduler;
+  if (plugin && typeof plugin.setKeepScreenOn === "function") {
+    try {
+      await plugin.setKeepScreenOn({ enabled: on });
+    } catch (_) {}
+  }
+
+  if ("wakeLock" in navigator && typeof navigator.wakeLock.request === "function") {
+    try {
+      if (on) {
+        if (!_quranWakeLock) {
+          _quranWakeLock = await navigator.wakeLock.request("screen");
+          _quranWakeLock.addEventListener("release", () => {
+            _quranWakeLock = null;
+          });
+        }
+      } else if (_quranWakeLock) {
+        await _quranWakeLock.release();
+        _quranWakeLock = null;
+      }
+    } catch (_) {}
+  }
+
+  if (!_quranWakeVisibilityBound) {
+    _quranWakeVisibilityBound = true;
+    document.addEventListener("visibilitychange", () => {
+      const readerOpen = Boolean(document.getElementById("mushafContainer"));
+      if (document.hidden || !readerOpen) {
+        setQuranKeepScreenOn(false);
+      } else {
+        setQuranKeepScreenOn(true);
+      }
+    });
+  }
+}
+
 function preloadAdjacentPages(page) {
-  const pagesToPreload = [page + 1, page + 2, page + 3, page - 1];
+  const pagesToPreload = [page + 1, page + 2, page - 1];
   const schedule =
     typeof requestIdleCallback === "function"
-      ? requestIdleCallback
-      : setTimeout;
+      ? (fn, opts) => requestIdleCallback(fn, opts)
+      : (fn) => setTimeout(fn, 180);
 
   pagesToPreload.forEach((p, i) => {
     if (p >= 1 && p <= TOTAL_QURAN_PAGES) {
-      // Stagger preloads to avoid bandwidth contention
-      schedule(() => loadPageImage(p), { timeout: 2000 + i * 500 });
+      schedule(() => {
+        loadPageImage(p).catch(() => {});
+      }, { timeout: 1400 + i * 350 });
     }
   });
 }
@@ -1713,6 +1919,8 @@ function renderMushafViewer() {
           draggable="false"
         />
 
+        <button type="button" class="mushaf-zoom-badge hidden" id="mushafZoomBadge" onclick="resetMushafZoom(true)" title="إرجاع التكبير الأصلي"></button>
+
         <!-- Tap Zones -->
         <div class="mushaf-tap-zone mushaf-tap-zone--next" id="tapZoneNext"></div>
         <div class="mushaf-tap-zone mushaf-tap-zone--prev" id="tapZonePrev"></div>
@@ -1731,8 +1939,21 @@ function renderMushafViewer() {
             <span class="mushaf-page-counter">${toArabicNumber(page - navStart + 1)} / ${toArabicNumber(navEnd - navStart + 1)}</span>
             <span class="mushaf-progress-percent">${toArabicNumber(progressPercent)}٪</span>
           </div>
-          <div class="mushaf-progress-track">
-            <div class="mushaf-progress-fill" style="width: ${progressPercent}%"></div>
+          <div class="mushaf-scrubber-wrap" id="mushafScrubberWrap">
+            <div class="mushaf-progress-track">
+              <div class="mushaf-progress-fill" style="width: ${progressPercent}%"></div>
+            </div>
+            <input
+              type="range"
+              class="mushaf-page-scrubber"
+              id="mushafPageScrubber"
+              min="${navStart}"
+              max="${navEnd}"
+              value="${page}"
+              dir="rtl"
+              aria-label="التنقل السريع بين صفحات المصحف"
+            />
+            <div class="mushaf-scrub-tooltip" id="mushafScrubTooltip" aria-live="polite"></div>
           </div>
         </div>
 
@@ -1762,7 +1983,7 @@ function renderMushafViewer() {
     // If not already resolved to a blob URL, attempt resolving from offline CacheStorage
     if (!cachedBlobSrc) {
       getPageImageSrc(page).then((resolvedSrc) => {
-        if (imgEl && resolvedSrc && resolvedSrc.startsWith("blob:")) {
+        if (imgEl && resolvedSrc && (resolvedSrc.startsWith("blob:") || resolvedSrc.includes("_capacitor_file_"))) {
           imgEl.src = resolvedSrc;
         }
       });
@@ -1783,22 +2004,16 @@ function renderMushafViewer() {
         quranViewerState.isLoading = false;
       };
       imgEl.onerror = async function () {
-        // Fallback: Check if the page exists in CacheStorage before showing error
-        if ('caches' in window) {
-          try {
-            const cache = await caches.open(QURAN_CACHE_NAME_JS);
-            const match = await cache.match(getPageImageUrl(page));
-            if (match) {
-              const blob = await match.blob();
-              const blobUrl = URL.createObjectURL(blob);
-              pageBlobUrlCache.set(page, blobUrl);
-              imgEl.onerror = null;
-              imgEl.src = blobUrl;
-              return;
-            }
-          } catch (e) {
-            console.warn("Offline cache fallback failed:", e);
+        // Fallback: Check Native FS + CacheStorage before showing error
+        try {
+          const fallbackSrc = await getPageImageSrc(page);
+          if (fallbackSrc && (fallbackSrc.startsWith("blob:") || fallbackSrc.includes("_capacitor_file_"))) {
+            imgEl.onerror = null;
+            imgEl.src = fallbackSrc;
+            return;
           }
+        } catch (e) {
+          console.warn("Offline cache fallback failed:", e);
         }
 
         imgEl.classList.remove("loading");
@@ -1824,12 +2039,17 @@ function renderMushafViewer() {
   // Persist current page
   persistCurrentPage(page);
 
-  // Preload adjacent pages
+  // Keep screen awake during reading
+  setQuranKeepScreenOn(true);
+  resetMushafZoom(false);
+
+  // Preload adjacent pages (N+1, N+2, N-1)
   preloadAdjacentPages(page);
 
   // Setup interactions
   setupTapNavigation();
   setupMushafSwipe();
+  setupMushafScrubber();
 }
 
 /**
@@ -1921,9 +2141,12 @@ function navigateToPage(newPage, direction) {
       <span class="mushaf-progress-percent">${toArabicNumber(progressPercent)}٪</span>`;
   }
 
-  // Update progress bar
+  // Update progress bar & scrubber
   const progressFill = document.querySelector(".mushaf-progress-fill");
   if (progressFill) progressFill.style.width = `${progressPercent}%`;
+  const scrubber = document.getElementById("mushafPageScrubber");
+  if (scrubber) scrubber.value = String(newPage);
+  resetMushafZoom(false);
 
   // Update page jump placeholder
   const jumpInput = document.getElementById("pageJumpInput");
@@ -1986,7 +2209,7 @@ function navigateToPage(newPage, direction) {
       imgEl.src = targetSrc;
       imgEl.alt = `صفحة ${newPage} من المصحف`;
 
-      if (targetSrc.startsWith("blob:") || imageCache.has(remoteUrl)) {
+      if (targetSrc.startsWith("blob:") || targetSrc.includes("_capacitor_file_") || imageCache.has(remoteUrl)) {
         imgEl.classList.remove("loading");
         imgEl.classList.remove(animClass);
         if (loadingEl) loadingEl.classList.add("hidden");
@@ -2080,7 +2303,103 @@ function mushafPrevPage() {
   navigateToPage(quranViewerState.currentPage - 1, "prev");
 }
 
-// ===== TAP-TO-FLIP NAVIGATION =====
+// ===== MUSHAF ZOOM, SCRUBBER, SWIPE & CHROME TOGGLE =====
+
+let mushafZoom = 1;
+let mushafPanX = 0;
+let mushafPanY = 0;
+let _mushafPinchStartDist = 0;
+let _mushafPinchStartZoom = 1;
+let _mushafIsPinching = false;
+let _mushafIsPanning = false;
+let _mushafPanStartX = 0;
+let _mushafPanStartY = 0;
+let _mushafTouchStartX = 0;
+let _mushafTouchStartY = 0;
+let _mushafLastTapTime = 0;
+let _mushafLastTapX = 0;
+let _mushafLastTapY = 0;
+let _mushafLastZoomActionAt = 0;
+let _mushafChromeTimer = null;
+
+function _clampMushafPan() {
+  const area = document.getElementById("mushafImageArea");
+  if (!area || mushafZoom <= 1.02) {
+    mushafPanX = 0;
+    mushafPanY = 0;
+    return;
+  }
+  const maxX = ((mushafZoom - 1) * area.clientWidth) * 0.55;
+  const maxY = ((mushafZoom - 1) * area.clientHeight) * 0.55;
+  mushafPanX = Math.max(-maxX, Math.min(maxX, mushafPanX));
+  mushafPanY = Math.max(-maxY, Math.min(maxY, mushafPanY));
+}
+
+function _applyMushafTransform(instant) {
+  const imgEl = document.getElementById("mushafPageImg");
+  const badgeEl = document.getElementById("mushafZoomBadge");
+  _clampMushafPan();
+  if (imgEl) {
+    imgEl.classList.toggle("is-pinching", Boolean(instant));
+    if (mushafZoom <= 1.02) {
+      imgEl.style.transform = "";
+    } else {
+      imgEl.style.transform = `translate3d(${mushafPanX.toFixed(1)}px, ${mushafPanY.toFixed(1)}px, 0) scale(${mushafZoom.toFixed(3)})`;
+    }
+  }
+  if (badgeEl) {
+    if (mushafZoom > 1.05) {
+      const ratioStr = toArabicNumber(mushafZoom.toFixed(1)).replace(".", "٫");
+      badgeEl.textContent = `${ratioStr}× — اضغط للإرجاع`;
+      badgeEl.classList.remove("hidden");
+    } else {
+      badgeEl.classList.add("hidden");
+    }
+  }
+}
+
+function resetMushafZoom(animate) {
+  mushafZoom = 1;
+  mushafPanX = 0;
+  mushafPanY = 0;
+  _mushafIsPinching = false;
+  _mushafIsPanning = false;
+  _applyMushafTransform(!animate);
+}
+window.resetMushafZoom = resetMushafZoom;
+
+function setupMushafScrubber() {
+  const scrubber = document.getElementById("mushafPageScrubber");
+  const tooltip = document.getElementById("mushafScrubTooltip");
+  if (!scrubber || scrubber._tazkeerBound) return;
+  scrubber._tazkeerBound = true;
+
+  const updatePreview = (pageVal) => {
+    const surah = getSurahForPage(pageVal);
+    if (tooltip) {
+      tooltip.textContent = `سورة ${surah ? surah.name : ""} · صفحة ${toArabicNumber(pageVal)}`;
+      tooltip.classList.add("is-visible");
+    }
+    const navStart = quranViewerState.wirdStart || 1;
+    const navEnd = quranViewerState.wirdEnd || TOTAL_QURAN_PAGES;
+    const pct = Math.max(0, Math.min(100, Math.round(((pageVal - navStart + 1) / (navEnd - navStart + 1)) * 100)));
+    const fillEl = document.querySelector(".mushaf-progress-fill");
+    if (fillEl) fillEl.style.width = `${pct}%`;
+  };
+
+  scrubber.addEventListener("input", () => {
+    const val = parseInt(scrubber.value, 10);
+    if (!Number.isNaN(val)) updatePreview(val);
+  });
+
+  scrubber.addEventListener("change", () => {
+    if (tooltip) tooltip.classList.remove("is-visible");
+    const targetPage = parseInt(scrubber.value, 10);
+    if (!Number.isNaN(targetPage) && targetPage !== quranViewerState.currentPage) {
+      navigateToPage(targetPage, targetPage > quranViewerState.currentPage ? "next" : "prev");
+    }
+  });
+}
 
 function setupTapNavigation() {
   const nextZone = document.getElementById("tapZoneNext");
@@ -2088,57 +2407,151 @@ function setupTapNavigation() {
 
   if (nextZone) {
     nextZone.addEventListener("click", function () {
+      if (mushafZoom > 1.05 || Date.now() - _mushafLastZoomActionAt < 350) return;
       mushafNextPage();
     });
   }
   if (prevZone) {
     prevZone.addEventListener("click", function () {
+      if (mushafZoom > 1.05 || Date.now() - _mushafLastZoomActionAt < 350) return;
       mushafPrevPage();
     });
   }
 }
 
-// ===== SWIPE NAVIGATION =====
-
-let mushafTouchStartX = 0;
-let mushafTouchStartY = 0;
-let mushafTouchEndX = 0;
-let mushafTouchEndY = 0;
+function _touchDistance(t1, t2) {
+  const dx = t1.clientX - t2.clientX;
+  const dy = t1.clientY - t2.clientY;
+  return Math.hypot(dx, dy);
+}
 
 function setupMushafSwipe() {
   const imgArea = document.getElementById("mushafImageArea");
   if (!imgArea) return;
 
   imgArea.removeEventListener("touchstart", mushafTouchStart);
+  imgArea.removeEventListener("touchmove", mushafTouchMove);
   imgArea.removeEventListener("touchend", mushafTouchEnd);
 
   imgArea.addEventListener("touchstart", mushafTouchStart, { passive: true });
+  imgArea.addEventListener("touchmove", mushafTouchMove, { passive: false });
   imgArea.addEventListener("touchend", mushafTouchEnd, { passive: true });
 }
 
 function mushafTouchStart(e) {
-  mushafTouchStartX = e.changedTouches[0].screenX;
-  mushafTouchStartY = e.changedTouches[0].screenY;
+  if (e.touches.length === 2) {
+    _mushafIsPinching = true;
+    _mushafIsPanning = false;
+    _mushafPinchStartDist = _touchDistance(e.touches[0], e.touches[1]);
+    _mushafPinchStartZoom = mushafZoom;
+    if (_mushafChromeTimer) {
+      clearTimeout(_mushafChromeTimer);
+      _mushafChromeTimer = null;
+    }
+    return;
+  }
+
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    _mushafTouchStartX = t.clientX;
+    _mushafTouchStartY = t.clientY;
+    if (mushafZoom > 1.05) {
+      _mushafIsPanning = true;
+      _mushafPanStartX = t.clientX - mushafPanX;
+      _mushafPanStartY = t.clientY - mushafPanY;
+    }
+  }
+}
+
+function mushafTouchMove(e) {
+  if (_mushafIsPinching && e.touches.length === 2 && _mushafPinchStartDist > 10) {
+    e.preventDefault();
+    const curDist = _touchDistance(e.touches[0], e.touches[1]);
+    mushafZoom = Math.max(1, Math.min(2.8, _mushafPinchStartZoom * (curDist / _mushafPinchStartDist)));
+    _applyMushafTransform(true);
+    return;
+  }
+
+  if (_mushafIsPanning && e.touches.length === 1 && mushafZoom > 1.05) {
+    e.preventDefault();
+    mushafPanX = e.touches[0].clientX - _mushafPanStartX;
+    mushafPanY = e.touches[0].clientY - _mushafPanStartY;
+    _applyMushafTransform(true);
+  }
 }
 
 function mushafTouchEnd(e) {
-  mushafTouchEndX = e.changedTouches[0].screenX;
-  mushafTouchEndY = e.changedTouches[0].screenY;
-  handleMushafSwipe();
-}
+  if (_mushafIsPinching) {
+    if (e.touches.length === 0) {
+      _mushafIsPinching = false;
+      _mushafLastZoomActionAt = Date.now();
+      if (mushafZoom <= 1.06) resetMushafZoom(true);
+      else _applyMushafTransform(false);
+    }
+    return;
+  }
 
-function handleMushafSwipe() {
-  const deltaX = mushafTouchEndX - mushafTouchStartX;
-  const deltaY = Math.abs(mushafTouchEndY - mushafTouchStartY);
-  const minSwipeDistance = 80;
+  if (_mushafIsPanning) {
+    _mushafIsPanning = false;
+    _applyMushafTransform(false);
+    const tEnd = e.changedTouches && e.changedTouches[0];
+    if (!tEnd) return;
+    const moved = Math.hypot(tEnd.clientX - _mushafTouchStartX, tEnd.clientY - _mushafTouchStartY);
+    if (moved > 14) return;
+  }
 
-  if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > deltaY) {
-    if (deltaX > 0) {
-      // Swipe right → next page (RTL: right = forward)
-      mushafNextPage();
-    } else {
-      // Swipe left → previous page (RTL: left = backward)
-      mushafPrevPage();
+  const t = e.changedTouches && e.changedTouches[0];
+  if (!t) return;
+
+  const deltaX = t.clientX - _mushafTouchStartX;
+  const deltaY = Math.abs(t.clientY - _mushafTouchStartY);
+  const totalMove = Math.hypot(deltaX, deltaY);
+
+  // Swipe left/right when at normal zoom
+  if (mushafZoom <= 1.05 && Math.abs(deltaX) > 65 && Math.abs(deltaX) > deltaY * 1.15) {
+    if (deltaX > 0) mushafNextPage();
+    else mushafPrevPage();
+    return;
+  }
+
+  // Tap detection (double-tap zoom OR center-tap toggle chrome)
+  if (totalMove < 14 && !(e.target && e.target.closest && e.target.closest("#mushafZoomBadge, button"))) {
+    const now = Date.now();
+    const tapDist = Math.hypot(t.clientX - _mushafLastTapX, t.clientY - _mushafLastTapY);
+    if (now - _mushafLastTapTime < 280 && tapDist < 36) {
+      if (_mushafChromeTimer) {
+        clearTimeout(_mushafChromeTimer);
+        _mushafChromeTimer = null;
+      }
+      _mushafLastTapTime = 0;
+      _mushafLastZoomActionAt = now;
+      if (mushafZoom > 1.15) {
+        resetMushafZoom(true);
+      } else {
+        mushafZoom = 1.85;
+        mushafPanX = 0;
+        mushafPanY = 0;
+        _applyMushafTransform(false);
+      }
+      return;
+    }
+
+    _mushafLastTapTime = now;
+    _mushafLastTapX = t.clientX;
+    _mushafLastTapY = t.clientY;
+
+    const area = document.getElementById("mushafImageArea");
+    if (area && mushafZoom <= 1.05) {
+      const rect = area.getBoundingClientRect();
+      const ratio = rect.width > 0 ? (t.clientX - rect.left) / rect.width : 0.5;
+      if (ratio >= 0.30 && ratio <= 0.70) {
+        if (_mushafChromeTimer) clearTimeout(_mushafChromeTimer);
+        _mushafChromeTimer = setTimeout(() => {
+          _mushafChromeTimer = null;
+          const mc = document.getElementById("mushafContainer");
+          if (mc) mc.classList.toggle("chrome-hidden");
+        }, 240);
+      }
     }
   }
 }
@@ -2641,6 +3054,8 @@ function openMushafViewer(page) {
 }
 
 function exitMushafViewer(syncRouter) {
+  setQuranKeepScreenOn(false);
+  resetMushafZoom(false);
   // Always restore bottom nav immediately upon exiting
   restoreBottomNav();
 

@@ -602,6 +602,10 @@
   gap: 8px;
 }
 
+#adhanModal #widgetStyleGroup {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 #adhanModal .prayer-school-btn {
   min-height: 38px;
   padding: 6px 10px;

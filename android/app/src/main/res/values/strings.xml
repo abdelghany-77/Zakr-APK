@@ -14,4 +14,6 @@
     <string name="widget_daily_dhikr">ذِكر اليوم</string>
     <string name="widget_default_dhikr">سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ</string>
     <string name="widget_refresh_desc">تحديث الذكر والمواقيت</string>
+    <string name="widget_shortcut_quran">المصحف</string>
+    <string name="widget_shortcut_azkar">الأذكار</string>
 </resources>
