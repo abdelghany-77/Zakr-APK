@@ -383,7 +383,7 @@ body.light-mode .misbaha-ring-bg {
 
 .swiper-page-title {
   justify-self: center;
-  font-size: clamp(0.94rem, 4vw, 1.15rem);
+  font-size: clamp(1.15rem, 5vw, 1.4rem);
   font-weight: 800;
   line-height: 1.3;
   color: var(--pt-tx);

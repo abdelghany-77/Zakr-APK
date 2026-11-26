@@ -67,7 +67,7 @@
                     android:textColor="#8FA9A2"
                     android:textSize="11sp" />
 
-                <ImageButton
+                <ImageView
                     android:id="@+id/widgetRefreshBtn"
                     android:layout_width="28dp"
                     android:layout_height="28dp"
@@ -75,6 +75,7 @@
                     android:contentDescription="@string/widget_refresh_desc"
                     android:padding="6dp"
                     android:scaleType="centerInside"
+                    android:clickable="true"
                     android:src="@drawable/ic_widget_refresh" />
             </LinearLayout>
 
