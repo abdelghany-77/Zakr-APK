@@ -334,7 +334,7 @@ async function initializePrayerTimes() {
   // 3. First launch prompt via sequential ModalQueue (never collides with settings/install)
   const savedLocation = _safeReadStr("prayerLocation", null);
   const promptedOnce = _safeReadStr("locationPromptedOnce", null);
-  if (!savedLocation && !loc.isManual && !promptedOnce) {
+  if (!savedLocation && !loc.isManual && !promptedOnce && !window.__tazkeerPendingDeepLink) {
     if (window.SafeStorage) window.SafeStorage.set("locationPromptedOnce", "true");
     else localStorage.setItem("locationPromptedOnce", "true");
 
@@ -342,7 +342,7 @@ async function initializePrayerTimes() {
       window.TazkeerModalQueue.enqueue({
         id: "first-launch-location",
         delayMs: 900,
-        shouldShow: () => !_safeReadStr("prayerLocation", null) && !_getActiveLocationConfig().isManual,
+        shouldShow: () => !window.__tazkeerPendingDeepLink && !_safeReadStr("prayerLocation", null) && !_getActiveLocationConfig().isManual,
         show: () => {
           showLocationPermissionModal();
         },

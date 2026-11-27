@@ -238,6 +238,23 @@
     },
 
     /**
+     * Close every open modal/overlay cleanly before deep-link navigation
+     */
+    closeAllModals: function () {
+      while (modalStack.length > 0) {
+        var entry = modalStack.pop();
+        if (entry && typeof entry.closeFn === "function") {
+          try {
+            entry.closeFn(true);
+          } catch (e) {
+            console.warn("[AppRouter] Error closing modal:", e);
+          }
+        }
+      }
+      document.body.classList.remove("modal-open");
+    },
+
+    /**
      * Initialize router and attach popstate handler
      */
     init: function () {
@@ -290,8 +307,13 @@
         }
       });
 
-      // 3. Activate starting tab
+      // 3. Activate starting tab (unless a notification/widget deep link overrides it)
       AppRouter.switchTab(savedTab, false);
+      if (typeof global.flushPendingDeepLink === "function") {
+        setTimeout(function () {
+          global.flushPendingDeepLink();
+        }, 0);
+      }
     }
   };
 

@@ -1774,27 +1774,32 @@ function getAzkarReminderText(mode) {
     case "morning":
       return {
         title: "أذكار الصباح",
-        body: "حان وقت أذكار الصباح، حصنك ليومك بإذن الله"
+        body: "حان وقت أذكار الصباح، حصنك ليومك بإذن الله",
+        section: "morning"
       };
     case "evening":
       return {
         title: "أذكار المساء",
-        body: "حان وقت أذكار المساء، طمأنينة لقلبك وحفظ من كل سوء"
+        body: "حان وقت أذكار المساء، طمأنينة لقلبك وحفظ من كل سوء",
+        section: "evening"
       };
     case "night":
       return {
         title: "أذكار النوم",
-        body: "لا تنسَ أذكار النوم وسورة الملك قبل أن تنام"
+        body: "لا تنسَ أذكار النوم وسورة الملك قبل أن تنام",
+        section: "sleep"
       };
     case "friday":
       return {
         title: "يوم الجمعة المبارك",
-        body: "لا تنسَ قراءة سورة الكهف والإكثار من الصلاة على النبي ﷺ"
+        body: "لا تنسَ قراءة سورة الكهف والإكثار من الصلاة على النبي ﷺ",
+        section: "kahf"
       };
     case "midday":
       return {
         title: "استراحة ذكر",
-        body: "رطّب لسانك بذكر الله وتسبيحه"
+        body: "رطّب لسانك بذكر الله وتسبيحه",
+        section: "misbaha"
       };
     default:
       return null;
@@ -1862,7 +1867,7 @@ async function buildAzkarNativeSchedule() {
 
   const reminders = [
     { key: "morning", prayer: "Fajr", section: "morning" },
-    { key: "midday", prayer: "Dhuhr", section: "tab-home" },
+    { key: "midday", prayer: "Dhuhr", section: "misbaha" },
     { key: "evening", prayer: "Asr", section: "evening" },
     { key: "night", prayer: "Isha", section: "sleep" },
   ];
@@ -1971,7 +1976,7 @@ async function buildAzkarNativeSchedule() {
             key: "fasting",
             title: "تذكير بالصيام",
             body: `غداً موعد الصيام: ${eventLabel}`,
-            section: "tab-home",
+            section: "fasting",
           });
         }
       }
@@ -2057,6 +2062,13 @@ function playAzkarChime() {
  * Send a system notification (browser Notification API or Capacitor).
  */
 function sendAzkarSystemNotification(titleText, bodyText, section) {
+  const targetSection = (section && String(section).trim()) || "tab-azkar";
+  let sectionHash = 0;
+  for (let i = 0; i < targetSection.length; i += 1) {
+    sectionHash = ((sectionHash << 5) - sectionHash + targetSection.charCodeAt(i)) | 0;
+  }
+  const stableId = 99000 + Math.abs(sectionHash % 900);
+
   // Try native Android AdhanScheduler plugin first (channel already plays notification sound)
   if (
     window.Capacitor &&
@@ -2068,9 +2080,10 @@ function sendAzkarSystemNotification(titleText, bodyText, section) {
   ) {
     try {
       window.Capacitor.Plugins.AdhanScheduler.sendAzkarNotification({
+        id: stableId,
         title: titleText,
         body: bodyText,
-        section: section || "tab-azkar"
+        section: targetSection
       });
       return;
     } catch (e) {
@@ -2093,11 +2106,12 @@ function sendAzkarSystemNotification(titleText, bodyText, section) {
       window.Capacitor.Plugins.LocalNotifications.schedule({
         notifications: [
           {
-            id: 99000 + Math.floor(Math.random() * 999),
+            id: stableId,
             title: titleText,
             body: bodyText,
             smallIcon: "ic_stat_adhan",
             sound: "default",
+            extra: { section: targetSection },
             schedule: { at: new Date(Date.now() + 300) }
           }
         ]
@@ -2108,27 +2122,28 @@ function sendAzkarSystemNotification(titleText, bodyText, section) {
 
   // Fallback: Web Notification API
   if ("Notification" in window) {
-    if (Notification.permission === "granted") {
+    const dispatchWebNotif = () => {
       try {
-        new Notification(titleText, {
+        const notif = new Notification(titleText, {
           body: bodyText,
           icon: "images/icons/icon-192x192.png",
-          tag: "azkar-reminder",
+          tag: "azkar-reminder-" + targetSection,
           renotify: true
         });
+        notif.onclick = function () {
+          try { window.focus(); } catch (_) {}
+          if (typeof window.handleDeepLinkTarget === "function") {
+            window.handleDeepLinkTarget(targetSection);
+          }
+          notif.close();
+        };
       } catch (e) {}
+    };
+    if (Notification.permission === "granted") {
+      dispatchWebNotif();
     } else if (Notification.permission !== "denied") {
       Notification.requestPermission().then(function (perm) {
-        if (perm === "granted") {
-          try {
-            new Notification(titleText, {
-              body: bodyText,
-              icon: "images/icons/icon-192x192.png",
-              tag: "azkar-reminder",
-              renotify: true
-            });
-          } catch (e) {}
-        }
+        if (perm === "granted") dispatchWebNotif();
       });
     }
   }
@@ -2141,10 +2156,11 @@ function testAzkarReminder() {
   const currentMode = getHeroCardMode(new Date());
   const reminder = getAzkarReminderText(currentMode) || {
     title: "تذكير الأذكار",
-    body: "تجربة إشعار وصوت تنبيه الأذكار، يعمل بنجاح"
+    body: "تجربة إشعار وصوت تنبيه الأذكار، يعمل بنجاح",
+    section: "tab-azkar"
   };
   showNotification(reminder.body, "info", 5000);
-  sendAzkarSystemNotification(reminder.title, reminder.body);
+  sendAzkarSystemNotification(reminder.title, reminder.body, reminder.section);
 }
 
 /**
@@ -2413,6 +2429,7 @@ window.permOnboardGrantAll = permOnboardGrantAll;
  */
 function checkFirstLaunchSettings() {
   try {
+    if (window.__tazkeerPendingDeepLink) return;
     const KEY = "tazkeer_first_launch_v2";
     const done = _safeReadStr(KEY, null);
     if (!done) {
@@ -2480,7 +2497,7 @@ function checkAzkarReminderTransition() {
       // In-app toast
       showNotification(reminder.body, "info", 6000);
       // System notification (for background/locked screen)
-      sendAzkarSystemNotification(reminder.title, reminder.body);
+      sendAzkarSystemNotification(reminder.title, reminder.body, reminder.section);
     }
   }
 
@@ -2508,6 +2525,9 @@ document.addEventListener("DOMContentLoaded", function () {
     startAzkarReminderEngine();
     checkFirstLaunchSettings();
     syncAzkarNativeSchedule();
+    if (typeof window.flushPendingDeepLink === "function") {
+      window.flushPendingDeepLink();
+    }
   };
   if (typeof window.requestIdleCallback === "function") {
     window.requestIdleCallback(runReminderBoot, { timeout: 300 });

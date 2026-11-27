@@ -1445,62 +1445,12 @@
     );
   }
 
-  var WIDGET_STYLE_STORAGE_KEY = "tazkeer_widget_style.v1";
-
-  function syncWidgetStyleUI() {
-    var group = document.getElementById("widgetStyleGroup");
-    if (!group) return;
-    var saved = "solid";
-    try {
-      saved = localStorage.getItem(WIDGET_STYLE_STORAGE_KEY) || "solid";
-    } catch (_) {}
-    group.querySelectorAll("[data-widget-style]").forEach(function (btn) {
-      btn.classList.toggle("active", btn.getAttribute("data-widget-style") === saved);
-    });
-    var previewCard = document.getElementById("widgetPreviewCard");
-    if (previewCard) {
-      previewCard.classList.remove("is-solid", "is-translucent", "is-glass");
-      previewCard.classList.add("is-" + saved);
-      var citySrc = document.getElementById("locationLabel");
-      var cityDst = document.getElementById("widgetPreviewCity");
-      if (citySrc && cityDst && citySrc.textContent.trim()) {
-        cityDst.textContent = "• " + citySrc.textContent.trim();
-      }
-      var nextNameSrc = document.getElementById("nextPrayerName");
-      var nextTimeSrc = document.getElementById("nextPrayerTime");
-      var nextNameDst = document.getElementById("widgetPreviewPrayer");
-      var nextTimeDst = document.getElementById("widgetPreviewTime");
-      if (nextNameSrc && nextNameDst && nextNameSrc.textContent.trim()) {
-        nextNameDst.textContent = "صلاة " + nextNameSrc.textContent.trim().replace(/^صلاة\s+/, "");
-      }
-      if (nextTimeSrc && nextTimeDst && nextTimeSrc.textContent.trim()) {
-        nextTimeDst.textContent = nextTimeSrc.textContent.trim();
-      }
-    }
-  }
-
-  async function setWidgetStyle(style) {
-    var normalized = style === "translucent" || style === "glass" ? style : "solid";
-    try {
-      localStorage.setItem(WIDGET_STYLE_STORAGE_KEY, normalized);
-    } catch (_) {}
-    syncWidgetStyleUI();
-    var plugin = getPlugin();
-    if (isNativePlatform() && plugin && typeof plugin.setWidgetStyle === "function") {
-      try {
-        await plugin.setWidgetStyle({ style: normalized });
-        notify("تم تحديث مظهر الويدجت", "success");
-      } catch (_) {}
-    }
-  }
-
   function render() {
     renderMuezzinList();
     renderPrayerGrid();
     renderStatus();
     renderPrayerSettingsUI();
     updatePermissionUI();
-    syncWidgetStyleUI();
   }
 
   // ---------------------------------------------------------------------------
@@ -1867,32 +1817,156 @@
     }
   }
 
-  function handleDeepLinkUrl(url) {
-    if (!url || typeof url !== "string") return;
-    var match = url.match(/tazkeer:\/\/open\/([^?#]+)/i);
-    if (!match || !match[1]) return;
-    var target = decodeURIComponent(match[1]).trim();
-    if (/^tab-(home|azkar|quran|prophets|profile)$/.test(target)) {
-      if (typeof global.switchTab === "function") {
-        global.switchTab(target);
-      }
-      return;
-    }
+  var _lastDeepLinkTarget = "";
+  var _lastDeepLinkAt = 0;
+
+  function _canRunDeepLinkTarget(target) {
+    if (typeof global.switchTab !== "function") return false;
     if (target === "kahf" || target === "surah-kahf") {
-      if (typeof global.switchTab === "function") global.switchTab("tab-quran");
-      if (typeof global.openSurahInMushaf === "function") {
-        setTimeout(function () {
-          global.openSurahInMushaf(18);
-        }, 180);
+      return typeof global.openSurahAlKahf === "function" || typeof global.openFreeReader === "function";
+    }
+    if (target === "mulk" || target === "surah-mulk") {
+      return typeof global.openSurahAlMulk === "function" || typeof global.openFreeReader === "function";
+    }
+    if (target === "misbaha") {
+      return typeof global.openMisbaha === "function";
+    }
+    if (target === "fasting" || target === "ramadan") {
+      return typeof global.openRemindersSheet === "function";
+    }
+    if (target === "qibla") {
+      return typeof global.openQiblaModal === "function";
+    }
+    if (/^tab-(home|azkar|quran|prophets|profile)$/.test(target)) {
+      return true;
+    }
+    return typeof global.showCategoryPage === "function";
+  }
+
+  function _closeOpenOverlaysForDeepLink() {
+    if (global.AppRouter && typeof global.AppRouter.closeAllModals === "function") {
+      global.AppRouter.closeAllModals();
+    }
+    var misbaha = document.getElementById("misbahaOverlay");
+    if (misbaha && !misbaha.classList.contains("hidden") && typeof global.closeMisbaha === "function") {
+      global.closeMisbaha();
+    }
+    [
+      "locationPermissionModal",
+      "permissionsOnboardingModal",
+      "adhanModal",
+      "qiblaModal",
+      "fastingGuideModal",
+      "remindersSheetModal",
+      "remindersSheet"
+    ].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove("is-open");
+    });
+  }
+
+  function handleDeepLinkTarget(rawTarget) {
+    if (!rawTarget || typeof rawTarget !== "string") return false;
+    var target = rawTarget.trim().replace(/^\/+/, "");
+    if (!target) return false;
+    if (target === "night") target = "sleep";
+
+    if (!_canRunDeepLinkTarget(target)) {
+      global.__tazkeerPendingDeepLink = "tazkeer://open/" + target;
+      return false;
+    }
+
+    var now = Date.now();
+    if (_lastDeepLinkTarget === target && now - _lastDeepLinkAt < 700) {
+      return true;
+    }
+    _lastDeepLinkTarget = target;
+    _lastDeepLinkAt = now;
+    global.__tazkeerPendingDeepLink = null;
+
+    _closeOpenOverlaysForDeepLink();
+
+    if (/^tab-(home|azkar|quran|prophets|profile)$/.test(target)) {
+      if (target === "tab-azkar" && typeof global.showHomePage === "function") {
+        global.showHomePage();
       }
-      return;
+      if (target === "tab-quran" && typeof global.renderQuranHome === "function") {
+        global.renderQuranHome();
+      }
+      global.switchTab(target);
+      return true;
     }
-    if (typeof global.showCategoryPage === "function") {
-      if (typeof global.switchTab === "function") global.switchTab("tab-azkar");
+
+    if (target === "kahf" || target === "surah-kahf") {
+      if (typeof global.openSurahAlKahf === "function") {
+        global.openSurahAlKahf();
+      } else {
+        global.switchTab("tab-quran");
+        setTimeout(function () {
+          if (typeof global.openFreeReader === "function") global.openFreeReader(293, 304);
+        }, 150);
+      }
+      return true;
+    }
+
+    if (target === "mulk" || target === "surah-mulk") {
+      if (typeof global.openSurahAlMulk === "function") {
+        global.openSurahAlMulk();
+      } else {
+        global.switchTab("tab-quran");
+        setTimeout(function () {
+          if (typeof global.openFreeReader === "function") global.openFreeReader(562, 564);
+        }, 150);
+      }
+      return true;
+    }
+
+    if (target === "misbaha") {
+      global.openMisbaha();
+      return true;
+    }
+
+    if (target === "fasting" || target === "ramadan") {
+      global.switchTab("tab-home");
       setTimeout(function () {
-        global.showCategoryPage(target);
-      }, 150);
+        if (typeof global.openRemindersSheet === "function") {
+          global.openRemindersSheet(target === "ramadan" ? "ramadan" : "fasting");
+        }
+      }, 120);
+      return true;
     }
+
+    if (target === "qibla") {
+      global.switchTab("tab-home");
+      setTimeout(function () {
+        if (typeof global.openQiblaModal === "function") global.openQiblaModal();
+      }, 120);
+      return true;
+    }
+
+    global.switchTab("tab-azkar");
+    setTimeout(function () {
+      if (typeof global.showCategoryPage === "function") {
+        global.showCategoryPage(target);
+      }
+    }, 80);
+    return true;
+  }
+
+  function handleDeepLinkUrl(url) {
+    if (!url || typeof url !== "string") return false;
+    var match = url.match(/tazkeer:\/\/open\/([^?#]+)/i);
+    if (!match || !match[1]) return false;
+    return handleDeepLinkTarget(decodeURIComponent(match[1]));
+  }
+
+  function flushPendingDeepLink() {
+    var pending = global.__tazkeerPendingDeepLink;
+    if (!pending) return false;
+    if (String(pending).indexOf("tazkeer://") === 0) {
+      return handleDeepLinkUrl(pending);
+    }
+    return handleDeepLinkTarget(String(pending));
   }
 
   function setupNativeShell() {
@@ -1940,12 +2014,24 @@
           .getLaunchUrl()
           .then(function (launch) {
             if (launch && launch.url) {
-              setTimeout(function () {
-                handleDeepLinkUrl(launch.url);
-              }, 260);
+              handleDeepLinkUrl(launch.url);
             }
           })
           .catch(function () {});
+      }
+
+      var localNotifications =
+        global.Capacitor &&
+        global.Capacitor.Plugins &&
+        global.Capacitor.Plugins.LocalNotifications;
+      if (localNotifications && typeof localNotifications.addListener === "function") {
+        localNotifications.addListener("localNotificationActionPerformed", function (action) {
+          var notif = action && action.notification;
+          var extra = notif && notif.extra;
+          if (extra && extra.section) {
+            handleDeepLinkTarget(String(extra.section));
+          }
+        });
       }
     } catch (error) {
       /* non-fatal */
@@ -2097,8 +2183,9 @@
     stopPlayback: stopPlayback,
     resync: resyncNow,
     fixPermission: fixPermission,
-    setWidgetStyle: setWidgetStyle,
     formatNextAlarm: formatNextAlarm,
+    handleDeepLinkUrl: handleDeepLinkUrl,
+    handleDeepLinkTarget: handleDeepLinkTarget,
     PRAYERS: PRAYERS,
     MUEZZINS: MUEZZINS
   };
@@ -2112,6 +2199,9 @@
   global.testAdhanNow = testAdhanNow;
   global.stopAdhanPlayback = stopPlayback;
   global.resyncAdhanSchedule = resyncNow;
+  global.handleDeepLinkUrl = handleDeepLinkUrl;
+  global.handleDeepLinkTarget = handleDeepLinkTarget;
+  global.flushPendingDeepLink = flushPendingDeepLink;
 
   if (document.readyState !== "complete") {
     document.addEventListener("DOMContentLoaded", init);

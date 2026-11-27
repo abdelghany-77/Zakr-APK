@@ -4,11 +4,11 @@
     android:height="112dp"
     android:viewportWidth="100"
     android:viewportHeight="100">
-    <!-- Subtle 8-point geometric Islamic star crest -->
+    <!-- Clean polygon 8-point star crest (zero arc parsing edge cases inside RemoteViews) -->
     <path
-        android:fillColor="#0FE6BD62"
+        android:fillColor="#12E6BD62"
         android:pathData="M50,6 L61,29 L86,26 L71,48 L88,68 L63,70 L56,94 L42,73 L17,78 L30,55 L11,37 L36,33 Z" />
     <path
-        android:fillColor="#0A34D1A8"
-        android:pathData="M50,18 A28,28 0 1,0 78,50 A22,22 0 1,1 50,18 Z" />
+        android:fillColor="#0D34D1A8"
+        android:pathData="M50,22 L57,37 L74,35 L64,49 L76,62 L59,64 L54,80 L45,66 L28,69 L36,54 L24,42 L41,39 Z" />
 </vector>

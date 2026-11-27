@@ -713,13 +713,17 @@ public class AdhanSchedulerPlugin extends Plugin {
             return;
         }
 
-        int notifId = call.getInt("id", 99001);
+        String cleanSection = section.trim();
+        int fallbackId = 99000 + Math.abs(cleanSection.hashCode() % 900);
+        int notifId = call.getInt("id", fallbackId);
+        String deepLink = "tazkeer://open/" + cleanSection;
         Intent intent = new Intent(
                 Intent.ACTION_VIEW,
-                Uri.parse("tazkeer://open/" + section),
+                Uri.parse(deepLink),
                 context,
                 MainActivity.class
         );
+        intent.putExtra("tazkeer_deep_link", deepLink);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

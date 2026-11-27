@@ -498,7 +498,13 @@ public class AdhanPlaybackService extends Service {
                 ? "الصلاة خير من النوم — أذان الفجر"
                 : "أذان — ذَكِّرْ";
 
-        Intent launchIntent = new Intent(this, MainActivity.class);
+        Intent launchIntent = new Intent(
+                Intent.ACTION_VIEW,
+                android.net.Uri.parse("tazkeer://open/tab-home"),
+                this,
+                MainActivity.class
+        );
+        launchIntent.putExtra("tazkeer_deep_link", "tazkeer://open/tab-home");
         launchIntent.setFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK
                         | Intent.FLAG_ACTIVITY_CLEAR_TOP

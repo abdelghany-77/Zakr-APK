@@ -195,7 +195,12 @@ public class TazkeerPrayerWidget extends AppWidgetProvider {
         }
 
         // Resolve the next upcoming prayer from widget schedule or AdhanAlarmManager ledger.
-        NextPrayerInfo next = findNextPrayer(context, prefs);
+        NextPrayerInfo next = null;
+        try {
+            next = findNextPrayer(context, prefs);
+        } catch (Exception e) {
+            Log.w(TAG, "findNextPrayer fallback", e);
+        }
         if (next != null) {
             views.setTextViewText(R.id.widgetPrayerName, next.nameAr);
             views.setTextViewText(R.id.widgetPrayerTime, formatArabicTime12h(next.triggerAt));

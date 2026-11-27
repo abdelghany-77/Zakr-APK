@@ -6,7 +6,7 @@
     android:background="@drawable/widget_bg"
     android:layoutDirection="rtl">
 
-    <!-- Subtle Islamic crescent & 8-point star watermark -->
+    <!-- Subtle Islamic 8-point star watermark -->
     <ImageView
         android:layout_width="112dp"
         android:layout_height="112dp"
@@ -42,8 +42,7 @@
                     android:layout_width="16dp"
                     android:layout_height="16dp"
                     android:contentDescription="@string/app_name"
-                    android:src="@drawable/ic_stat_adhan"
-                    android:tint="#4BE3BA" />
+                    android:src="@drawable/ic_widget_brand" />
 
                 <TextView
                     android:id="@+id/widgetBrandTitle"
@@ -67,7 +66,7 @@
                     android:textColor="#8FA9A2"
                     android:textSize="11sp" />
 
-                <ImageView
+                <ImageButton
                     android:id="@+id/widgetRefreshBtn"
                     android:layout_width="28dp"
                     android:layout_height="28dp"
@@ -75,7 +74,6 @@
                     android:contentDescription="@string/widget_refresh_desc"
                     android:padding="6dp"
                     android:scaleType="centerInside"
-                    android:clickable="true"
                     android:src="@drawable/ic_widget_refresh" />
             </LinearLayout>
 
@@ -173,12 +171,14 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Ornamental Gold Hairline Divider -->
-        <View
+        <!-- Ornamental Gold Hairline Divider (ImageView instead of View because RemoteViews requires @RemoteView) -->
+        <ImageView
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginTop="8dp"
-            android:background="@drawable/widget_gold_divider" />
+            android:contentDescription="@null"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_gold_divider" />
 
         <!-- Soft Daily Dhikr Panel -->
         <LinearLayout

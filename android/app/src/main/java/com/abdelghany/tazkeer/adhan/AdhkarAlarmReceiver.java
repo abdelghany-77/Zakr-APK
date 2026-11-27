@@ -37,7 +37,9 @@ public class AdhkarAlarmReceiver extends BroadcastReceiver {
         if (section == null || section.trim().isEmpty()) {
             section = "tab-azkar";
         }
-        Intent openIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("tazkeer://open/" + section), context, MainActivity.class);
+        String deepLink = "tazkeer://open/" + section.trim();
+        Intent openIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(deepLink), context, MainActivity.class);
+        openIntent.putExtra("tazkeer_deep_link", deepLink);
         openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;

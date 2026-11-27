@@ -451,10 +451,10 @@
 
 #categoryPage .sw-back-btn,
 #categoryPage .sw-settings-btn {
-  background: var(--pt-s1) !important;
+  background: transparent !important;
   color: var(--pt-tx) !important;
-  border: 1px solid var(--pt-line);
-  border-radius: 10px !important;
+  border: none !important;
+  border-radius: 50% !important;
 }
 
 #categoryPage .swiper-floating-menu {
