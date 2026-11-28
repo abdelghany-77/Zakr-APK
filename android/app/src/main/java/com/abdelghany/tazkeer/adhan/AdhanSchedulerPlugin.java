@@ -187,6 +187,16 @@ public class AdhanSchedulerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setVolumeStopEnabled(PluginCall call) {
+        Boolean enabled = call.getBoolean("enabled", true);
+        boolean val = enabled == null || enabled;
+        AdhanPlaybackService.setVolumeStopEnabled(getContext(), val);
+        JSObject result = new JSObject();
+        result.put("volumeStopEnabled", val);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void updateWidgetData(PluginCall call) {
         String city = call.getString("city", "");
         String dhikr = call.getString("dhikr", "");
@@ -647,6 +657,7 @@ public class AdhanSchedulerPlugin extends Plugin {
                 "batteryOptimizationMode",
                 batteryExempt ? "unrestricted" : "optimized"
         );
+        status.put("volumeStopEnabled", AdhanPlaybackService.isVolumeStopEnabled(context));
         return status;
     }
 

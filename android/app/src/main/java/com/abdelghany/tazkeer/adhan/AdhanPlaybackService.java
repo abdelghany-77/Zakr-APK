@@ -5,9 +5,12 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
+import android.database.ContentObserver;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
@@ -17,10 +20,12 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.provider.Settings;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
+import androidx.core.content.ContextCompat;
 
 import com.abdelghany.tazkeer.MainActivity;
 import com.abdelghany.tazkeer.R;
@@ -63,18 +68,43 @@ public class AdhanPlaybackService extends Service {
     private static final String CHANNEL_ID = "adhan_playback_v1";
     private static final String PREFS_AUDIO = "tazkeer_adhan_audio";
     private static final String KEY_VOLUME = "adhan_volume";
+    private static final String KEY_VOLUME_STOP_ENABLED = "adhan_volume_stop_enabled";
+    private static final String ACTION_VOLUME_CHANGED = "android.media.VOLUME_CHANGED_ACTION";
+    private static final String EXTRA_VOLUME_STREAM_TYPE = "android.media.EXTRA_VOLUME_STREAM_TYPE";
+    private static final String EXTRA_VOLUME_STREAM_VALUE = "android.media.EXTRA_VOLUME_STREAM_VALUE";
+    private static final String EXTRA_PREV_VOLUME_STREAM_VALUE = "android.media.EXTRA_PREV_VOLUME_STREAM_VALUE";
     private static final int NOTIFICATION_ID = 7301;
     private static final long WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L; // safety ceiling
     private static final long WATCHDOG_TIMEOUT_MS = 6 * 60 * 1000L;
+    private static final long VOLUME_ARM_DELAY_MS = 500L;
 
     private static volatile AdhanPlaybackService activeInstance;
     private volatile boolean isPlayingActive = false;
+    private volatile boolean volumeStopArmed = false;
+    private int initialAlarmVolume = -1;
+    private int initialRingVolume = -1;
+    private int initialMusicVolume = -1;
 
     private MediaPlayer mediaPlayer;
     private PowerManager.WakeLock wakeLock;
     private AudioManager audioManager;
     private AudioFocusRequest focusRequest;
+    private BroadcastReceiver volumeChangeReceiver;
+    private ContentObserver volumeSettingsObserver;
     private final Handler watchdog = new Handler(Looper.getMainLooper());
+    private final Runnable armVolumeStopRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isPlayingActive || audioManager == null || !isVolumeStopEnabled(AdhanPlaybackService.this)) {
+                return;
+            }
+            initialAlarmVolume = safeGetStreamVolume(AudioManager.STREAM_ALARM);
+            initialRingVolume = safeGetStreamVolume(AudioManager.STREAM_RING);
+            initialMusicVolume = safeGetStreamVolume(AudioManager.STREAM_MUSIC);
+            volumeStopArmed = true;
+            Log.d(TAG, "Hardware volume stop armed");
+        }
+    };
     private final Runnable watchdogStop = new Runnable() {
         @Override
         public void run() {
@@ -168,6 +198,7 @@ public class AdhanPlaybackService extends Service {
     @Override
     public void onDestroy() {
         isPlayingActive = false;
+        teardownVolumeButtonStop();
         if (activeInstance == this) {
             activeInstance = null;
         }
@@ -183,7 +214,36 @@ public class AdhanPlaybackService extends Service {
         return null;
     }
 
-    /** Stops playback from anywhere in the app (JS bridge, notification action). */
+    public static boolean isPlaying() {
+        AdhanPlaybackService current = activeInstance;
+        return current != null && current.isPlayingActive;
+    }
+
+    public static boolean isVolumeStopEnabled(Context context) {
+        if (context == null) return true;
+        return context.getApplicationContext()
+                .getSharedPreferences(PREFS_AUDIO, Context.MODE_PRIVATE)
+                .getBoolean(KEY_VOLUME_STOP_ENABLED, true);
+    }
+
+    public static void setVolumeStopEnabled(Context context, boolean enabled) {
+        if (context == null) return;
+        context.getApplicationContext()
+                .getSharedPreferences(PREFS_AUDIO, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_VOLUME_STOP_ENABLED, enabled)
+                .apply();
+        AdhanPlaybackService current = activeInstance;
+        if (current != null && current.isPlayingActive) {
+            if (enabled) {
+                current.setupVolumeButtonStop();
+            } else {
+                current.teardownVolumeButtonStop();
+            }
+        }
+    }
+
+    /** Stops playback from anywhere in the app (JS bridge, notification action, volume key). */
     public static void stop(Context context) {
         try {
             AdhanPlaybackService current = activeInstance;
@@ -334,6 +394,7 @@ public class AdhanPlaybackService extends Service {
 
             // Apply logarithmic volume AFTER start() so native AudioTrack applies gain
             applyLiveVolume(volume);
+            setupVolumeButtonStop();
 
             watchdog.removeCallbacks(watchdogStop);
             watchdog.postDelayed(watchdogStop, WATCHDOG_TIMEOUT_MS);
@@ -345,12 +406,140 @@ public class AdhanPlaybackService extends Service {
 
     private void stopPlayback() {
         isPlayingActive = false;
+        teardownVolumeButtonStop();
         releasePlayer();
         releaseWakeLock();
         abandonAudioFocus();
         watchdog.removeCallbacks(watchdogStop);
         stopForeground(true);
         stopSelf();
+    }
+
+    private int safeGetStreamVolume(int streamType) {
+        if (audioManager == null) return -1;
+        try {
+            return audioManager.getStreamVolume(streamType);
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private void setupVolumeButtonStop() {
+        teardownVolumeButtonStop();
+        if (!isVolumeStopEnabled(this) || audioManager == null) {
+            return;
+        }
+
+        volumeChangeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (!isPlayingActive || !volumeStopArmed || intent == null) {
+                    return;
+                }
+                if (!ACTION_VOLUME_CHANGED.equals(intent.getAction())) {
+                    return;
+                }
+                int streamType = intent.getIntExtra(EXTRA_VOLUME_STREAM_TYPE, -1);
+                int newVol = intent.getIntExtra(EXTRA_VOLUME_STREAM_VALUE, -1);
+                int prevVol = intent.getIntExtra(EXTRA_PREV_VOLUME_STREAM_VALUE, -1);
+
+                boolean isAlarmEvent = streamType == AudioManager.STREAM_ALARM;
+                boolean changedRingOrMusic = (streamType == AudioManager.STREAM_RING
+                        || streamType == AudioManager.STREAM_MUSIC)
+                        && newVol >= 0 && prevVol >= 0 && newVol != prevVol;
+
+                if (isAlarmEvent || changedRingOrMusic) {
+                    Log.i(TAG, "Volume button broadcast stopping Adhan (stream=" + streamType + ")");
+                    handleHardwareVolumeStop(streamType);
+                }
+            }
+        };
+
+        try {
+            IntentFilter filter = new IntentFilter(ACTION_VOLUME_CHANGED);
+            ContextCompat.registerReceiver(this, volumeChangeReceiver, filter, ContextCompat.RECEIVER_EXPORTED);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to register volume broadcast receiver", e);
+            volumeChangeReceiver = null;
+        }
+
+        volumeSettingsObserver = new ContentObserver(watchdog) {
+            @Override
+            public void onChange(boolean selfChange) {
+                if (!isPlayingActive || !volumeStopArmed || audioManager == null) {
+                    return;
+                }
+                int alarmNow = safeGetStreamVolume(AudioManager.STREAM_ALARM);
+                int ringNow = safeGetStreamVolume(AudioManager.STREAM_RING);
+                int musicNow = safeGetStreamVolume(AudioManager.STREAM_MUSIC);
+                if (initialAlarmVolume >= 0 && alarmNow >= 0 && alarmNow != initialAlarmVolume) {
+                    handleHardwareVolumeStop(AudioManager.STREAM_ALARM);
+                } else if (initialRingVolume >= 0 && ringNow >= 0 && ringNow != initialRingVolume) {
+                    handleHardwareVolumeStop(AudioManager.STREAM_RING);
+                } else if (initialMusicVolume >= 0 && musicNow >= 0 && musicNow != initialMusicVolume) {
+                    handleHardwareVolumeStop(AudioManager.STREAM_MUSIC);
+                }
+            }
+        };
+
+        try {
+            getContentResolver().registerContentObserver(
+                    Settings.System.CONTENT_URI, true, volumeSettingsObserver
+            );
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to register volume ContentObserver", e);
+            volumeSettingsObserver = null;
+        }
+
+        watchdog.removeCallbacks(armVolumeStopRunnable);
+        watchdog.postDelayed(armVolumeStopRunnable, VOLUME_ARM_DELAY_MS);
+    }
+
+    private void handleHardwareVolumeStop(int triggeredStream) {
+        if (!isPlayingActive) return;
+        volumeStopArmed = false;
+        teardownVolumeButtonStop();
+        restoreStreamVolume(AudioManager.STREAM_ALARM, initialAlarmVolume);
+        if (triggeredStream == AudioManager.STREAM_MUSIC) {
+            restoreStreamVolume(AudioManager.STREAM_MUSIC, initialMusicVolume);
+        } else if (triggeredStream == AudioManager.STREAM_RING) {
+            restoreStreamVolume(AudioManager.STREAM_RING, initialRingVolume);
+        }
+        stopPlayback();
+    }
+
+    private void restoreStreamVolume(int streamType, int targetVol) {
+        if (audioManager == null || targetVol < 0) return;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && audioManager.isVolumeFixed()) {
+                return;
+            }
+            int current = audioManager.getStreamVolume(streamType);
+            if (current != targetVol) {
+                audioManager.setStreamVolume(streamType, targetVol, 0);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Could not restore stream volume (" + streamType + ")", e);
+        }
+    }
+
+    private void teardownVolumeButtonStop() {
+        volumeStopArmed = false;
+        watchdog.removeCallbacks(armVolumeStopRunnable);
+        if (volumeChangeReceiver != null) {
+            try {
+                unregisterReceiver(volumeChangeReceiver);
+            } catch (Exception ignored) {
+            }
+            volumeChangeReceiver = null;
+        }
+        if (volumeSettingsObserver != null) {
+            try {
+                getContentResolver().unregisterContentObserver(volumeSettingsObserver);
+            } catch (Exception ignored) {
+            }
+            volumeSettingsObserver = null;
+        }
     }
 
     private void releasePlayer() {
@@ -494,9 +683,16 @@ public class AdhanPlaybackService extends Service {
             title = "حان الآن وقت الصلاة";
         }
 
-        String body = isFajr
-                ? "الصلاة خير من النوم — أذان الفجر"
-                : "أذان — ذَكِّرْ";
+        String body;
+        if (isVolumeStopEnabled(this)) {
+            body = isFajr
+                    ? "الصلاة خير من النوم — اضغط زر الصوت لإيقاف الأذان"
+                    : "أذان — ذَكِّرْ • اضغط زر الصوت للإيقاف";
+        } else {
+            body = isFajr
+                    ? "الصلاة خير من النوم — أذان الفجر"
+                    : "أذان — ذَكِّرْ";
+        }
 
         Intent launchIntent = new Intent(
                 Intent.ACTION_VIEW,

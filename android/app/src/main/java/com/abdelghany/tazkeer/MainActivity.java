@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebView;
@@ -14,6 +15,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.abdelghany.tazkeer.adhan.AdhanPlaybackService;
 import com.abdelghany.tazkeer.adhan.AdhanSchedulerPlugin;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
@@ -146,5 +148,26 @@ public class MainActivity extends BridgeActivity {
                 deliverPendingDeepLink();
             }
         }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event != null && event.getAction() == KeyEvent.ACTION_DOWN) {
+            int keyCode = event.getKeyCode();
+            if ((keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)
+                    && AdhanPlaybackService.isPlaying()
+                    && AdhanPlaybackService.isVolumeStopEnabled(this)) {
+                AdhanPlaybackService.stop(this);
+                if (getBridge() != null && getBridge().getWebView() != null) {
+                    final WebView webView = getBridge().getWebView();
+                    webView.post(() -> webView.evaluateJavascript(
+                            "if (typeof window.showNotification === 'function') { window.showNotification('تم إيقاف الأذان', 'info', 2500); }",
+                            null
+                    ));
+                }
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
     }
 }

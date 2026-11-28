@@ -207,6 +207,7 @@
       enabled: input.enabled !== false, // Defaults to true (auto-enabled on first launch)
       muezzin: MUEZZINS[input.muezzin] ? input.muezzin : "abdulbasit",
       volume: clamp(input.volume, 0.05, 1, 1),
+      volumeStopEnabled: input.volumeStopEnabled !== false,
       prayers: prayers,
       daysAhead: 7,
       notifyOnly: input.notifyOnly === true
@@ -1173,6 +1174,9 @@
 
     var volume = document.getElementById("adhanVolume");
     if (volume) volume.value = String(Math.round(settings.volume * 100));
+
+    var volumeStopToggle = document.getElementById("adhanVolumeStopToggle");
+    if (volumeStopToggle) volumeStopToggle.checked = settings.volumeStopEnabled !== false;
     var volumeValue = document.getElementById("adhanVolumeValue");
     if (volumeValue)
       volumeValue.textContent = arNum(Math.round(settings.volume * 100)) + "٪";
@@ -1549,6 +1553,22 @@
     }
 
     scheduleResync(1600);
+  }
+
+  function setVolumeStopEnabled(enabled) {
+    var val = enabled !== false;
+    updateSettings({ volumeStopEnabled: val });
+    renderStatus();
+    var plugin = getPlugin();
+    if (plugin && typeof plugin.setVolumeStopEnabled === "function") {
+      plugin.setVolumeStopEnabled({ enabled: val }).catch(function () {});
+    }
+    notify(
+      val
+        ? "تم تفعيل إيقاف الأذان بأزرار الصوت"
+        : "تم تعطيل إيقاف الأذان بأزرار الصوت",
+      "info"
+    );
   }
 
   async function testAdhanNow(seconds) {
@@ -2090,6 +2110,9 @@
     setupAppLockdown();
     setupNativeShell();
     var pluginRef = getPlugin();
+    if (isNativePlatform() && pluginRef && typeof pluginRef.setVolumeStopEnabled === "function") {
+      pluginRef.setVolumeStopEnabled({ enabled: state.settings.volumeStopEnabled !== false }).catch(function () {});
+    }
     if (isNativePlatform() && pluginRef && typeof pluginRef.addListener === "function") {
       try {
         pluginRef.addListener("adhanDownloadProgress", function (ev) {
@@ -2171,6 +2194,7 @@
     downloadMuezzin: downloadMuezzin,
     togglePrayer: togglePrayer,
     setVolume: setVolume,
+    setVolumeStopEnabled: setVolumeStopEnabled,
     setCalculationMethod: setCalculationMethod,
     setAsrSchool: setAsrSchool,
     adjustPrayerOffset: adjustPrayerOffset,

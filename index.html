@@ -1038,6 +1038,18 @@
             <span class="adhan-volume-value" id="adhanVolumeValue">١٠٠٪</span>
           </div>
 
+          <!-- Stop Adhan with Hardware Volume Keys (Android Only) -->
+          <div class="adhan-master native-only-block">
+            <div>
+              <h4>إيقاف الأذان بأزرار الصوت</h4>
+              <p>اضغط زر رفع أو خفض الصوت أثناء الأذان لإيقافه بسهولة</p>
+            </div>
+            <label class="adhan-switch">
+              <input type="checkbox" id="adhanVolumeStopToggle" onchange="AdhanNative.setVolumeStopEnabled(this.checked)" checked />
+              <span class="adhan-slider"></span>
+            </label>
+          </div>
+
           <!-- Collapsible Muezzin Selector -->
           <details class="settings-accordion" id="adhanMuezzinAccordion">
             <summary class="settings-accordion__summary">
